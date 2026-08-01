@@ -1,0 +1,112 @@
+use crate::cancel::CancellationToken;
+use crate::errors::{FileError, FileResult};
+use crate::io_scheduler::partial_jobs;
+use crate::platform::{is_network_path, is_sparse_file};
+use std::fs::File;
+use std::io::{BufReader, Read, Seek, SeekFrom};
+use std::path::Path;
+
+/// Shipped behavior (Implementation §17 Enhancement 3): ~25% of file per region, capped at 8 KiB.
+pub fn compute_chunk_size(file_size: u64) -> usize {
+    const MAX_CHUNK: u64 = 8192;
+    (file_size / 4).clamp(1, MAX_CHUNK) as usize
+}
+
+/// Read the 3 partial-hash regions inline on the calling thread with a single
+/// open file handle. Rayon already parallelizes across files in the pipeline,
+/// so spawning a reader thread pool per file would only add oversubscription
+/// and open the file once per region. Output is byte-identical to a sorted
+/// (offset, data) BLAKE3 stream, so cached partial hashes stay valid.
+pub fn partial_hash_from_reads(
+    path: &Path,
+    size: u64,
+    chunk_size: usize,
+    token: &CancellationToken,
+) -> FileResult<[u8; 32]> {
+    if token.is_cancelled() {
+        return Err(FileError::Cancelled);
+    }
+
+    let mut jobs = partial_jobs(path.to_path_buf(), size, chunk_size);
+    jobs.sort_by_key(|j| j.offset);
+
+    let mut file = File::open(path)?;
+    let mut hasher = blake3::Hasher::new();
+    let mut buf = Vec::new();
+
+    for job in &jobs {
+        if token.is_cancelled() {
+            return Err(FileError::Cancelled);
+        }
+        if job.length == 0 {
+            continue;
+        }
+        if job.offset > 0 {
+            file.seek(SeekFrom::Start(job.offset))?;
+        } else {
+            file.rewind()?;
+        }
+        buf.clear();
+        buf.resize(job.length, 0);
+        let mut read_total = 0usize;
+        while read_total < job.length {
+            match file.read(&mut buf[read_total..]) {
+                Ok(0) => break,
+                Ok(n) => read_total += n,
+                Err(e) => return Err(FileError::Io(e.to_string())),
+            }
+        }
+        hasher.update(&buf[..read_total]);
+    }
+
+    Ok(*hasher.finalize().as_bytes())
+}
+
+pub fn full_hash(
+    path: &Path,
+    size: u64,
+    token: &CancellationToken,
+) -> FileResult<[u8; 32]> {
+    if token.is_cancelled() {
+        return Err(FileError::Cancelled);
+    }
+
+    let use_mmap = size > 64 * 1024 * 1024
+        && !is_network_path(path)
+        && !is_sparse_file(path, size);
+
+    if use_mmap {
+        if let Ok(h) = try_mmap_hash(path, token) {
+            return Ok(h);
+        }
+    }
+
+    buffered_hash(path, token)
+}
+
+fn try_mmap_hash(path: &Path, token: &CancellationToken) -> FileResult<[u8; 32]> {
+    let file = File::open(path)?;
+    let mmap = unsafe { memmap2::Mmap::map(&file).map_err(|e| FileError::Io(e.to_string()))? };
+    if token.is_cancelled() {
+        return Err(FileError::Cancelled);
+    }
+    Ok(*blake3::hash(&mmap).as_bytes())
+}
+
+fn buffered_hash(path: &Path, token: &CancellationToken) -> FileResult<[u8; 32]> {
+    let file = File::open(path)?;
+    let mut hasher = blake3::Hasher::new();
+    let mut reader = BufReader::with_capacity(256 * 1024, file);
+    let mut buf = [0u8; 256 * 1024];
+    loop {
+        if token.is_cancelled() {
+            return Err(FileError::Cancelled);
+        }
+        let n = reader.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    Ok(*hasher.finalize().as_bytes())
+}

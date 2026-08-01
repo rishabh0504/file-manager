@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- File system access: allow browsing all user-accessible locations -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+
+    <!-- Allow reading arbitrary files (needed for full file-manager functionality) -->
+    <key>com.apple.security.files.all</key>
+    <true/>
+
+    <!-- Disable the App Sandbox entirely so we can browse the whole filesystem -->
+    <!-- (This is correct for a local dev-signed file manager; not for Mac App Store) -->
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+
+    <!-- Allow spawning child processes (ffmpeg, rg) -->
+    <key>com.apple.security.inherit</key>
+    <true/>
+</dict>
+</plist>

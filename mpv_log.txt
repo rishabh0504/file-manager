@@ -1,0 +1,2506 @@
+[   0.018][v][cplayer] mpv v0.41.0 Copyright © 2000-2025 mpv/MPlayer/mplayer2 projects
+[   0.018][v][cplayer] libplacebo version: v7.360.1
+[   0.018][v][cplayer] FFmpeg version: 8.1.1
+[   0.019][v][cplayer] FFmpeg library versions:
+[   0.019][v][cplayer]    libavcodec      62.28.101
+[   0.019][v][cplayer]    libavdevice     62.3.101
+[   0.019][v][cplayer]    libavfilter     11.14.101
+[   0.019][v][cplayer]    libavformat     62.12.101
+[   0.019][v][cplayer]    libavutil       60.26.101
+[   0.019][v][cplayer]    libswresample   6.3.101
+[   0.019][v][cplayer]    libswscale      9.5.101
+[   0.019][v][cplayer] Configuration: -Dbuildtype=release -Dbuild-date=false -Dhtml-build=enabled -Djavascript=enabled -Dlibmpv=true -Dlua=luajit -Dlibarchive=enabled -Duchardet=enabled -Dvulkan=enabled -Dsysconfdir=/opt/homebrew/etc/mpv -Ddatadir=/opt/homebrew/Cellar/mpv/0.41.0_5/share/mpv -Dmandir=/opt/homebrew/Cellar/mpv/0.41.0_5/share/man -Dprefix=/opt/homebrew/Cellar/mpv/0.41.0_5 -Dlibdir=/opt/homebrew/Cellar/mpv/0.41.0_5/lib -Dwrap_mode=nofallback
+[   0.019][v][cplayer] List of enabled features: avfoundation bsd-fstatfs cocoa coreaudio cplugins darwin ffmpeg gl gl-cocoa glob glob-posix gpl iconv javascript jpeg lcms2 libarchive libass libavdevice libbluray libdl libplacebo luajit mac-thread-name macos-10-15-4-features macos-11-3-features macos-11-features macos-12-features macos-cocoa-cb macos-media-player macos-touchbar posix posix-shm rubberband rubberband-3 swift uchardet vapoursynth vector videotoolbox-gl videotoolbox-pl vk-khr-display vulkan zimg zimg-st428 zlib
+[   0.019][v][cplayer] mpv v0.41.0 Copyright © 2000-2025 mpv/MPlayer/mplayer2 projects
+[   0.019][v][cplayer] libplacebo version: v7.360.1
+[   0.019][v][cplayer] FFmpeg version: 8.1.1
+[   0.019][v][cplayer] FFmpeg library versions:
+[   0.019][v][cplayer]    libavcodec      62.28.101
+[   0.019][v][cplayer]    libavdevice     62.3.101
+[   0.019][v][cplayer]    libavfilter     11.14.101
+[   0.019][v][cplayer]    libavformat     62.12.101
+[   0.019][v][cplayer]    libavutil       60.26.101
+[   0.019][v][cplayer]    libswresample   6.3.101
+[   0.019][v][cplayer]    libswscale      9.5.101
+[   0.019][v][cplayer] Configuration: -Dbuildtype=release -Dbuild-date=false -Dhtml-build=enabled -Djavascript=enabled -Dlibmpv=true -Dlua=luajit -Dlibarchive=enabled -Duchardet=enabled -Dvulkan=enabled -Dsysconfdir=/opt/homebrew/etc/mpv -Ddatadir=/opt/homebrew/Cellar/mpv/0.41.0_5/share/mpv -Dmandir=/opt/homebrew/Cellar/mpv/0.41.0_5/share/man -Dprefix=/opt/homebrew/Cellar/mpv/0.41.0_5 -Dlibdir=/opt/homebrew/Cellar/mpv/0.41.0_5/lib -Dwrap_mode=nofallback
+[   0.019][v][cplayer] List of enabled features: avfoundation bsd-fstatfs cocoa coreaudio cplugins darwin ffmpeg gl gl-cocoa glob glob-posix gpl iconv javascript jpeg lcms2 libarchive libass libavdevice libbluray libdl libplacebo luajit mac-thread-name macos-10-15-4-features macos-11-3-features macos-11-features macos-12-features macos-cocoa-cb macos-media-player macos-touchbar posix posix-shm rubberband rubberband-3 swift uchardet vapoursynth vector videotoolbox-gl videotoolbox-pl vk-khr-display vulkan zimg zimg-st428 zlib
+[   0.019][d][global] home path: '' -> '-'
+[   0.019][d][global] user path: '~~home/' -> ''
+[   0.019][d][global] user path: '~~old_home/' -> ''
+[   0.021][d][ytdl_hook] Loading lua script @ytdl_hook.lua...
+[   0.021][d][stats] Loading lua script @stats.lua...
+[   0.021][d][console] Loading lua script @console.lua...
+[   0.021][d][auto_profiles] Loading lua script @auto_profiles.lua...
+[   0.021][d][select] Loading lua script @select.lua...
+[   0.021][d][positioning] Loading lua script @positioning.lua...
+[   0.021][d][commands] Loading lua script @commands.lua...
+[   0.021][d][context_menu] Loading lua script @context_menu.lua...
+[   0.021][v][clipboard] Initialized mac clipboard backend.
+[   0.021][d][mac] Destroying client handle...
+[   0.024][d][stats] loading mp.defaults
+[   0.024][d][positioning] loading mp.defaults
+[   0.024][d][stats] loading @stats.lua
+[   0.024][d][context_menu] loading mp.defaults
+[   0.024][d][select] loading mp.defaults
+[   0.024][d][console] loading mp.defaults
+[   0.024][d][ytdl_hook] loading mp.defaults
+[   0.024][d][auto_profiles] loading mp.defaults
+[   0.024][d][commands] loading mp.defaults
+[   0.024][d][positioning] loading @positioning.lua
+[   0.024][d][select] loading @select.lua
+[   0.024][d][auto_profiles] loading @auto_profiles.lua
+[   0.024][d][commands] loading @commands.lua
+[   0.024][d][context_menu] loading @context_menu.lua
+[   0.024][d][console] loading @console.lua
+[   0.024][d][positioning] reading options for positioning
+[   0.024][d][positioning] script-opts/positioning.conf not found.
+[   0.024][d][positioning] lua-settings/positioning.conf not found.
+[   0.024][d][ytdl_hook] loading @ytdl_hook.lua
+[   0.025][d][context_menu] reading options for context_menu
+[   0.025][d][context_menu] script-opts/context_menu.conf not found.
+[   0.025][d][context_menu] lua-settings/context_menu.conf not found.
+[   0.025][d][select] reading options for select
+[   0.025][d][select] script-opts/select.conf not found.
+[   0.025][d][select] lua-settings/select.conf not found.
+[   0.025][d][ytdl_hook] reading options for ytdl_hook
+[   0.025][d][ytdl_hook] script-opts/ytdl_hook.conf not found.
+[   0.025][d][ytdl_hook] lua-settings/ytdl_hook.conf not found.
+[   0.026][d][stats] reading options for stats
+[   0.026][d][stats] script-opts/stats.conf not found.
+[   0.026][d][stats] lua-settings/stats.conf not found.
+[   0.027][d][console] reading options for console
+[   0.027][d][console] script-opts/console.conf not found.
+[   0.027][d][console] lua-settings/console.conf not found.
+[   0.027][d][cplayer] Run command: loadfile, flags=73, args=[url="/Volumes/RISHI_HDD/filtering/HDD_EXISTING/drives-28-march/formymovies21/cheating/1/cheating/1.mkv", flags="replace", index="-1", options=""]
+[   0.028][v][cplayer] Set property: volume=0.000000 -> 1
+[   0.028][v][cplayer] Set property: mute=true -> 1
+[   0.028][d][cplayer] Run command: define-section, flags=64, args=[name="input_select", contents="", flags="default"]
+[   0.028][d][commands] reading options for commands
+[   0.028][d][commands] script-opts/commands.conf not found.
+[   0.028][d][commands] lua-settings/commands.conf not found.
+[   0.028][d][cplayer] Run command: define-section, flags=64, args=[name="input_commands", contents="", flags="default"]
+[   0.028][d][cplayer] Run command: enable-section, flags=64, args=[name="input_commands", flags="allow-hide-cursor+allow-vo-dragging"]
+[   0.028][d][cplayer] Run command: define-section, flags=64, args=[name="input_positioning", contents="", flags="default"]
+[   0.028][d][cplayer] Run command: enable-section, flags=64, args=[name="input_select", flags="allow-hide-cursor+allow-vo-dragging"]
+[   0.028][d][cplayer] Run command: define-section, flags=64, args=[name="input_forced_select", contents="", flags="force"]
+[   0.028][d][cplayer] Run command: enable-section, flags=64, args=[name="input_positioning", flags="allow-hide-cursor+allow-vo-dragging"]
+[   0.028][d][cplayer] Run command: define-section, flags=64, args=[name="input_forced_positioning", contents="", flags="force"]
+[   0.028][d][cplayer] Run command: enable-section, flags=64, args=[name="input_forced_positioning", flags="allow-hide-cursor+allow-vo-dragging"]
+[   0.028][d][cplayer] Run command: define-section, flags=64, args=[name="input_stats", contents="", flags="default"]
+[   0.028][d][cplayer] Run command: enable-section, flags=64, args=[name="input_forced_select", flags="allow-hide-cursor+allow-vo-dragging"]
+[   0.028][d][cplayer] Run command: define-section, flags=64, args=[name="input_forced_commands", contents="", flags="force"]
+[   0.028][d][cplayer] Run command: enable-section, flags=64, args=[name="input_stats", flags="allow-hide-cursor+allow-vo-dragging"]
+[   0.028][d][cplayer] Run command: enable-section, flags=64, args=[name="input_forced_commands", flags="allow-hide-cursor+allow-vo-dragging"]
+[   0.029][d][cplayer] Run command: define-section, flags=64, args=[name="input_forced_stats", contents="", flags="force"]
+[   0.029][d][cplayer] Run command: enable-section, flags=64, args=[name="input_forced_stats", flags="allow-hide-cursor+allow-vo-dragging"]
+[   0.029][d][cplayer] Run command: define-section, flags=64, args=[name="input_console", contents="", flags="default"]
+[   0.029][d][global] state path: 'watch_later' -> '-'
+[   0.029][v][cplayer] Running hook: auto_profiles/on_before_start_file
+[   0.029][d][cplayer] Run command: enable-section, flags=64, args=[name="input_console", flags="allow-hide-cursor+allow-vo-dragging"]
+[   0.029][d][cplayer] Run command: define-section, flags=64, args=[name="input_forced_console", contents="", flags="force"]
+[   0.029][d][cplayer] Run command: enable-section, flags=64, args=[name="input_forced_console", flags="allow-hide-cursor+allow-vo-dragging"]
+[   0.029][d][auto_profiles] Destroying client handle...
+[   0.029][w][cplayer] client removed during hook handling
+[   0.029][d][global] state path: 'watch_later' -> '-'
+[   0.029][v][cplayer] Running hook: auto_profiles/on_load
+[   0.029][v][cplayer] Failed sending hook command auto_profiles/on_load. Removing hook.
+[   0.029][v][cplayer] Running hook: ytdl_hook/on_load
+[   0.029][v][cplayer] Running hook: ytdl_hook/on_load
+[   0.029][v][ytdl_hook] playlist hook
+[   0.029][v][bdmv/bluray] Opening /Volumes/RISHI_HDD/filtering/HDD_EXISTING/drives-28-march/formymovies21/cheating/1/cheating/1.mkv
+[   0.029][v][file] Opening /Volumes/RISHI_HDD/filtering/HDD_EXISTING/drives-28-march/formymovies21/cheating/1/cheating/1.mkv
+[   0.030][v][libmpv_render] GL_VERSION='4.1 Metal - 90.5'
+[   0.030][v][libmpv_render] Detected desktop OpenGL 4.1.
+[   0.030][v][libmpv_render] GL_VENDOR='Apple'
+[   0.030][v][libmpv_render] GL_RENDERER='Apple M3 Pro'
+[   0.030][v][libmpv_render] GL_SHADING_LANGUAGE_VERSION='4.10'
+[   0.030][d][libmpv_render] Combined OpenGL extensions string:
+[   0.030][d][libmpv_render]  GL_ARB_blend_func_extended GL_ARB_draw_buffers_blend GL_ARB_draw_indirect GL_ARB_ES2_compatibility GL_ARB_explicit_attrib_location GL_ARB_gpu_shader_fp64 GL_ARB_gpu_shader5 GL_ARB_instanced_arrays GL_ARB_internalformat_query GL_ARB_occlusion_query2 GL_ARB_sample_shading GL_ARB_sampler_objects GL_ARB_separate_shader_objects GL_ARB_shader_bit_encoding GL_ARB_shader_subroutine GL_ARB_shading_language_include GL_ARB_tessellation_shader GL_ARB_texture_buffer_object_rgb32 GL_ARB_texture_cube_map_array GL_ARB_texture_gather GL_ARB_texture_query_lod GL_ARB_texture_rgb10_a2ui GL_ARB_texture_storage GL_ARB_texture_swizzle GL_ARB_timer_query GL_ARB_transform_feedback2 GL_ARB_transform_feedback3 GL_ARB_vertex_attrib_64bit GL_ARB_vertex_type_2_10_10_10_rev GL_ARB_viewport_array GL_EXT_debug_label GL_EXT_debug_marker GL_EXT_framebuffer_multisample_blit_scaled GL_EXT_texture_compression_s3tc GL_EXT_texture_filter_anisotropic GL_EXT_texture_sRGB_decode GL_APPLE_client_storage GL_APPLE_container_object_shareable GL_APPLE_flush_render GL_APPLE_rgb_422 GL_APPLE_row_bytes GL_APPLE_texture_range GL_NV_texture_barrier
+[   0.030][d][file] resize stream to 131072 bytes, drop 0 bytes
+[   0.030][d][file] Stream opened successfully.
+[   0.030][v][demux] Trying demuxers for level=normal.
+[   0.030][d][demux] Trying demuxer: directory (force-level: normal)
+[   0.030][d][demux] Trying demuxer: disc (force-level: normal)
+[   0.030][d][demux] Trying demuxer: edl (force-level: normal)
+[   0.030][d][demux] Trying demuxer: cue (force-level: normal)
+[   0.030][d][demux] Trying demuxer: rawaudio (force-level: normal)
+[   0.030][d][demux] Trying demuxer: rawvideo (force-level: normal)
+[   0.030][d][demux] Trying demuxer: mkv (force-level: normal)
+[   0.030][d][demux] Trying demuxer: libarchive (force-level: normal)
+[   0.032][d][demux] Trying demuxer: lavf (force-level: normal)
+[   0.032][v][libmpv_render] Loaded extension GL_APPLE_rgb_422.
+[   0.032][v][libmpv_render] GL_*_swap_control extension missing.
+[   0.032][d][libmpv_render] Texture formats:
+[   0.032][d][libmpv_render]   NAME       COMP*TYPE SIZE           DEPTH PER COMP.
+[   0.032][d][libmpv_render]   r8         1*unorm   1B    LF CR ST {8}
+[   0.032][d][libmpv_render]   rg8        2*unorm   2B    LF CR ST {8 8}
+[   0.032][d][libmpv_render]   rgb8       3*unorm   3B    LF CR ST {8 8 8}
+[   0.032][d][libmpv_render]   rgba8      4*unorm   4B    LF CR ST {8 8 8 8}
+[   0.032][d][libmpv_render]   r16        1*unorm   2B    LF CR ST {16}
+[   0.032][d][libmpv_render]   rg16       2*unorm   4B    LF CR ST {16 16}
+[   0.032][d][libmpv_render]   rgb16      3*unorm   6B    LF CR ST {16 16 16}
+[   0.032][d][libmpv_render]   rgba16     4*unorm   8B    LF CR ST {16 16 16 16}
+[   0.032][d][libmpv_render]   r8ui       1*uint    1B       CR ST {8}
+[   0.032][d][libmpv_render]   rg8ui      2*uint    2B       CR ST {8 8}
+[   0.032][d][libmpv_render]   rgb8ui     3*uint    3B          ST {8 8 8}
+[   0.032][d][libmpv_render]   rgba8ui    4*uint    4B       CR ST {8 8 8 8}
+[   0.032][d][libmpv_render]   r16ui      1*uint    2B       CR ST {16}
+[   0.032][d][libmpv_render]   rg16ui     2*uint    4B       CR ST {16 16}
+[   0.032][d][libmpv_render]   rgb16ui    3*uint    6B          ST {16 16 16}
+[   0.032][d][libmpv_render]   rgba16ui   4*uint    8B       CR ST {16 16 16 16}
+[   0.032][d][libmpv_render]   r16f       1*float   4B    LF CR ST {32/16}
+[   0.032][d][libmpv_render]   rg16f      2*float   8B    LF CR ST {32/16 32/16}
+[   0.032][d][libmpv_render]   rgb16f     3*float  12B    LF CR ST {32/16 32/16 32/16}
+[   0.032][d][libmpv_render]   rgba16f    4*float  16B    LF CR ST {32/16 32/16 32/16 32/16}
+[   0.032][d][libmpv_render]   r32f       1*float   4B    LF CR ST {32}
+[   0.032][d][libmpv_render]   rg32f      2*float   8B    LF CR ST {32 32}
+[   0.032][d][libmpv_render]   rgb32f     3*float  12B    LF CR ST {32 32 32}
+[   0.032][d][libmpv_render]   rgba32f    4*float  16B    LF CR ST {32 32 32 32}
+[   0.032][d][libmpv_render]   rgb10_a2   4*unorm   4B    LF CR ST {0/10 0/10 0/10 0/2}
+[   0.032][d][libmpv_render]   rgba12     4*unorm   8B    LF CR ST {16/12 16/12 16/12 16/12}
+[   0.032][d][libmpv_render]   rgb10      3*unorm   6B    LF CR ST {16/10 16/10 16/10}
+[   0.032][d][libmpv_render]   rgb565     3*unorm   2B    LF    ST {0/8 0/8 0/8}
+[   0.032][d][libmpv_render]   appleyp    0*unorm   2B    LF    ST {}
+[   0.032][d][libmpv_render]  LA = LUMINANCE_ALPHA hack format
+[   0.032][d][libmpv_render]  LF = linear filterable
+[   0.032][d][libmpv_render]  CR = can be used for render targets
+[   0.033][d][libmpv_render]  ST = can be used for storable images
+[   0.033][d][libmpv_render] Image formats:
+[   0.033][d][libmpv_render]   yuv444p => 3 planes 1x1 8/0 [r8/r8/r8] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv420p => 3 planes 2x2 8/0 [r8/r8/r8] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   gray => 1 planes 1x1 8/0 [r8] (r) [unorm]
+[   0.033][d][libmpv_render]   gray16 => 1 planes 1x1 16/0 [r16] (r) [unorm]
+[   0.033][d][libmpv_render]   uyvy422 => 1 planes 1x1 0/0 [appleyp] (brg) [unknown]
+[   0.033][d][libmpv_render]   nv12 => 2 planes 2x2 8/0 [r8/rg8] (r/gb) [unorm]
+[   0.033][d][libmpv_render]   p010 => 2 planes 2x2 16/6 [r16/rg16] (r/gb) [unorm]
+[   0.033][d][libmpv_render]   argb => 1 planes 1x1 8/0 [rgba8] (argb) [unorm]
+[   0.033][d][libmpv_render]   bgra => 1 planes 1x1 8/0 [rgba8] (bgra) [unorm]
+[   0.033][d][libmpv_render]   abgr => 1 planes 1x1 8/0 [rgba8] (abgr) [unorm]
+[   0.033][d][libmpv_render]   rgba => 1 planes 1x1 8/0 [rgba8] (rgba) [unorm]
+[   0.033][d][libmpv_render]   bgr24 => 1 planes 1x1 8/0 [rgb8] (bgr) [unorm]
+[   0.033][d][libmpv_render]   rgb24 => 1 planes 1x1 8/0 [rgb8] (rgb) [unorm]
+[   0.033][d][libmpv_render]   0rgb => 1 planes 1x1 8/0 [rgba8] (_rgb) [unorm]
+[   0.033][d][libmpv_render]   bgr0 => 1 planes 1x1 8/0 [rgba8] (bgr) [unorm]
+[   0.033][d][libmpv_render]   0bgr => 1 planes 1x1 8/0 [rgba8] (_bgr) [unorm]
+[   0.033][d][libmpv_render]   rgb0 => 1 planes 1x1 8/0 [rgba8] (rgb) [unorm]
+[   0.033][d][libmpv_render]   rgba64 => 1 planes 1x1 16/0 [rgba16] (rgba) [unorm]
+[   0.033][d][libmpv_render]   rgb565 => 1 planes 1x1 0/0 [rgb565] (rgb) [unknown]
+[   0.033][d][libmpv_render]   pal8
+[   0.033][d][libmpv_render]   vdpau
+[   0.033][d][libmpv_render]   d3d11
+[   0.033][d][libmpv_render]   dxva2_vld
+[   0.033][d][libmpv_render]   mmal
+[   0.033][d][libmpv_render]   mediacodec
+[   0.033][d][libmpv_render]   cuda
+[   0.033][d][libmpv_render]   yap8 => 2 planes 1x1 8/0 [r8/r8] (r/a) [unorm]
+[   0.033][d][libmpv_render]   yap16 => 2 planes 1x1 16/0 [r16/r16] (r/a) [unorm]
+[   0.033][d][libmpv_render]   grayaf32 => 2 planes 1x1 32/0 [r16f/r16f] (r/a) [float]
+[   0.033][d][libmpv_render]   yuv444pf => 3 planes 1x1 32/0 [r16f/r16f/r16f] (r/g/b) [float]
+[   0.033][d][libmpv_render]   yuva444pf => 4 planes 1x1 32/0 [r16f/r16f/r16f/r16f] (r/g/b/a) [float]
+[   0.033][d][libmpv_render]   yuv420pf => 3 planes 2x2 32/0 [r16f/r16f/r16f] (r/g/b) [float]
+[   0.033][d][libmpv_render]   yuva420pf => 4 planes 2x2 32/0 [r16f/r16f/r16f/r16f] (r/g/b/a) [float]
+[   0.033][d][libmpv_render]   yuv422pf => 3 planes 2x1 32/0 [r16f/r16f/r16f] (r/g/b) [float]
+[   0.033][d][libmpv_render]   yuva422pf => 4 planes 2x1 32/0 [r16f/r16f/r16f/r16f] (r/g/b/a) [float]
+[   0.033][d][libmpv_render]   yuv440pf => 3 planes 1x2 32/0 [r16f/r16f/r16f] (r/g/b) [float]
+[   0.033][d][libmpv_render]   yuva440pf => 4 planes 1x2 32/0 [r16f/r16f/r16f/r16f] (r/g/b/a) [float]
+[   0.033][d][libmpv_render]   yuv410pf => 3 planes 4x4 32/0 [r16f/r16f/r16f] (r/g/b) [float]
+[   0.033][d][libmpv_render]   yuva410pf => 4 planes 4x4 32/0 [r16f/r16f/r16f/r16f] (r/g/b/a) [float]
+[   0.033][d][libmpv_render]   yuv411pf => 3 planes 4x1 32/0 [r16f/r16f/r16f] (r/g/b) [float]
+[   0.033][d][libmpv_render]   yuva411pf => 4 planes 4x1 32/0 [r16f/r16f/r16f/r16f] (r/g/b/a) [float]
+[   0.033][d][libmpv_render]   rgb30 => 1 planes 1x1 10/0 [rgb10_a2] (bgr) [unknown]
+[   0.033][d][libmpv_render]   y1 => 1 planes 1x1 8/-7 [r8] (r) [unorm]
+[   0.033][d][libmpv_render]   gbrp1 => 3 planes 1x1 8/-7 [r8/r8/r8] (g/b/r) [unorm]
+[   0.033][d][libmpv_render]   gbrp2 => 3 planes 1x1 8/-6 [r8/r8/r8] (g/b/r) [unorm]
+[   0.033][d][libmpv_render]   gbrp3 => 3 planes 1x1 8/-5 [r8/r8/r8] (g/b/r) [unorm]
+[   0.033][d][libmpv_render]   gbrp4 => 3 planes 1x1 8/-4 [r8/r8/r8] (g/b/r) [unorm]
+[   0.033][d][libmpv_render]   gbrp5 => 3 planes 1x1 8/-3 [r8/r8/r8] (g/b/r) [unorm]
+[   0.033][d][libmpv_render]   gbrp6 => 3 planes 1x1 8/-2 [r8/r8/r8] (g/b/r) [unorm]
+[   0.033][d][libmpv_render]   vdpau_output
+[   0.033][d][libmpv_render]   vaapi
+[   0.033][d][libmpv_render]   videotoolbox
+[   0.033][d][libmpv_render]   vulkan
+[   0.033][d][libmpv_render]   drm_prime
+[   0.033][d][libmpv_render]   yuyv422
+[   0.033][d][libmpv_render]   yuv422p => 3 planes 2x1 8/0 [r8/r8/r8] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv410p => 3 planes 4x4 8/0 [r8/r8/r8] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv411p => 3 planes 4x1 8/0 [r8/r8/r8] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   monow
+[   0.033][d][libmpv_render]   monob
+[   0.033][d][libmpv_render]   yuvj422p => 3 planes 2x1 8/0 [r8/r8/r8] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   uyyvyy411
+[   0.033][d][libmpv_render]   bgr8
+[   0.033][d][libmpv_render]   bgr4
+[   0.033][d][libmpv_render]   bgr4_byte
+[   0.033][v][lavf] Found 'mpegts' at score=50 size=2048.
+[   0.033][d][libmpv_render]   rgb8
+[   0.033][d][libmpv_render]   rgb4
+[   0.033][d][libmpv_render]   rgb4_byte
+[   0.033][d][libmpv_render]   nv21 => 2 planes 2x2 8/0 [r8/rg8] (r/bg) [unorm]
+[   0.033][d][libmpv_render]   gray16be
+[   0.033][d][libmpv_render]   yuv440p => 3 planes 1x2 8/0 [r8/r8/r8] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuvj440p => 3 planes 1x2 8/0 [r8/r8/r8] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuva420p => 4 planes 2x2 8/0 [r8/r8/r8/r8] (r/g/b/a) [unorm]
+[   0.033][d][libmpv_render]   rgb48be
+[   0.033][d][libmpv_render]   rgb48 => 1 planes 1x1 16/0 [rgb16] (rgb) [unorm]
+[   0.033][d][libmpv_render]   rgb565be
+[   0.033][d][libmpv_render]   rgb555be
+[   0.033][d][libmpv_render]   rgb555
+[   0.033][d][libmpv_render]   bgr565be
+[   0.033][d][libmpv_render]   bgr565
+[   0.033][d][libmpv_render]   bgr555be
+[   0.033][d][libmpv_render]   bgr555
+[   0.033][d][libmpv_render]   yuv420p16 => 3 planes 2x2 16/0 [r16/r16/r16] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv420p16be
+[   0.033][d][libmpv_render]   yuv422p16 => 3 planes 2x1 16/0 [r16/r16/r16] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv422p16be
+[   0.033][d][libmpv_render]   yuv444p16 => 3 planes 1x1 16/0 [r16/r16/r16] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv444p16be
+[   0.033][d][libmpv_render]   rgb444
+[   0.033][d][libmpv_render]   rgb444be
+[   0.033][d][libmpv_render]   bgr444
+[   0.033][d][libmpv_render]   bgr444be
+[   0.033][d][libmpv_render]   ya8 => 1 planes 1x1 8/0 [rg8] (ra) [unorm]
+[   0.033][d][libmpv_render]   bgr48be
+[   0.033][d][libmpv_render]   bgr48 => 1 planes 1x1 16/0 [rgb16] (bgr) [unorm]
+[   0.033][d][libmpv_render]   yuv420p9be
+[   0.033][d][libmpv_render]   yuv420p9 => 3 planes 2x2 16/-7 [r16/r16/r16] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv420p10be
+[   0.033][d][libmpv_render]   yuv420p10 => 3 planes 2x2 16/-6 [r16/r16/r16] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv422p10be
+[   0.033][d][libmpv_render]   yuv422p10 => 3 planes 2x1 16/-6 [r16/r16/r16] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv444p9be
+[   0.033][d][libmpv_render]   yuv444p9 => 3 planes 1x1 16/-7 [r16/r16/r16] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv444p10be
+[   0.033][d][libmpv_render]   yuv444p10 => 3 planes 1x1 16/-6 [r16/r16/r16] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv422p9be
+[   0.033][d][libmpv_render]   yuv422p9 => 3 planes 2x1 16/-7 [r16/r16/r16] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   gbrp => 3 planes 1x1 8/0 [r8/r8/r8] (g/b/r) [unorm]
+[   0.033][d][libmpv_render]   gbrp9be
+[   0.033][d][libmpv_render]   gbrp9 => 3 planes 1x1 16/-7 [r16/r16/r16] (g/b/r) [unorm]
+[   0.033][d][libmpv_render]   gbrp10be
+[   0.033][d][libmpv_render]   gbrp10 => 3 planes 1x1 16/-6 [r16/r16/r16] (g/b/r) [unorm]
+[   0.033][d][libmpv_render]   gbrp16be
+[   0.033][d][libmpv_render]   gbrp16 => 3 planes 1x1 16/0 [r16/r16/r16] (g/b/r) [unorm]
+[   0.033][d][libmpv_render]   yuva422p => 4 planes 2x1 8/0 [r8/r8/r8/r8] (r/g/b/a) [unorm]
+[   0.033][d][libmpv_render]   yuva444p => 4 planes 1x1 8/0 [r8/r8/r8/r8] (r/g/b/a) [unorm]
+[   0.033][d][libmpv_render]   yuva420p9be
+[   0.033][d][libmpv_render]   yuva420p9 => 4 planes 2x2 16/-7 [r16/r16/r16/r16] (r/g/b/a) [unorm]
+[   0.033][d][libmpv_render]   yuva422p9be
+[   0.033][d][libmpv_render]   yuva422p9 => 4 planes 2x1 16/-7 [r16/r16/r16/r16] (r/g/b/a) [unorm]
+[   0.033][d][libmpv_render]   yuva444p9be
+[   0.033][d][libmpv_render]   yuva444p9 => 4 planes 1x1 16/-7 [r16/r16/r16/r16] (r/g/b/a) [unorm]
+[   0.033][d][libmpv_render]   yuva420p10be
+[   0.033][d][libmpv_render]   yuva420p10 => 4 planes 2x2 16/-6 [r16/r16/r16/r16] (r/g/b/a) [unorm]
+[   0.033][d][libmpv_render]   yuva422p10be
+[   0.033][d][libmpv_render]   yuva422p10 => 4 planes 2x1 16/-6 [r16/r16/r16/r16] (r/g/b/a) [unorm]
+[   0.033][d][libmpv_render]   yuva444p10be
+[   0.033][d][libmpv_render]   yuva444p10 => 4 planes 1x1 16/-6 [r16/r16/r16/r16] (r/g/b/a) [unorm]
+[   0.033][d][libmpv_render]   yuva420p16be
+[   0.033][d][libmpv_render]   yuva420p16 => 4 planes 2x2 16/0 [r16/r16/r16/r16] (r/g/b/a) [unorm]
+[   0.033][d][libmpv_render]   yuva422p16be
+[   0.033][d][libmpv_render]   yuva422p16 => 4 planes 2x1 16/0 [r16/r16/r16/r16] (r/g/b/a) [unorm]
+[   0.033][d][libmpv_render]   yuva444p16be
+[   0.033][d][libmpv_render]   yuva444p16 => 4 planes 1x1 16/0 [r16/r16/r16/r16] (r/g/b/a) [unorm]
+[   0.033][d][libmpv_render]   xyz12 => 1 planes 1x1 16/4 [rgb16] (rgb) [unorm]
+[   0.033][d][libmpv_render]   xyz12be
+[   0.033][d][libmpv_render]   nv16 => 2 planes 2x1 8/0 [r8/rg8] (r/gb) [unorm]
+[   0.033][d][libmpv_render]   nv20 => 2 planes 2x1 16/-6 [r16/rg16] (r/gb) [unorm]
+[   0.033][d][libmpv_render]   nv20be
+[   0.033][d][libmpv_render]   rgba64be
+[   0.033][d][libmpv_render]   bgra64be
+[   0.033][d][libmpv_render]   bgra64 => 1 planes 1x1 16/0 [rgba16] (bgra) [unorm]
+[   0.033][d][libmpv_render]   yvyu422
+[   0.033][d][libmpv_render]   ya16be
+[   0.033][d][libmpv_render]   ya16 => 1 planes 1x1 16/0 [rg16] (ra) [unorm]
+[   0.033][d][libmpv_render]   gbrap => 4 planes 1x1 8/0 [r8/r8/r8/r8] (g/b/r/a) [unorm]
+[   0.033][d][libmpv_render]   gbrap16be
+[   0.033][d][libmpv_render]   gbrap16 => 4 planes 1x1 16/0 [r16/r16/r16/r16] (g/b/r/a) [unorm]
+[   0.033][d][libmpv_render]   qsv
+[   0.033][d][libmpv_render]   d3d11va_vld
+[   0.033][d][libmpv_render]   yuv420p12be
+[   0.033][d][libmpv_render]   yuv420p12 => 3 planes 2x2 16/-4 [r16/r16/r16] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv420p14be
+[   0.033][d][libmpv_render]   yuv420p14 => 3 planes 2x2 16/-2 [r16/r16/r16] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv422p12be
+[   0.033][d][libmpv_render]   yuv422p12 => 3 planes 2x1 16/-4 [r16/r16/r16] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv422p14be
+[   0.033][d][libmpv_render]   yuv422p14 => 3 planes 2x1 16/-2 [r16/r16/r16] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv444p12be
+[   0.033][d][libmpv_render]   yuv444p12 => 3 planes 1x1 16/-4 [r16/r16/r16] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv444p14be
+[   0.033][d][libmpv_render]   yuv444p14 => 3 planes 1x1 16/-2 [r16/r16/r16] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   gbrp12be
+[   0.033][d][libmpv_render]   gbrp12 => 3 planes 1x1 16/-4 [r16/r16/r16] (g/b/r) [unorm]
+[   0.033][d][libmpv_render]   gbrp14be
+[   0.033][d][libmpv_render]   gbrp14 => 3 planes 1x1 16/-2 [r16/r16/r16] (g/b/r) [unorm]
+[   0.033][d][libmpv_render]   yuvj411p => 3 planes 4x1 8/0 [r8/r8/r8] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   bayer_bggr8
+[   0.033][d][libmpv_render]   bayer_rggb8
+[   0.033][d][libmpv_render]   bayer_gbrg8
+[   0.033][d][libmpv_render]   bayer_grbg8
+[   0.033][d][libmpv_render]   bayer_bggr16
+[   0.033][d][libmpv_render]   bayer_bggr16be
+[   0.033][d][libmpv_render]   bayer_rggb16
+[   0.033][d][libmpv_render]   bayer_rggb16be
+[   0.033][d][libmpv_render]   bayer_gbrg16
+[   0.033][d][libmpv_render]   bayer_gbrg16be
+[   0.033][d][libmpv_render]   bayer_grbg16
+[   0.033][d][libmpv_render]   bayer_grbg16be
+[   0.033][d][libmpv_render]   yuv440p10 => 3 planes 1x2 16/-6 [r16/r16/r16] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv440p10be
+[   0.033][d][libmpv_render]   yuv440p12 => 3 planes 1x2 16/-4 [r16/r16/r16] (r/g/b) [unorm]
+[   0.033][d][libmpv_render]   yuv440p12be
+[   0.033][d][libmpv_render]   ayuv64 => 1 planes 1x1 16/0 [rgba16] (argb) [unorm]
+[   0.033][d][libmpv_render]   ayuv64be
+[   0.033][d][libmpv_render]   p010be
+[   0.033][d][libmpv_render]   gbrap12be
+[   0.033][d][libmpv_render]   gbrap12 => 4 planes 1x1 16/-4 [r16/r16/r16/r16] (g/b/r/a) [unorm]
+[   0.033][d][libmpv_render]   gbrap10be
+[   0.033][d][libmpv_render]   gbrap10 => 4 planes 1x1 16/-6 [r16/r16/r16/r16] (g/b/r/a) [unorm]
+[   0.033][d][libmpv_render]   gray12be
+[   0.033][d][libmpv_render]   gray12 => 1 planes 1x1 16/-4 [r16] (r) [unorm]
+[   0.033][d][libmpv_render]   gray10be
+[   0.033][d][libmpv_render]   gray10 => 1 planes 1x1 16/-6 [r16] (r) [unorm]
+[   0.033][d][libmpv_render]   p016 => 2 planes 2x2 16/0 [r16/rg16] (r/gb) [unorm]
+[   0.033][d][libmpv_render]   p016be
+[   0.033][d][libmpv_render]   gray9be
+[   0.033][d][libmpv_render]   gray9 => 1 planes 1x1 16/-7 [r16] (r) [unorm]
+[   0.033][d][libmpv_render]   gbrpf32be
+[   0.033][d][libmpv_render]   gbrpf32 => 3 planes 1x1 32/0 [r16f/r16f/r16f] (g/b/r) [float]
+[   0.033][d][libmpv_render]   gbrapf32be
+[   0.033][d][libmpv_render]   gbrapf32 => 4 planes 1x1 32/0 [r16f/r16f/r16f/r16f] (g/b/r/a) [float]
+[   0.033][d][libmpv_render]   opencl
+[   0.033][d][libmpv_render]   gray14be
+[   0.033][d][libmpv_render]   gray14 => 1 planes 1x1 16/-2 [r16] (r) [unorm]
+[   0.033][d][libmpv_render]   grayf32be
+[   0.034][d][libmpv_render]   grayf32 => 1 planes 1x1 32/0 [r16f] (r) [float]
+[   0.034][d][libmpv_render]   yuva422p12be
+[   0.034][d][libmpv_render]   yuva422p12 => 4 planes 2x1 16/-4 [r16/r16/r16/r16] (r/g/b/a) [unorm]
+[   0.034][d][libmpv_render]   yuva444p12be
+[   0.034][d][libmpv_render]   yuva444p12 => 4 planes 1x1 16/-4 [r16/r16/r16/r16] (r/g/b/a) [unorm]
+[   0.034][d][libmpv_render]   nv24 => 2 planes 1x1 8/0 [r8/rg8] (r/gb) [unorm]
+[   0.034][d][libmpv_render]   nv42 => 2 planes 1x1 8/0 [r8/rg8] (r/bg) [unorm]
+[   0.034][d][libmpv_render]   y210be
+[   0.034][d][libmpv_render]   y210
+[   0.034][d][libmpv_render]   x2rgb10be
+[   0.034][d][libmpv_render]   x2bgr10
+[   0.034][d][libmpv_render]   x2bgr10be
+[   0.034][d][libmpv_render]   p210be
+[   0.034][d][libmpv_render]   p210 => 2 planes 2x1 16/6 [r16/rg16] (r/gb) [unorm]
+[   0.034][d][libmpv_render]   p410be
+[   0.034][d][libmpv_render]   p410 => 2 planes 1x1 16/6 [r16/rg16] (r/gb) [unorm]
+[   0.034][d][libmpv_render]   p216be
+[   0.034][d][libmpv_render]   p216 => 2 planes 2x1 16/0 [r16/rg16] (r/gb) [unorm]
+[   0.034][d][libmpv_render]   p416be
+[   0.034][d][libmpv_render]   p416 => 2 planes 1x1 16/0 [r16/rg16] (r/gb) [unorm]
+[   0.034][d][libmpv_render]   vuya => 1 planes 1x1 8/0 [rgba8] (bgra) [unorm]
+[   0.034][d][libmpv_render]   rgbaf16be
+[   0.034][d][libmpv_render]   rgbaf16
+[   0.034][d][libmpv_render]   vuyx => 1 planes 1x1 8/0 [rgba8] (bgr) [unorm]
+[   0.034][d][libmpv_render]   p012 => 2 planes 2x2 16/4 [r16/rg16] (r/gb) [unorm]
+[   0.034][d][libmpv_render]   p012be
+[   0.034][d][libmpv_render]   y212be
+[   0.034][d][libmpv_render]   y212
+[   0.034][d][libmpv_render]   xv30be
+[   0.034][d][libmpv_render]   xv30
+[   0.034][d][libmpv_render]   xv36be
+[   0.034][d][libmpv_render]   xv36 => 1 planes 1x1 16/4 [rgba16] (grb) [unorm]
+[   0.034][d][libmpv_render]   rgbf32be
+[   0.034][d][libmpv_render]   rgbf32
+[   0.034][d][libmpv_render]   rgbaf32be
+[   0.034][d][libmpv_render]   rgbaf32
+[   0.034][d][libmpv_render]   p212be
+[   0.034][d][libmpv_render]   p212 => 2 planes 2x1 16/4 [r16/rg16] (r/gb) [unorm]
+[   0.034][d][libmpv_render]   p412be
+[   0.034][d][libmpv_render]   p412 => 2 planes 1x1 16/4 [r16/rg16] (r/gb) [unorm]
+[   0.034][d][libmpv_render]   gbrap14be
+[   0.034][d][libmpv_render]   gbrap14 => 4 planes 1x1 16/-2 [r16/r16/r16/r16] (g/b/r/a) [unorm]
+[   0.034][d][libmpv_render]   d3d12
+[   0.034][d][libmpv_render]   ayuv => 1 planes 1x1 8/0 [rgba8] (argb) [unorm]
+[   0.034][d][libmpv_render]   uyva => 1 planes 1x1 8/0 [rgba8] (grba) [unorm]
+[   0.034][d][libmpv_render]   vyu444 => 1 planes 1x1 8/0 [rgb8] (brg) [unorm]
+[   0.034][d][libmpv_render]   v30xbe
+[   0.034][d][libmpv_render]   v30x
+[   0.034][d][libmpv_render]   rgbf16be
+[   0.034][d][libmpv_render]   rgbf16
+[   0.034][d][libmpv_render]   rgba128be
+[   0.034][d][libmpv_render]   rgba128
+[   0.034][d][libmpv_render]   rgb96be
+[   0.034][d][libmpv_render]   rgb96
+[   0.034][d][libmpv_render]   y216be
+[   0.034][d][libmpv_render]   y216
+[   0.034][d][libmpv_render]   xv48be
+[   0.034][d][libmpv_render]   xv48 => 1 planes 1x1 16/0 [rgba16] (grb) [unorm]
+[   0.034][d][libmpv_render]   gbrpf16be
+[   0.034][d][libmpv_render]   gbrpf16
+[   0.034][d][ffmpeg/demuxer] mpegts: parser not found for codec timed_id3, packets or times may be invalid.
+[   0.034][d][libmpv_render]   gbrapf16be
+[   0.034][d][libmpv_render]   gbrapf16
+[   0.034][d][libmpv_render]   grayf16be
+[   0.034][d][libmpv_render]   grayf16
+[   0.034][d][libmpv_render]   amf
+[   0.034][d][libmpv_render]   gray32be
+[   0.034][d][libmpv_render]   gray32
+[   0.034][d][libmpv_render]   yaf32be
+[   0.034][d][libmpv_render]   yaf32 => 1 planes 1x1 32/0 [rg16f] (ra) [float]
+[   0.034][d][libmpv_render]   yaf16be
+[   0.034][d][libmpv_render]   yaf16
+[   0.034][d][libmpv_render]   gbrap32be
+[   0.034][d][libmpv_render]   gbrap32
+[   0.034][d][libmpv_render]   yuv444p10msbbe
+[   0.034][d][libmpv_render]   yuv444p10msb => 3 planes 1x1 16/6 [r16/r16/r16] (r/g/b) [unorm]
+[   0.034][d][libmpv_render]   yuv444p12msbbe
+[   0.034][d][libmpv_render]   yuv444p12msb => 3 planes 1x1 16/4 [r16/r16/r16] (r/g/b) [unorm]
+[   0.034][d][libmpv_render]   gbrp10msbbe
+[   0.034][d][libmpv_render]   gbrp10msb => 3 planes 1x1 16/6 [r16/r16/r16] (g/b/r) [unorm]
+[   0.034][d][libmpv_render]   gbrp12msbbe
+[   0.034][d][libmpv_render]   gbrp12msb => 3 planes 1x1 16/4 [r16/r16/r16] (g/b/r) [unorm]
+[   0.034][d][libmpv_render]   ohcodec
+[   0.034][v][libmpv_render] Testing FBO format rgba16f
+[   0.034][d][libmpv_render] Resizing texture: 16x16
+[   0.034][d][ffmpeg/video] h264: Reinit context to 416x720, pix_fmt: yuv420p
+[   0.034][v][libmpv_render] Using FBO format rgba16f.
+[   0.034][v][libmpv_render] Disabling HDR peak computation (one or more of the following is not supported: compute shaders=0, SSBO=0).
+[   0.034][d][global] cache path: '' -> '-'
+[   0.034][v][libmpv_render] Loading hwdec driver 'videotoolbox'
+[   0.034][v][libmpv_render] Loading hwdec driver 'vulkan'
+[   0.034][v][libmpv_render/vulkan] This is not a libplacebo vulkan gpu api context.
+[   0.036][w][ffmpeg/demuxer] mpegts: start time for stream 2 is not set in estimate_timings_from_pts
+[   0.036][v][file] stream level seek from 131072 to 7879872
+[   0.036][v][file] stream level seek from 8129872 to 0
+[   0.036][v][lavf] avformat_find_stream_info() finished after 0 bytes.
+[   0.036][v][demux] Detected file format: mpegts (libavformat)
+[   0.036][v][cplayer] Opening done: /Volumes/RISHI_HDD/filtering/HDD_EXISTING/drives-28-march/formymovies21/cheating/1/cheating/1.mkv
+[   0.042][v][find_files] Loading external files in /Volumes/RISHI_HDD/filtering/HDD_EXISTING/drives-28-march/formymovies21/cheating/1/cheating/
+[   0.043][v][cplayer] Running hook: auto_profiles/on_preloaded
+[   0.043][v][cplayer] Failed sending hook command auto_profiles/on_preloaded. Removing hook.
+[   0.043][v][cplayer] Running hook: ytdl_hook/on_preloaded
+[   0.043][v][lavf] select track 0
+[   0.043][v][lavf] select track 1
+[   0.043][i][cplayer] ● Video  --vid=1  (h264 408x720 60 fps)
+[   0.043][i][cplayer] ● Audio  --aid=1  (aac 2ch 44100 Hz 51 kbps)
+[   0.043][v][vd] Container reported FPS: 60.000000
+[   0.043][v][libmpv_render] Window size: 1936x1120 (Borders: l=0 t=0 r=0 b=0)
+[   0.043][v][libmpv_render] Video source: 0x0 (0:0)
+[   0.043][v][libmpv_render] Video display: (0, 0) 1x1 -> (0, 559) 1936x1
+[   0.043][v][libmpv_render] Video scale: 1936.000000/1.000000
+[   0.043][v][libmpv_render] OSD borders: l=0 t=559 r=0 b=560
+[   0.043][v][libmpv_render] Video borders: l=0 t=559 r=0 b=560
+[   0.044][v][vd] Codec list:
+[   0.044][v][vd]     h264 - H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10
+[   0.044][v][vd] Opening decoder h264
+[   0.045][v][vd] Looking at hwdec h264-videotoolbox...
+[   0.045][v][vd] Trying hardware decoding via h264-videotoolbox.
+[   0.045][v][vd] Requesting 4 threads for decoding.
+[   0.045][v][vd] Selected decoder: h264 - H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10
+[   0.045][v][vf] User filter list:
+[   0.045][v][vf]   (empty)
+[   0.045][v][ad] Codec list:
+[   0.045][v][ad]     aac - AAC (Advanced Audio Coding)
+[   0.045][v][ad]     aac_fixed (aac) - AAC (Advanced Audio Coding)
+[   0.045][v][ad]     aac_at (aac) - aac (AudioToolbox)
+[   0.045][v][ad] Opening decoder aac
+[   0.045][v][ad] Requesting 1 threads for decoding.
+[   0.046][v][ad] Selected decoder: aac - AAC (Advanced Audio Coding)
+[   0.046][v][af] User filter list:
+[   0.046][v][af]   (empty)
+[   0.046][v][cplayer] Starting playback...
+[   0.046][v][vd] Pixel formats supported by decoder: videotoolbox_vld yuv420p
+[   0.046][v][vd] Codec profile: High (0x64)
+[   0.046][v][vd] Requesting pixfmt 'videotoolbox_vld' from decoder.
+[   0.126][d][ffmpeg/video] h264: Reinit context to 416x720, pix_fmt: videotoolbox_vld
+[   0.145][i][vd] Using hardware decoding (videotoolbox).
+[   0.145][v][vd] Decoder format: 408x720 [135:136] videotoolbox[nv12] auto/auto/auto/auto/auto CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   0.145][v][vf] [in] 408x720 [135:136] videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   0.145][v][vf] [userdeint] 408x720 [135:136] videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   0.145][v][vf] [userdeint] (disabled)
+[   0.145][v][vf] [autovflip] 408x720 [135:136] videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   0.145][v][vf] [autovflip] (disabled)
+[   0.145][v][vf] [autorotate] 408x720 [135:136] videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   0.145][v][vf] [autorotate] (disabled)
+[   0.145][v][vf] [convert] 408x720 [135:136] videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   0.145][d][hwupload] looking at format videotoolbox/nv12
+[   0.145][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   0.145][d][hwupload] looking at format videotoolbox/ayuv
+[   0.145][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   0.145][d][hwupload] looking at format videotoolbox/ayuv64
+[   0.145][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   0.145][d][hwupload] looking at format videotoolbox/yuv420p
+[   0.145][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   0.145][d][hwupload] looking at format videotoolbox/uyvy422
+[   0.145][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   0.145][d][hwupload] looking at format videotoolbox/p010
+[   0.145][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   0.145][d][hwupload] looking at format videotoolbox/nv16
+[   0.145][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   0.145][d][hwupload] looking at format videotoolbox/p210
+[   0.145][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   0.145][d][hwupload] looking at format videotoolbox/p216
+[   0.145][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   0.145][d][hwupload] looking at format videotoolbox/nv24
+[   0.145][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   0.145][d][hwupload] looking at format videotoolbox/p410
+[   0.145][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   0.145][d][hwupload] looking at format videotoolbox/p416
+[   0.145][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   0.145][d][hwupload] looking at format videotoolbox/bgra
+[   0.145][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   0.145][v][vf] [out] 408x720 [135:136] videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   0.145][v][af] [in] 44100Hz stereo 2ch floatp
+[   0.145][v][af] [userspeed] 44100Hz stereo 2ch floatp
+[   0.146][v][af] [userspeed] (disabled)
+[   0.146][v][af] [convert] 44100Hz stereo 2ch floatp
+[   0.146][v][ao] Trying audio driver 'coreaudio'
+[   0.146][v][ao/coreaudio] requested format: 44100 Hz, stereo channels, floatp
+[   0.181][v][ao/coreaudio] selected audio output device: External Headphones (84)
+[   0.181][v][ao/coreaudio] input channel layout:
+[   0.181][v][ao/coreaudio] audio channel layout: tag: <0>, descriptions <2>
+[   0.181][v][ao/coreaudio]  - description 0: label <4294967295, 64>,  flags: <0>
+[   0.181][v][ao/coreaudio]  - description 1: label <4294967295, 64>,  flags: <0>
+[   0.181][v][ao/coreaudio] mp chmap: unknown2
+[   0.181][v][ao/coreaudio] input channel layout:
+[   0.181][v][ao/coreaudio] audio channel layout: tag: <0>, descriptions <2>
+[   0.181][v][ao/coreaudio]  - description 0: label <1, 0>,  flags: <0>
+[   0.181][v][ao/coreaudio]  - description 1: label <2, 1>,  flags: <0>
+[   0.181][v][ao/coreaudio] mp chmap: stereo
+[   0.181][v][ao/coreaudio] Channel layouts:
+[   0.181][v][ao/coreaudio]  - stereo
+[   0.181][v][ao/coreaudio]  - mono
+[   0.181][v][ao/coreaudio] result: stereo
+[   0.181][v][ao/coreaudio] audio channel layout: tag: <6619138>
+[   0.195][v][ao/coreaudio] Latency property cntl: 70 frames
+[   0.195][v][ao/coreaudio] Latency property zisf: 512 frames
+[   0.195][v][ao/coreaudio] Latency property tfas: 74 frames
+[   0.195][v][ao/coreaudio] Device sample rate: 44100.000000
+[   0.195][v][ao/coreaudio] audiounit latency [ns]: 0
+[   0.195][v][ao/coreaudio] device latency [ns]: 14875283
+[   0.195][v][ao/coreaudio] device buffer: 1312 samples.
+[   0.195][v][ao/coreaudio] using soft-buffer of 8820 samples.
+[   0.195][i][cplayer] AO: [coreaudio] 44100Hz stereo 2ch floatp
+[   0.195][v][cplayer] AO: Description: CoreAudio AudioUnit
+[   0.195][v][af] [convert] (disabled)
+[   0.195][v][af] [out] 44100Hz stereo 2ch floatp
+[   0.199][i][cplayer] VO: [libmpv] 408x720 => 408x725 videotoolbox[nv12]
+[   0.199][v][cplayer] VO: Description: render API for libmpv
+[   0.199][v][vo/libmpv] reconfig to 408x720 [135:136] videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   0.404][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[   0.404][v][cplayer] first video frame after restart shown
+[   0.405][d][osd/libass] ASS library version: 0x1704000 (runtime 0x1704000)
+[   0.405][v][libmpv_render] Window size: 1936x1120 (Borders: l=0 t=0 r=0 b=0)
+[   0.405][v][libmpv_render] Video source: 408x720 (135:136)
+[   0.406][v][libmpv_render] Video display: (0, 0) 408x720 -> (653, 0) 630x1120
+[   0.406][v][libmpv_render] Video scale: 1.544118/1.555556
+[   0.406][v][libmpv_render] OSD borders: l=653 t=0 r=653 b=0
+[   0.406][v][libmpv_render] Video borders: l=653 t=0 r=653 b=0
+[   0.407][v][osd/libass] libass API version: 0x1704000
+[   0.407][v][osd/libass] libass source: tarball: 0.17.4
+[   0.412][v][osd/libass] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.2.0 (COMPLEX)
+[   0.412][v][osd/libass] Setting up fonts...
+[   0.413][v][osd/libass] Using font provider coretext
+[   0.413][v][osd/libass] Done.
+[   0.413][v][cplayer] audio ready
+[   0.413][d][cplayer] starting video playback
+[   0.413][v][cplayer] starting audio playback
+[   0.413][v][libmpv_render] Testing FBO format rgba16f
+[   0.413][d][libmpv_render] Resizing texture: 16x16
+[   0.413][v][libmpv_render] Using FBO format rgba16f.
+[   0.416][d][libmpv_render] Resizing texture: 204x720
+[   0.417][d][libmpv_render] vertex shader source:
+[   0.417][d][libmpv_render] [  1] #version 410
+[   0.417][d][libmpv_render] [  2] #define tex1D texture
+[   0.417][d][libmpv_render] [  3] #define tex3D texture
+[   0.417][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   0.417][d][libmpv_render] [  5] in vec2 vertex_position;
+[   0.417][d][libmpv_render] [  6] in vec2 vertex_texcoord0;
+[   0.417][d][libmpv_render] [  7] out vec2 texcoord0;
+[   0.417][d][libmpv_render] [  8] void main() {
+[   0.417][d][libmpv_render] [  9] gl_Position = vec4(vertex_position, 1.0, 1.0);
+[   0.417][d][libmpv_render] [ 10] texcoord0 = vertex_texcoord0;
+[   0.417][d][libmpv_render] [ 11] }
+[   0.419][d][libmpv_render] fragment shader source:
+[   0.419][d][libmpv_render] [  1] #version 410
+[   0.419][d][libmpv_render] [  2] #define tex1D texture
+[   0.419][d][libmpv_render] [  3] #define tex3D texture
+[   0.419][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   0.419][d][libmpv_render] [  5] out vec4 out_color;
+[   0.419][d][libmpv_render] [  6] in vec2 texcoord0;
+[   0.419][d][libmpv_render] [  7] uniform sampler2D lut;
+[   0.419][d][libmpv_render] [  8] uniform sampler2DRect texture0;
+[   0.419][d][libmpv_render] [  9] uniform vec2 texture_size0;
+[   0.419][d][libmpv_render] [ 10] uniform mat2 texture_rot0;
+[   0.419][d][libmpv_render] [ 11] uniform vec2 texture_off0;
+[   0.419][d][libmpv_render] [ 12] uniform vec2 pixel_size0;
+[   0.419][d][libmpv_render] [ 13] void main() {
+[   0.419][d][libmpv_render] [ 14] vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+[   0.419][d][libmpv_render] [ 15] // upscaling plane 1
+[   0.419][d][libmpv_render] [ 16] #undef tex
+[   0.419][d][libmpv_render] [ 17] #undef texmap
+[   0.419][d][libmpv_render] [ 18] #define tex texture0
+[   0.419][d][libmpv_render] [ 19] #define texmap texmap0
+[   0.419][d][libmpv_render] [ 20] vec2 pos = texcoord0;
+[   0.419][d][libmpv_render] [ 21] vec2 size = texture_size0;
+[   0.419][d][libmpv_render] [ 22] vec2 pt = pixel_size0;
+[   0.419][d][libmpv_render] [ 23] // first pass
+[   0.419][d][libmpv_render] [ 24] color = vec4(0.0);
+[   0.419][d][libmpv_render] [ 25] {
+[   0.419][d][libmpv_render] [ 26] vec2 dir = vec2(0.0, 1.0);
+[   0.419][d][libmpv_render] [ 27] pt *= dir;
+[   0.419][d][libmpv_render] [ 28] float fcoord = dot(fract(pos * size - vec2(0.5)), dir);
+[   0.419][d][libmpv_render] [ 29] vec2 base = pos - fcoord * pt - pt * vec2(2.0);
+[   0.419][d][libmpv_render] [ 30] vec4 c;
+[   0.419][d][libmpv_render] [ 31] float ypos = LUT_POS(fcoord, 256.0);
+[   0.419][d][libmpv_render] [ 32] float weights[6];
+[   0.419][d][libmpv_render] [ 33] c = texture(lut, vec2(0.250000, ypos));
+[   0.419][d][libmpv_render] [ 34] weights[0] = c[0];
+[   0.419][d][libmpv_render] [ 35] weights[1] = c[1];
+[   0.419][d][libmpv_render] [ 36] weights[2] = c[2];
+[   0.419][d][libmpv_render] [ 37] weights[3] = c[3];
+[   0.419][d][libmpv_render] [ 38] c = texture(lut, vec2(0.750000, ypos));
+[   0.419][d][libmpv_render] [ 39] weights[4] = c[0];
+[   0.419][d][libmpv_render] [ 40] weights[5] = c[1];
+[   0.419][d][libmpv_render] [ 41] // scaler samples
+[   0.419][d][libmpv_render] [ 42] c = texture(tex, base + pt * vec2(0.0));
+[   0.419][d][libmpv_render] [ 43] color += vec4(weights[0]) * c;
+[   0.419][d][libmpv_render] [ 44] c = texture(tex, base + pt * vec2(1.0));
+[   0.419][d][libmpv_render] [ 45] color += vec4(weights[1]) * c;
+[   0.419][d][libmpv_render] [ 46] c = texture(tex, base + pt * vec2(2.0));
+[   0.419][d][libmpv_render] [ 47] color += vec4(weights[2]) * c;
+[   0.419][d][libmpv_render] [ 48] c = texture(tex, base + pt * vec2(3.0));
+[   0.419][d][libmpv_render] [ 49] color += vec4(weights[3]) * c;
+[   0.419][d][libmpv_render] [ 50] c = texture(tex, base + pt * vec2(4.0));
+[   0.419][d][libmpv_render] [ 51] color += vec4(weights[4]) * c;
+[   0.419][d][libmpv_render] [ 52] c = texture(tex, base + pt * vec2(5.0));
+[   0.419][d][libmpv_render] [ 53] color += vec4(weights[5]) * c;
+[   0.419][d][libmpv_render] [ 54] }
+[   0.419][d][libmpv_render] [ 55] color *= 1.000000;
+[   0.419][d][libmpv_render] [ 56] out_color = color;
+[   0.419][d][libmpv_render] [ 57] }
+[   0.420][d][libmpv_render] shader link log (status=1): 
+[   0.421][v][cplayer] playback restart complete @ 0.033356, audio=playing, video=playing
+[   0.423][d][libmpv_render] Resizing texture: 408x720
+[   0.423][d][libmpv_render] vertex shader source:
+[   0.423][d][libmpv_render] [  1] #version 410
+[   0.423][d][libmpv_render] [  2] #define tex1D texture
+[   0.423][d][libmpv_render] [  3] #define tex3D texture
+[   0.423][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   0.423][d][libmpv_render] [  5] in vec2 vertex_position;
+[   0.423][d][libmpv_render] [  6] in vec2 vertex_texcoord0;
+[   0.423][d][libmpv_render] [  7] out vec2 texcoord0;
+[   0.423][d][libmpv_render] [  8] void main() {
+[   0.423][d][libmpv_render] [  9] gl_Position = vec4(vertex_position, 1.0, 1.0);
+[   0.423][d][libmpv_render] [ 10] texcoord0 = vertex_texcoord0;
+[   0.423][d][libmpv_render] [ 11] }
+[   0.425][d][libmpv_render] fragment shader source:
+[   0.425][d][libmpv_render] [  1] #version 410
+[   0.425][d][libmpv_render] [  2] #define tex1D texture
+[   0.425][d][libmpv_render] [  3] #define tex3D texture
+[   0.425][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   0.425][d][libmpv_render] [  5] out vec4 out_color;
+[   0.425][d][libmpv_render] [  6] in vec2 texcoord0;
+[   0.425][d][libmpv_render] [  7] uniform sampler2D lut;
+[   0.425][d][libmpv_render] [  8] uniform sampler2D texture0;
+[   0.425][d][libmpv_render] [  9] uniform vec2 texture_size0;
+[   0.425][d][libmpv_render] [ 10] uniform mat2 texture_rot0;
+[   0.425][d][libmpv_render] [ 11] uniform vec2 texture_off0;
+[   0.425][d][libmpv_render] [ 12] uniform vec2 pixel_size0;
+[   0.425][d][libmpv_render] [ 13] void main() {
+[   0.425][d][libmpv_render] [ 14] vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+[   0.425][d][libmpv_render] [ 15] #undef tex
+[   0.425][d][libmpv_render] [ 16] #undef texmap
+[   0.425][d][libmpv_render] [ 17] #define tex texture0
+[   0.425][d][libmpv_render] [ 18] #define texmap texmap0
+[   0.425][d][libmpv_render] [ 19] vec2 pos = texcoord0;
+[   0.425][d][libmpv_render] [ 20] vec2 size = texture_size0;
+[   0.425][d][libmpv_render] [ 21] vec2 pt = pixel_size0;
+[   0.425][d][libmpv_render] [ 22] color = vec4(0.0);
+[   0.425][d][libmpv_render] [ 23] {
+[   0.425][d][libmpv_render] [ 24] vec2 dir = vec2(1.0, 0.0);
+[   0.425][d][libmpv_render] [ 25] pt *= dir;
+[   0.425][d][libmpv_render] [ 26] float fcoord = dot(fract(pos * size - vec2(0.5)), dir);
+[   0.425][d][libmpv_render] [ 27] vec2 base = pos - fcoord * pt - pt * vec2(2.0);
+[   0.425][d][libmpv_render] [ 28] vec4 c;
+[   0.425][d][libmpv_render] [ 29] float ypos = LUT_POS(fcoord, 256.0);
+[   0.425][d][libmpv_render] [ 30] float weights[6];
+[   0.425][d][libmpv_render] [ 31] c = texture(lut, vec2(0.250000, ypos));
+[   0.425][d][libmpv_render] [ 32] weights[0] = c[0];
+[   0.425][d][libmpv_render] [ 33] weights[1] = c[1];
+[   0.425][d][libmpv_render] [ 34] weights[2] = c[2];
+[   0.425][d][libmpv_render] [ 35] weights[3] = c[3];
+[   0.425][d][libmpv_render] [ 36] c = texture(lut, vec2(0.750000, ypos));
+[   0.425][d][libmpv_render] [ 37] weights[4] = c[0];
+[   0.425][d][libmpv_render] [ 38] weights[5] = c[1];
+[   0.425][d][libmpv_render] [ 39] // scaler samples
+[   0.425][d][libmpv_render] [ 40] c = texture(tex, base + pt * vec2(0.0));
+[   0.425][d][libmpv_render] [ 41] color += vec4(weights[0]) * c;
+[   0.425][d][libmpv_render] [ 42] c = texture(tex, base + pt * vec2(1.0));
+[   0.425][d][libmpv_render] [ 43] color += vec4(weights[1]) * c;
+[   0.425][d][libmpv_render] [ 44] c = texture(tex, base + pt * vec2(2.0));
+[   0.425][d][libmpv_render] [ 45] color += vec4(weights[2]) * c;
+[   0.425][d][libmpv_render] [ 46] c = texture(tex, base + pt * vec2(3.0));
+[   0.425][d][libmpv_render] [ 47] color += vec4(weights[3]) * c;
+[   0.425][d][libmpv_render] [ 48] c = texture(tex, base + pt * vec2(4.0));
+[   0.425][d][libmpv_render] [ 49] color += vec4(weights[4]) * c;
+[   0.425][d][libmpv_render] [ 50] c = texture(tex, base + pt * vec2(5.0));
+[   0.425][d][libmpv_render] [ 51] color += vec4(weights[5]) * c;
+[   0.425][d][libmpv_render] [ 52] }
+[   0.425][d][libmpv_render] [ 53] color.b = 0.000000;
+[   0.425][d][libmpv_render] [ 54] color.a = 1.000000;
+[   0.425][d][libmpv_render] [ 55] out_color = color;
+[   0.425][d][libmpv_render] [ 56] }
+[   0.426][d][libmpv_render] shader link log (status=1): 
+[   0.427][d][libmpv_render] Resizing texture: 408x720
+[   0.427][d][libmpv_render] vertex shader source:
+[   0.427][d][libmpv_render] [  1] #version 410
+[   0.427][d][libmpv_render] [  2] #define tex1D texture
+[   0.427][d][libmpv_render] [  3] #define tex3D texture
+[   0.427][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   0.427][d][libmpv_render] [  5] in vec2 vertex_position;
+[   0.427][d][libmpv_render] [  6] in vec2 vertex_texcoord0;
+[   0.427][d][libmpv_render] [  7] out vec2 texcoord0;
+[   0.427][d][libmpv_render] [  8] in vec2 vertex_texcoord1;
+[   0.427][d][libmpv_render] [  9] out vec2 texcoord1;
+[   0.427][d][libmpv_render] [ 10] void main() {
+[   0.427][d][libmpv_render] [ 11] gl_Position = vec4(vertex_position, 1.0, 1.0);
+[   0.427][d][libmpv_render] [ 12] texcoord0 = vertex_texcoord0;
+[   0.427][d][libmpv_render] [ 13] texcoord1 = vertex_texcoord1;
+[   0.427][d][libmpv_render] [ 14] }
+[   0.428][d][libmpv_render] fragment shader source:
+[   0.428][d][libmpv_render] [  1] #version 410
+[   0.428][d][libmpv_render] [  2] #define tex1D texture
+[   0.428][d][libmpv_render] [  3] #define tex3D texture
+[   0.428][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   0.428][d][libmpv_render] [  5] out vec4 out_color;
+[   0.428][d][libmpv_render] [  6] in vec2 texcoord0;
+[   0.428][d][libmpv_render] [  7] in vec2 texcoord1;
+[   0.428][d][libmpv_render] [  8] uniform mat3 colormatrix;
+[   0.428][d][libmpv_render] [  9] uniform vec3 colormatrix_c;
+[   0.428][d][libmpv_render] [ 10] uniform sampler2DRect texture0;
+[   0.428][d][libmpv_render] [ 11] uniform vec2 texture_size0;
+[   0.428][d][libmpv_render] [ 12] uniform mat2 texture_rot0;
+[   0.428][d][libmpv_render] [ 13] uniform vec2 texture_off0;
+[   0.428][d][libmpv_render] [ 14] uniform vec2 pixel_size0;
+[   0.428][d][libmpv_render] [ 15] uniform sampler2D texture1;
+[   0.428][d][libmpv_render] [ 16] uniform vec2 texture_size1;
+[   0.428][d][libmpv_render] [ 17] uniform mat2 texture_rot1;
+[   0.428][d][libmpv_render] [ 18] uniform vec2 texture_off1;
+[   0.428][d][libmpv_render] [ 19] uniform vec2 pixel_size1;
+[   0.428][d][libmpv_render] [ 20] void main() {
+[   0.428][d][libmpv_render] [ 21] vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+[   0.428][d][libmpv_render] [ 22] color.r = 1.000000 * vec4(texture(texture0, texcoord0)).r;
+[   0.428][d][libmpv_render] [ 23] color.gb = 1.000000 * vec4(texture(texture1, texcoord1)).rg;
+[   0.428][d][libmpv_render] [ 24] color = color.rgbr;
+[   0.428][d][libmpv_render] [ 25] color.rgb = mat3(colormatrix) * color.rgb + colormatrix_c;
+[   0.428][d][libmpv_render] [ 26] color.a = 1.0;
+[   0.428][d][libmpv_render] [ 27] // scaler pre-conversion
+[   0.428][d][libmpv_render] [ 28] // linearize
+[   0.428][d][libmpv_render] [ 29] color.rgb = clamp(color.rgb, 0.0, 1.0);
+[   0.428][d][libmpv_render] [ 30] color.rgb = pow(color.rgb, vec3(2.4));
+[   0.428][d][libmpv_render] [ 31] color.rgb *= vec3(1.0/1.000000);
+[   0.428][d][libmpv_render] [ 32] color.rgb = clamp(color.rgb, 0.0, 1.0);
+[   0.428][d][libmpv_render] [ 33] color.rgb = 0.750000 - log(1.0/(color.rgb * 0.827906 + 0.007577) - 1.0) * 1.0/6.500000;
+[   0.428][d][libmpv_render] [ 34] // main scaling
+[   0.428][d][libmpv_render] [ 35] out_color = color;
+[   0.428][d][libmpv_render] [ 36] }
+[   0.428][d][libmpv_render] shader link log (status=1): 
+[   0.430][d][libmpv_render] Resizing texture: 408x1120
+[   0.430][d][libmpv_render] vertex shader source:
+[   0.430][d][libmpv_render] [  1] #version 410
+[   0.430][d][libmpv_render] [  2] #define tex1D texture
+[   0.430][d][libmpv_render] [  3] #define tex3D texture
+[   0.430][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   0.430][d][libmpv_render] [  5] in vec2 vertex_position;
+[   0.430][d][libmpv_render] [  6] in vec2 vertex_texcoord0;
+[   0.430][d][libmpv_render] [  7] out vec2 texcoord0;
+[   0.430][d][libmpv_render] [  8] void main() {
+[   0.430][d][libmpv_render] [  9] gl_Position = vec4(vertex_position, 1.0, 1.0);
+[   0.430][d][libmpv_render] [ 10] texcoord0 = vertex_texcoord0;
+[   0.430][d][libmpv_render] [ 11] }
+[   0.431][d][libmpv_render] fragment shader source:
+[   0.431][d][libmpv_render] [  1] #version 410
+[   0.431][d][libmpv_render] [  2] #define tex1D texture
+[   0.431][d][libmpv_render] [  3] #define tex3D texture
+[   0.431][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   0.431][d][libmpv_render] [  5] out vec4 out_color;
+[   0.431][d][libmpv_render] [  6] in vec2 texcoord0;
+[   0.431][d][libmpv_render] [  7] uniform sampler2D lut;
+[   0.431][d][libmpv_render] [  8] uniform sampler2D texture0;
+[   0.431][d][libmpv_render] [  9] uniform vec2 texture_size0;
+[   0.431][d][libmpv_render] [ 10] uniform mat2 texture_rot0;
+[   0.431][d][libmpv_render] [ 11] uniform vec2 texture_off0;
+[   0.431][d][libmpv_render] [ 12] uniform vec2 pixel_size0;
+[   0.431][d][libmpv_render] [ 13] void main() {
+[   0.431][d][libmpv_render] [ 14] vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+[   0.431][d][libmpv_render] [ 15] #undef tex
+[   0.431][d][libmpv_render] [ 16] #undef texmap
+[   0.431][d][libmpv_render] [ 17] #define tex texture0
+[   0.431][d][libmpv_render] [ 18] #define texmap texmap0
+[   0.431][d][libmpv_render] [ 19] vec2 pos = texcoord0;
+[   0.431][d][libmpv_render] [ 20] vec2 size = texture_size0;
+[   0.431][d][libmpv_render] [ 21] vec2 pt = pixel_size0;
+[   0.431][d][libmpv_render] [ 22] // first pass
+[   0.431][d][libmpv_render] [ 23] color = vec4(0.0);
+[   0.431][d][libmpv_render] [ 24] {
+[   0.431][d][libmpv_render] [ 25] vec2 dir = vec2(0.0, 1.0);
+[   0.431][d][libmpv_render] [ 26] pt *= dir;
+[   0.431][d][libmpv_render] [ 27] float fcoord = dot(fract(pos * size - vec2(0.5)), dir);
+[   0.431][d][libmpv_render] [ 28] vec2 base = pos - fcoord * pt - pt * vec2(2.0);
+[   0.431][d][libmpv_render] [ 29] vec4 c;
+[   0.431][d][libmpv_render] [ 30] float ypos = LUT_POS(fcoord, 256.0);
+[   0.431][d][libmpv_render] [ 31] float weights[6];
+[   0.431][d][libmpv_render] [ 32] c = texture(lut, vec2(0.250000, ypos));
+[   0.431][d][libmpv_render] [ 33] weights[0] = c[0];
+[   0.431][d][libmpv_render] [ 34] weights[1] = c[1];
+[   0.431][d][libmpv_render] [ 35] weights[2] = c[2];
+[   0.431][d][libmpv_render] [ 36] weights[3] = c[3];
+[   0.431][d][libmpv_render] [ 37] c = texture(lut, vec2(0.750000, ypos));
+[   0.431][d][libmpv_render] [ 38] weights[4] = c[0];
+[   0.431][d][libmpv_render] [ 39] weights[5] = c[1];
+[   0.431][d][libmpv_render] [ 40] // scaler samples
+[   0.431][d][libmpv_render] [ 41] c = texture(tex, base + pt * vec2(0.0));
+[   0.431][d][libmpv_render] [ 42] color += vec4(weights[0]) * c;
+[   0.431][d][libmpv_render] [ 43] c = texture(tex, base + pt * vec2(1.0));
+[   0.431][d][libmpv_render] [ 44] color += vec4(weights[1]) * c;
+[   0.431][d][libmpv_render] [ 45] c = texture(tex, base + pt * vec2(2.0));
+[   0.431][d][libmpv_render] [ 46] color += vec4(weights[2]) * c;
+[   0.431][d][libmpv_render] [ 47] c = texture(tex, base + pt * vec2(3.0));
+[   0.431][d][libmpv_render] [ 48] color += vec4(weights[3]) * c;
+[   0.431][d][libmpv_render] [ 49] c = texture(tex, base + pt * vec2(4.0));
+[   0.431][d][libmpv_render] [ 50] color += vec4(weights[4]) * c;
+[   0.431][d][libmpv_render] [ 51] c = texture(tex, base + pt * vec2(5.0));
+[   0.431][d][libmpv_render] [ 52] color += vec4(weights[5]) * c;
+[   0.431][d][libmpv_render] [ 53] }
+[   0.431][d][libmpv_render] [ 54] color *= 1.000000;
+[   0.431][d][libmpv_render] [ 55] out_color = color;
+[   0.431][d][libmpv_render] [ 56] }
+[   0.432][d][libmpv_render] shader link log (status=1): 
+[   0.433][d][libmpv_render] Resizing texture: 1936x1120
+[   0.433][v][libmpv_render] Dither to 8.
+[   0.482][d][libmpv_render] vertex shader source:
+[   0.482][d][libmpv_render] [  1] #version 410
+[   0.482][d][libmpv_render] [  2] #define tex1D texture
+[   0.482][d][libmpv_render] [  3] #define tex3D texture
+[   0.482][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   0.482][d][libmpv_render] [  5] in vec2 vertex_position;
+[   0.482][d][libmpv_render] [  6] in vec2 vertex_texcoord0;
+[   0.482][d][libmpv_render] [  7] out vec2 texcoord0;
+[   0.482][d][libmpv_render] [  8] void main() {
+[   0.482][d][libmpv_render] [  9] gl_Position = vec4(vertex_position, 1.0, 1.0);
+[   0.482][d][libmpv_render] [ 10] texcoord0 = vertex_texcoord0;
+[   0.482][d][libmpv_render] [ 11] }
+[   0.483][d][libmpv_render] fragment shader source:
+[   0.483][d][libmpv_render] [  1] #version 410
+[   0.483][d][libmpv_render] [  2] #define tex1D texture
+[   0.483][d][libmpv_render] [  3] #define tex3D texture
+[   0.483][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   0.483][d][libmpv_render] [  5] out vec4 out_color;
+[   0.483][d][libmpv_render] [  6] in vec2 texcoord0;
+[   0.483][d][libmpv_render] [  7] uniform sampler2D lut;
+[   0.483][d][libmpv_render] [  8] uniform vec3 src_luma;
+[   0.483][d][libmpv_render] [  9] uniform vec3 dst_luma;
+[   0.483][d][libmpv_render] [ 10] uniform sampler2D dither;
+[   0.483][d][libmpv_render] [ 11] uniform sampler2D texture0;
+[   0.483][d][libmpv_render] [ 12] uniform vec2 texture_size0;
+[   0.483][d][libmpv_render] [ 13] uniform mat2 texture_rot0;
+[   0.483][d][libmpv_render] [ 14] uniform vec2 texture_off0;
+[   0.483][d][libmpv_render] [ 15] uniform vec2 pixel_size0;
+[   0.483][d][libmpv_render] [ 16] void main() {
+[   0.483][d][libmpv_render] [ 17] vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+[   0.483][d][libmpv_render] [ 18] #undef tex
+[   0.483][d][libmpv_render] [ 19] #undef texmap
+[   0.483][d][libmpv_render] [ 20] #define tex texture0
+[   0.483][d][libmpv_render] [ 21] #define texmap texmap0
+[   0.483][d][libmpv_render] [ 22] vec2 pos = texcoord0;
+[   0.483][d][libmpv_render] [ 23] vec2 size = texture_size0;
+[   0.483][d][libmpv_render] [ 24] vec2 pt = pixel_size0;
+[   0.483][d][libmpv_render] [ 25] color = vec4(0.0);
+[   0.483][d][libmpv_render] [ 26] {
+[   0.483][d][libmpv_render] [ 27] vec2 dir = vec2(1.0, 0.0);
+[   0.483][d][libmpv_render] [ 28] pt *= dir;
+[   0.483][d][libmpv_render] [ 29] float fcoord = dot(fract(pos * size - vec2(0.5)), dir);
+[   0.483][d][libmpv_render] [ 30] vec2 base = pos - fcoord * pt - pt * vec2(2.0);
+[   0.483][d][libmpv_render] [ 31] vec4 c;
+[   0.483][d][libmpv_render] [ 32] float ypos = LUT_POS(fcoord, 256.0);
+[   0.483][d][libmpv_render] [ 33] float weights[6];
+[   0.483][d][libmpv_render] [ 34] c = texture(lut, vec2(0.250000, ypos));
+[   0.483][d][libmpv_render] [ 35] weights[0] = c[0];
+[   0.483][d][libmpv_render] [ 36] weights[1] = c[1];
+[   0.483][d][libmpv_render] [ 37] weights[2] = c[2];
+[   0.483][d][libmpv_render] [ 38] weights[3] = c[3];
+[   0.483][d][libmpv_render] [ 39] c = texture(lut, vec2(0.750000, ypos));
+[   0.483][d][libmpv_render] [ 40] weights[4] = c[0];
+[   0.483][d][libmpv_render] [ 41] weights[5] = c[1];
+[   0.483][d][libmpv_render] [ 42] // scaler samples
+[   0.483][d][libmpv_render] [ 43] c = texture(tex, base + pt * vec2(0.0));
+[   0.483][d][libmpv_render] [ 44] color += vec4(weights[0]) * c;
+[   0.483][d][libmpv_render] [ 45] c = texture(tex, base + pt * vec2(1.0));
+[   0.483][d][libmpv_render] [ 46] color += vec4(weights[1]) * c;
+[   0.483][d][libmpv_render] [ 47] c = texture(tex, base + pt * vec2(2.0));
+[   0.483][d][libmpv_render] [ 48] color += vec4(weights[2]) * c;
+[   0.483][d][libmpv_render] [ 49] c = texture(tex, base + pt * vec2(3.0));
+[   0.483][d][libmpv_render] [ 50] color += vec4(weights[3]) * c;
+[   0.483][d][libmpv_render] [ 51] c = texture(tex, base + pt * vec2(4.0));
+[   0.483][d][libmpv_render] [ 52] color += vec4(weights[4]) * c;
+[   0.483][d][libmpv_render] [ 53] c = texture(tex, base + pt * vec2(5.0));
+[   0.483][d][libmpv_render] [ 54] color += vec4(weights[5]) * c;
+[   0.483][d][libmpv_render] [ 55] }
+[   0.483][d][libmpv_render] [ 56] color.a = 1.000000;
+[   0.483][d][libmpv_render] [ 57] // scaler post-conversion
+[   0.483][d][libmpv_render] [ 58] color.rgb = clamp(color.rgb, 0.0, 1.0);
+[   0.483][d][libmpv_render] [ 59] color.rgb = (1.0/(1.0 + exp(6.500000 * (0.750000 - color.rgb))) - 0.007577) * 1.0/0.827906;
+[   0.483][d][libmpv_render] [ 60] // color mapping
+[   0.483][d][libmpv_render] [ 61] color.rgb *= vec3(1.000000);
+[   0.483][d][libmpv_render] [ 62] color.rgb *= vec3(1.000000);
+[   0.483][d][libmpv_render] [ 63] // delinearize
+[   0.483][d][libmpv_render] [ 64] color.rgb = clamp(color.rgb, 0.0, 1.0);
+[   0.483][d][libmpv_render] [ 65] color.rgb *= vec3(1.000000);
+[   0.483][d][libmpv_render] [ 66] color.rgb = pow(color.rgb, vec3(1.0/2.4));
+[   0.483][d][libmpv_render] [ 67] // dithering
+[   0.483][d][libmpv_render] [ 68] vec2 dither_coord = vec2(gl_FragCoord.x, 0.0 + 1.000000 * gl_FragCoord.y);vec2 dither_pos = dither_coord * 1.0/64.0;
+[   0.483][d][libmpv_render] [ 69] float dither_value = texture(dither, dither_pos).r;
+[   0.483][d][libmpv_render] [ 70] color = floor(color * 255.0 + dither_value + 0.5 / 4096.0) * 1.0/255.0;
+[   0.483][d][libmpv_render] [ 71] out_color = color;
+[   0.483][d][libmpv_render] [ 72] }
+[   0.483][d][libmpv_render] shader link log (status=1): 
+[   0.643][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[   0.846][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[   0.846][w][cplayer] Audio device underrun detected.
+[   0.847][v][cplayer] restarting audio after underrun
+[   0.852][d][libmpv_render] vertex shader source:
+[   0.853][d][libmpv_render] [  1] #version 410
+[   0.853][d][libmpv_render] [  2] #define tex1D texture
+[   0.853][d][libmpv_render] [  3] #define tex3D texture
+[   0.853][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   0.853][d][libmpv_render] [  5] in vec2 vertex_position;
+[   0.853][d][libmpv_render] [  6] in vec2 vertex_texcoord0;
+[   0.853][d][libmpv_render] [  7] out vec2 texcoord0;
+[   0.853][d][libmpv_render] [  8] void main() {
+[   0.853][d][libmpv_render] [  9] gl_Position = vec4(vertex_position, 1.0, 1.0);
+[   0.853][d][libmpv_render] [ 10] texcoord0 = vertex_texcoord0;
+[   0.853][d][libmpv_render] [ 11] }
+[   0.855][d][libmpv_render] fragment shader source:
+[   0.855][d][libmpv_render] [  1] #version 410
+[   0.855][d][libmpv_render] [  2] #define tex1D texture
+[   0.855][d][libmpv_render] [  3] #define tex3D texture
+[   0.855][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   0.855][d][libmpv_render] [  5] out vec4 out_color;
+[   0.855][d][libmpv_render] [  6] in vec2 texcoord0;
+[   0.855][d][libmpv_render] [  7] uniform sampler2D lut;
+[   0.855][d][libmpv_render] [  8] uniform vec3 src_luma;
+[   0.855][d][libmpv_render] [  9] uniform vec3 dst_luma;
+[   0.855][d][libmpv_render] [ 10] uniform sampler2D dither;
+[   0.855][d][libmpv_render] [ 11] uniform sampler2D texture0;
+[   0.855][d][libmpv_render] [ 12] uniform vec2 texture_size0;
+[   0.855][d][libmpv_render] [ 13] uniform mat2 texture_rot0;
+[   0.855][d][libmpv_render] [ 14] uniform vec2 texture_off0;
+[   0.855][d][libmpv_render] [ 15] uniform vec2 pixel_size0;
+[   0.855][d][libmpv_render] [ 16] void main() {
+[   0.855][d][libmpv_render] [ 17] vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+[   0.855][d][libmpv_render] [ 18] #undef tex
+[   0.855][d][libmpv_render] [ 19] #undef texmap
+[   0.855][d][libmpv_render] [ 20] #define tex texture0
+[   0.855][d][libmpv_render] [ 21] #define texmap texmap0
+[   0.855][d][libmpv_render] [ 22] vec2 pos = texcoord0;
+[   0.855][d][libmpv_render] [ 23] vec2 size = texture_size0;
+[   0.855][d][libmpv_render] [ 24] vec2 pt = pixel_size0;
+[   0.855][d][libmpv_render] [ 25] color = vec4(0.0);
+[   0.855][d][libmpv_render] [ 26] {
+[   0.855][d][libmpv_render] [ 27] vec2 dir = vec2(1.0, 0.0);
+[   0.855][d][libmpv_render] [ 28] pt *= dir;
+[   0.855][d][libmpv_render] [ 29] float fcoord = dot(fract(pos * size - vec2(0.5)), dir);
+[   0.855][d][libmpv_render] [ 30] vec2 base = pos - fcoord * pt - pt * vec2(2.0);
+[   0.855][d][libmpv_render] [ 31] vec4 c;
+[   0.855][d][libmpv_render] [ 32] float ypos = LUT_POS(fcoord, 256.0);
+[   0.855][d][libmpv_render] [ 33] float weights[6];
+[   0.855][d][libmpv_render] [ 34] c = texture(lut, vec2(0.250000, ypos));
+[   0.855][d][libmpv_render] [ 35] weights[0] = c[0];
+[   0.855][d][libmpv_render] [ 36] weights[1] = c[1];
+[   0.855][d][libmpv_render] [ 37] weights[2] = c[2];
+[   0.855][d][libmpv_render] [ 38] weights[3] = c[3];
+[   0.855][d][libmpv_render] [ 39] c = texture(lut, vec2(0.750000, ypos));
+[   0.855][d][libmpv_render] [ 40] weights[4] = c[0];
+[   0.855][d][libmpv_render] [ 41] weights[5] = c[1];
+[   0.855][d][libmpv_render] [ 42] // scaler samples
+[   0.855][d][libmpv_render] [ 43] c = texture(tex, base + pt * vec2(0.0));
+[   0.855][d][libmpv_render] [ 44] color += vec4(weights[0]) * c;
+[   0.855][d][libmpv_render] [ 45] c = texture(tex, base + pt * vec2(1.0));
+[   0.855][d][libmpv_render] [ 46] color += vec4(weights[1]) * c;
+[   0.855][d][libmpv_render] [ 47] c = texture(tex, base + pt * vec2(2.0));
+[   0.855][d][libmpv_render] [ 48] color += vec4(weights[2]) * c;
+[   0.855][d][libmpv_render] [ 49] c = texture(tex, base + pt * vec2(3.0));
+[   0.855][d][libmpv_render] [ 50] color += vec4(weights[3]) * c;
+[   0.855][d][libmpv_render] [ 51] c = texture(tex, base + pt * vec2(4.0));
+[   0.855][d][libmpv_render] [ 52] color += vec4(weights[4]) * c;
+[   0.855][d][libmpv_render] [ 53] c = texture(tex, base + pt * vec2(5.0));
+[   0.855][d][libmpv_render] [ 54] color += vec4(weights[5]) * c;
+[   0.855][d][libmpv_render] [ 55] }
+[   0.855][d][libmpv_render] [ 56] color.a = 1.000000;
+[   0.855][d][libmpv_render] [ 57] // scaler post-conversion
+[   0.855][d][libmpv_render] [ 58] color.rgb = clamp(color.rgb, 0.0, 1.0);
+[   0.855][d][libmpv_render] [ 59] color.rgb = (1.0/(1.0 + exp(6.500000 * (0.750000 - color.rgb))) - 0.007577) * 1.0/0.827906;
+[   0.855][d][libmpv_render] [ 60] // color mapping
+[   0.855][d][libmpv_render] [ 61] color.rgb *= vec3(1.000000);
+[   0.855][d][libmpv_render] [ 62] color.rgb *= vec3(1.000000);
+[   0.855][d][libmpv_render] [ 63] // delinearize
+[   0.855][d][libmpv_render] [ 64] color.rgb = clamp(color.rgb, 0.0, 1.0);
+[   0.855][d][libmpv_render] [ 65] color.rgb *= vec3(1.000000);
+[   0.855][d][libmpv_render] [ 66] color.rgb = pow(color.rgb, vec3(1.0/2.4));
+[   0.855][d][libmpv_render] [ 67] // dithering
+[   0.855][d][libmpv_render] [ 68] vec2 dither_coord = vec2(gl_FragCoord.x, 1120.0 + -1.000000 * gl_FragCoord.y);vec2 dither_pos = dither_coord * 1.0/64.0;
+[   0.855][d][libmpv_render] [ 69] float dither_value = texture(dither, dither_pos).r;
+[   0.855][d][libmpv_render] [ 70] color = floor(color * 255.0 + dither_value + 0.5 / 4096.0) * 1.0/255.0;
+[   0.855][d][libmpv_render] [ 71] out_color = color;
+[   0.855][d][libmpv_render] [ 72] }
+[   0.856][d][libmpv_render] shader link log (status=1): 
+[   1.649][d][cplayer] Run command: seek, flags=73, args=[target="23.000000", flags="absolute", legacy="unused"]
+[   1.649][v][lavf] queuing seek to 23.101000
+[   1.649][v][lavf] execute seek (to 23.101000 flags 32)
+[   1.649][v][file] stream level seek from 196608 to 0
+[   1.650][v][file] stream level seek from 131072 to 8128932
+[   1.650][v][file] stream level seek from 8129872 to 8126864
+[   1.650][v][file] stream level seek from 8129872 to 8122728
+[   1.650][v][file] stream level seek from 8129872 to 1343636
+[   1.651][d][osd/libass] ASS library version: 0x1704000 (runtime 0x1704000)
+[   1.651][v][osd/libass] libass API version: 0x1704000
+[   1.651][v][osd/libass] libass source: tarball: 0.17.4
+[   1.651][v][osd/libass] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.2.0 (COMPLEX)
+[   1.651][v][osd/libass] Setting up fonts...
+[   1.651][v][cplayer] hr-seek, skipping to 23.000000
+[   1.652][v][osd/libass] Using font provider coretext
+[   1.652][v][osd/libass] Done.
+[   1.654][v][lavf] seek done
+[   1.654][d][ffmpeg/video] h264: Reinit context to 416x720, pix_fmt: videotoolbox_vld
+[   1.655][e][ffmpeg/video] h264: co located POCs unavailable
+[   1.657][v][osd/libass] fontselect: (sans-serif, 400, 0) -> /System/Library/Fonts/Helvetica.ttc, -1, Helvetica
+[   1.660][d][osd] Spent 9.438 ms in osd_render (slow!)
+[   1.660][v][libmpv_render] Reallocating OSD texture to 2048x128.
+[   1.661][d][libmpv_render] vertex shader source:
+[   1.661][d][libmpv_render] [  1] #version 410
+[   1.661][d][libmpv_render] [  2] #define tex1D texture
+[   1.661][d][libmpv_render] [  3] #define tex3D texture
+[   1.661][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   1.661][d][libmpv_render] [  5] in vec2 vertex_position;
+[   1.661][d][libmpv_render] [  6] in vec2 vertex_texcoord;
+[   1.661][d][libmpv_render] [  7] out vec2 texcoord;
+[   1.661][d][libmpv_render] [  8] in vec4 vertex_ass_color;
+[   1.661][d][libmpv_render] [  9] out vec4 ass_color;
+[   1.661][d][libmpv_render] [ 10] void main() {
+[   1.661][d][libmpv_render] [ 11] gl_Position = vec4(vertex_position, 1.0, 1.0);
+[   1.661][d][libmpv_render] [ 12] texcoord = vertex_texcoord;
+[   1.661][d][libmpv_render] [ 13] ass_color = vertex_ass_color;
+[   1.661][d][libmpv_render] [ 14] }
+[   1.661][d][libmpv_render] fragment shader source:
+[   1.661][d][libmpv_render] [  1] #version 410
+[   1.661][d][libmpv_render] [  2] #define tex1D texture
+[   1.661][d][libmpv_render] [  3] #define tex3D texture
+[   1.661][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   1.661][d][libmpv_render] [  5] out vec4 out_color;
+[   1.661][d][libmpv_render] [  6] in vec2 texcoord;
+[   1.661][d][libmpv_render] [  7] in vec4 ass_color;
+[   1.661][d][libmpv_render] [  8] uniform sampler2D osdtex;
+[   1.661][d][libmpv_render] [  9] uniform vec3 src_luma;
+[   1.661][d][libmpv_render] [ 10] uniform vec3 dst_luma;
+[   1.661][d][libmpv_render] [ 11] void main() {
+[   1.661][d][libmpv_render] [ 12] vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+[   1.661][d][libmpv_render] [ 13] color = vec4(ass_color.rgb, ass_color.a * texture(osdtex, texcoord).r);
+[   1.661][d][libmpv_render] [ 14] // color mapping
+[   1.661][d][libmpv_render] [ 15] color.rgb *= vec3(1.000000);
+[   1.661][d][libmpv_render] [ 16] color.rgb *= vec3(1.000000);
+[   1.661][d][libmpv_render] [ 17] out_color = color;
+[   1.661][d][libmpv_render] [ 18] }
+[   1.662][d][libmpv_render] shader link log (status=1): 
+[   1.785][v][vd] Decoder format: 408x720 [135:136] videotoolbox[nv12] auto/auto/auto/auto/auto CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   1.992][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[   1.992][v][cplayer] first video frame after restart shown
+[   1.992][d][ffmpeg/audio] aac: ChannelElement 1.0 missing 
+[   1.992][e][ffmpeg/audio] aac: SBR was found before the first channel element.
+[   1.992][e][ffmpeg/audio] aac: Prediction is not allowed in AAC-LC.
+[   1.992][e][ad] Error decoding audio.
+[   1.996][v][cplayer] audio ready
+[   1.996][d][cplayer] starting video playback
+[   1.996][v][cplayer] starting audio playback
+[   1.996][v][cplayer] playback restart complete @ 25.098144, audio=playing, video=playing
+[   2.424][d][cplayer] Run command: seek, flags=73, args=[target="50.700000", flags="absolute", legacy="unused"]
+[   2.425][v][lavf] queuing seek to 50.801000
+[   2.425][v][lavf] execute seek (to 50.801000 flags 32)
+[   2.425][v][file] stream level seek from 1802388 to 3047668
+[   2.427][v][cplayer] hr-seek, skipping to 50.700000
+[   2.430][v][file] stream level seek from 3178740 to 3357680
+[   2.434][v][file] stream level seek from 3488752 to 3341296
+[   2.434][v][lavf] seek done
+[   2.434][d][ffmpeg/video] h264: Reinit context to 416x720, pix_fmt: videotoolbox_vld
+[   2.435][e][ffmpeg/video] h264: co located POCs unavailable
+[   2.436][e][ffmpeg/video] h264: co located POCs unavailable
+[   2.554][v][vd] Decoder format: 408x720 [135:136] videotoolbox[nv12] auto/auto/auto/auto/auto CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   2.556][v][libmpv_render] Reallocating OSD texture to 2048x256.
+[   2.758][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[   2.758][v][cplayer] first video frame after restart shown
+[   2.758][e][ffmpeg/audio] aac: channel element 2.9 is not allocated
+[   2.758][e][ad] Error decoding audio.
+[   2.761][v][cplayer] audio ready
+[   2.761][d][cplayer] starting video playback
+[   2.761][v][cplayer] starting audio playback
+[   2.761][v][cplayer] playback restart complete @ 52.847856, audio=playing, video=playing
+[   3.114][d][cplayer] Run command: seek, flags=73, args=[target="85.000000", flags="absolute", legacy="unused"]
+[   3.116][v][lavf] queuing seek to 85.101000
+[   3.116][v][lavf] execute seek (to 85.101000 flags 32)
+[   3.116][v][file] stream level seek from 3603440 to 5199328
+[   3.117][v][cplayer] hr-seek, skipping to 85.000000
+[   3.160][v][lavf] seek done
+[   3.160][d][ffmpeg/video] h264: Reinit context to 416x720, pix_fmt: videotoolbox_vld
+[   3.160][e][ffmpeg/video] h264: co located POCs unavailable
+[   3.213][v][vd] Decoder format: 408x720 [135:136] videotoolbox[nv12] auto/auto/auto/auto/auto CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   3.416][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[   3.416][v][cplayer] first video frame after restart shown
+[   3.417][e][ffmpeg/audio] aac: channel element 2.4 is not allocated
+[   3.417][e][ad] Error decoding audio.
+[   3.418][v][cplayer] audio ready
+[   3.418][d][cplayer] starting video playback
+[   3.418][v][cplayer] starting audio playback
+[   3.418][v][cplayer] playback restart complete @ 85.850678, audio=playing, video=playing
+[   3.894][d][cplayer] Run command: seek, flags=73, args=[target="107.800000", flags="absolute", legacy="unused"]
+[   3.895][v][lavf] queuing seek to 107.901000
+[   3.895][v][lavf] execute seek (to 107.901000 flags 32)
+[   3.895][v][file] stream level seek from 5789152 to 6639596
+[   3.897][v][cplayer] hr-seek, skipping to 107.800000
+[   3.991][v][lavf] seek done
+[   3.991][d][ffmpeg/video] h264: Reinit context to 416x720, pix_fmt: videotoolbox_vld
+[   3.992][e][ffmpeg/video] h264: Missing reference picture, default is 0
+[   3.992][e][ffmpeg/video] h264: hardware accelerator failed to decode picture
+[   3.992][e][ffmpeg/video] h264: Missing reference picture, default is 0
+[   3.992][e][ffmpeg/video] h264: hardware accelerator failed to decode picture
+[   3.992][e][ffmpeg/video] h264: reference picture missing during reorder
+[   3.992][e][ffmpeg/video] h264: Missing reference picture, default is 0
+[   3.992][e][ffmpeg/video] h264: hardware accelerator failed to decode picture
+[   3.992][w][vd] Error while decoding frame (hardware decoding)!
+[   3.992][e][ffmpeg/video] h264: mmco: unref short failure
+[   3.992][e][ffmpeg/video] h264: mmco: unref short failure
+[   3.994][w][vd] Error while decoding frame (hardware decoding)!
+[   3.996][w][vd] Error while decoding frame (hardware decoding)!
+[   3.998][w][vd] Attempting next decoding method after failure of h264-videotoolbox.
+[   3.998][d][vd] Skipping previously attempted hwdec: h264-videotoolbox
+[   3.998][v][vd] Looking at hwdec h264-videotoolbox-copy...
+[   3.998][v][vd] Trying hardware decoding via h264-videotoolbox-copy.
+[   3.998][v][vd] Requesting 4 threads for decoding.
+[   3.998][v][vd] Pixel formats supported by decoder: videotoolbox_vld yuv420p
+[   3.998][v][vd] Codec profile: High (0x64)
+[   3.998][v][vd] Requesting pixfmt 'videotoolbox_vld' from decoder.
+[   4.000][d][ffmpeg/video] h264: Reinit context to 416x720, pix_fmt: videotoolbox_vld
+[   4.001][w][ffmpeg/video] h264: vt decoder cb: output image buffer is null: -12909, reconfig 1
+[   4.001][e][ffmpeg/video] h264: hardware accelerator failed to decode picture
+[   4.001][d][ffmpeg/video] h264: VideoToolbox decoder needs reconfig, restarting..
+[   4.001][e][ffmpeg/video] h264: mmco: unref short failure
+[   4.004][w][ffmpeg/video] h264: vt decoder cb: output image buffer is null: -12909, reconfig 1
+[   4.004][e][ffmpeg/video] h264: hardware accelerator failed to decode picture
+[   4.004][d][ffmpeg/video] h264: VideoToolbox decoder needs reconfig, restarting..
+[   4.006][w][ffmpeg/video] h264: vt decoder cb: output image buffer is null: -12909, reconfig 1
+[   4.006][e][ffmpeg/video] h264: hardware accelerator failed to decode picture
+[   4.006][w][vd] Error while decoding frame (hardware decoding)!
+[   4.006][d][ffmpeg/video] h264: VideoToolbox decoder needs reconfig, restarting..
+[   4.008][w][ffmpeg/video] h264: vt decoder cb: output image buffer is null: -12909, reconfig 1
+[   4.008][e][ffmpeg/video] h264: hardware accelerator failed to decode picture
+[   4.008][w][vd] Error while decoding frame (hardware decoding)!
+[   4.008][d][ffmpeg/video] h264: VideoToolbox decoder needs reconfig, restarting..
+[   4.010][w][ffmpeg/video] h264: vt decoder cb: output image buffer is null: -12909, reconfig 1
+[   4.010][e][ffmpeg/video] h264: hardware accelerator failed to decode picture
+[   4.010][w][vd] Error while decoding frame (hardware decoding)!
+[   4.010][d][ffmpeg/video] h264: VideoToolbox decoder needs reconfig, restarting..
+[   4.012][w][ffmpeg/video] h264: vt decoder cb: output image buffer is null: -12909, reconfig 1
+[   4.012][e][ffmpeg/video] h264: hardware accelerator failed to decode picture
+[   4.013][w][vd] Attempting next decoding method after failure of h264-videotoolbox-copy.
+[   4.013][d][vd] Skipping previously attempted hwdec: h264-videotoolbox
+[   4.013][d][vd] Skipping previously attempted hwdec: h264-videotoolbox-copy
+[   4.013][v][vd] Using software decoding.
+[   4.013][v][vd] Detected 11 logical cores.
+[   4.013][v][vd] Requesting 12 threads for decoding.
+[   4.013][d][ffmpeg/video] h264: Reinit context to 416x720, pix_fmt: yuv420p
+[   4.013][d][vd] DR parameter change to 416x738 yuv420p align=64
+[   4.013][d][vd] Allocating new (host-cached) DR image...
+[   4.013][d][vd] ...failed..
+[   4.013][v][vd] DR failed - disabling.
+[   4.013][e][ffmpeg/video] h264: mmco: unref short failure
+[   4.019][v][vd] Decoder format: 408x720 [135:136] yuv420p auto/auto/auto/auto/auto CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   4.020][v][vf] [in] 408x720 [135:136] yuv420p bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   4.020][v][vf] [userdeint] 408x720 [135:136] yuv420p bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   4.020][v][vf] [autovflip] 408x720 [135:136] yuv420p bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   4.020][v][vf] [autorotate] 408x720 [135:136] yuv420p bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   4.020][v][vf] [convert] 408x720 [135:136] yuv420p bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   4.020][v][autoconvert] Sub-filter requires draining but we must destroy it now.
+[   4.020][v][convert] dropping frame due to pin disconnect
+[   4.020][v][vf] [convert] (disabled)
+[   4.020][v][vf] [out] 408x720 [135:136] yuv420p bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   4.020][i][cplayer] VO: [libmpv] 408x720 => 408x725 yuv420p
+[   4.020][v][cplayer] VO: Description: render API for libmpv
+[   4.020][v][vo/libmpv] reconfig to 408x720 [135:136] yuv420p bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   4.225][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[   4.225][v][cplayer] first video frame after restart shown
+[   4.226][e][ffmpeg/audio] aac: Prediction is not allowed in AAC-LC.
+[   4.226][e][ad] Error decoding audio.
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.226][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.227][v][libmpv_render] Window size: 1936x1120 (Borders: l=0 t=0 r=0 b=0)
+[   4.227][v][libmpv_render] Video source: 408x720 (135:136)
+[   4.227][v][libmpv_render] Video display: (0, 0) 408x720 -> (653, 0) 630x1120
+[   4.227][v][libmpv_render] Video scale: 1.544118/1.555556
+[   4.227][v][libmpv_render] OSD borders: l=653 t=0 r=653 b=0
+[   4.227][v][libmpv_render] Video borders: l=653 t=0 r=653 b=0
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.227][v][libmpv_render] Texture for plane 0: 408x720
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.227][v][libmpv_render] Texture for plane 1: 204x360
+[   4.227][v][libmpv_render] Texture for plane 2: 204x360
+[   4.227][v][libmpv_render] Testing FBO format rgba16f
+[   4.227][d][libmpv_render] Resizing texture: 16x16
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.227][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.227][v][cplayer] audio ready
+[   4.227][d][cplayer] starting video playback
+[   4.227][v][cplayer] starting audio playback
+[   4.227][v][cplayer] playback restart complete @ 108.847578, audio=playing, video=playing
+[   4.228][v][libmpv_render] Using FBO format rgba16f.
+[   4.229][d][libmpv_render] Resizing texture: 204x360
+[   4.229][d][libmpv_render] vertex shader source:
+[   4.229][d][libmpv_render] [  1] #version 410
+[   4.229][d][libmpv_render] [  2] #define tex1D texture
+[   4.229][d][libmpv_render] [  3] #define tex3D texture
+[   4.229][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   4.229][d][libmpv_render] [  5] in vec2 vertex_position;
+[   4.229][d][libmpv_render] [  6] in vec2 vertex_texcoord0;
+[   4.229][d][libmpv_render] [  7] out vec2 texcoord0;
+[   4.229][d][libmpv_render] [  8] in vec2 vertex_texcoord1;
+[   4.229][d][libmpv_render] [  9] out vec2 texcoord1;
+[   4.230][d][libmpv_render] [ 10] void main() {
+[   4.230][d][libmpv_render] [ 11] gl_Position = vec4(vertex_position, 1.0, 1.0);
+[   4.230][d][libmpv_render] [ 12] texcoord0 = vertex_texcoord0;
+[   4.230][d][libmpv_render] [ 13] texcoord1 = vertex_texcoord1;
+[   4.230][d][libmpv_render] [ 14] }
+[   4.230][d][libmpv_render] fragment shader source:
+[   4.230][d][libmpv_render] [  1] #version 410
+[   4.230][d][libmpv_render] [  2] #define tex1D texture
+[   4.230][d][libmpv_render] [  3] #define tex3D texture
+[   4.230][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   4.230][d][libmpv_render] [  5] out vec4 out_color;
+[   4.230][d][libmpv_render] [  6] in vec2 texcoord0;
+[   4.230][d][libmpv_render] [  7] in vec2 texcoord1;
+[   4.230][d][libmpv_render] [  8] uniform sampler2D texture0;
+[   4.230][d][libmpv_render] [  9] uniform vec2 texture_size0;
+[   4.230][d][libmpv_render] [ 10] uniform mat2 texture_rot0;
+[   4.230][d][libmpv_render] [ 11] uniform vec2 texture_off0;
+[   4.230][d][libmpv_render] [ 12] uniform vec2 pixel_size0;
+[   4.230][d][libmpv_render] [ 13] uniform sampler2D texture1;
+[   4.230][d][libmpv_render] [ 14] uniform vec2 texture_size1;
+[   4.230][d][libmpv_render] [ 15] uniform mat2 texture_rot1;
+[   4.230][d][libmpv_render] [ 16] uniform vec2 texture_off1;
+[   4.230][d][libmpv_render] [ 17] uniform vec2 pixel_size1;
+[   4.230][d][libmpv_render] [ 18] void main() {
+[   4.230][d][libmpv_render] [ 19] vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+[   4.230][d][libmpv_render] [ 20] // merging plane 1 ...
+[   4.230][d][libmpv_render] [ 21] color.r = 1.000000 * vec4(texture(texture0, texcoord0)).r;
+[   4.230][d][libmpv_render] [ 22] // merging plane 2 ... into 1
+[   4.230][d][libmpv_render] [ 23] color.g = 1.000000 * vec4(texture(texture1, texcoord1)).r;
+[   4.230][d][libmpv_render] [ 24] out_color = color;
+[   4.230][d][libmpv_render] [ 25] }
+[   4.231][d][libmpv_render] shader link log (status=1): 
+[   4.234][d][libmpv_render] Resizing texture: 204x720
+[   4.234][d][libmpv_render] vertex shader source:
+[   4.234][d][libmpv_render] [  1] #version 410
+[   4.234][d][libmpv_render] [  2] #define tex1D texture
+[   4.234][d][libmpv_render] [  3] #define tex3D texture
+[   4.234][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   4.234][d][libmpv_render] [  5] in vec2 vertex_position;
+[   4.234][d][libmpv_render] [  6] in vec2 vertex_texcoord0;
+[   4.234][d][libmpv_render] [  7] out vec2 texcoord0;
+[   4.234][d][libmpv_render] [  8] void main() {
+[   4.234][d][libmpv_render] [  9] gl_Position = vec4(vertex_position, 1.0, 1.0);
+[   4.234][d][libmpv_render] [ 10] texcoord0 = vertex_texcoord0;
+[   4.234][d][libmpv_render] [ 11] }
+[   4.235][d][libmpv_render] fragment shader source:
+[   4.235][d][libmpv_render] [  1] #version 410
+[   4.235][d][libmpv_render] [  2] #define tex1D texture
+[   4.235][d][libmpv_render] [  3] #define tex3D texture
+[   4.235][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   4.235][d][libmpv_render] [  5] out vec4 out_color;
+[   4.235][d][libmpv_render] [  6] in vec2 texcoord0;
+[   4.235][d][libmpv_render] [  7] uniform sampler2D lut;
+[   4.235][d][libmpv_render] [  8] uniform sampler2D texture0;
+[   4.235][d][libmpv_render] [  9] uniform vec2 texture_size0;
+[   4.235][d][libmpv_render] [ 10] uniform mat2 texture_rot0;
+[   4.235][d][libmpv_render] [ 11] uniform vec2 texture_off0;
+[   4.235][d][libmpv_render] [ 12] uniform vec2 pixel_size0;
+[   4.235][d][libmpv_render] [ 13] void main() {
+[   4.235][d][libmpv_render] [ 14] vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+[   4.235][d][libmpv_render] [ 15] // upscaling plane 1
+[   4.235][d][libmpv_render] [ 16] #undef tex
+[   4.235][d][libmpv_render] [ 17] #undef texmap
+[   4.235][d][libmpv_render] [ 18] #define tex texture0
+[   4.235][d][libmpv_render] [ 19] #define texmap texmap0
+[   4.235][d][libmpv_render] [ 20] vec2 pos = texcoord0;
+[   4.235][d][libmpv_render] [ 21] vec2 size = texture_size0;
+[   4.235][d][libmpv_render] [ 22] vec2 pt = pixel_size0;
+[   4.235][d][libmpv_render] [ 23] // first pass
+[   4.235][d][libmpv_render] [ 24] color = vec4(0.0);
+[   4.235][d][libmpv_render] [ 25] {
+[   4.235][d][libmpv_render] [ 26] vec2 dir = vec2(0.0, 1.0);
+[   4.235][d][libmpv_render] [ 27] pt *= dir;
+[   4.235][d][libmpv_render] [ 28] float fcoord = dot(fract(pos * size - vec2(0.5)), dir);
+[   4.235][d][libmpv_render] [ 29] vec2 base = pos - fcoord * pt - pt * vec2(2.0);
+[   4.235][d][libmpv_render] [ 30] vec4 c;
+[   4.235][d][libmpv_render] [ 31] float ypos = LUT_POS(fcoord, 256.0);
+[   4.235][d][libmpv_render] [ 32] float weights[6];
+[   4.235][d][libmpv_render] [ 33] c = texture(lut, vec2(0.250000, ypos));
+[   4.235][d][libmpv_render] [ 34] weights[0] = c[0];
+[   4.235][d][libmpv_render] [ 35] weights[1] = c[1];
+[   4.235][d][libmpv_render] [ 36] weights[2] = c[2];
+[   4.235][d][libmpv_render] [ 37] weights[3] = c[3];
+[   4.235][d][libmpv_render] [ 38] c = texture(lut, vec2(0.750000, ypos));
+[   4.235][d][libmpv_render] [ 39] weights[4] = c[0];
+[   4.235][d][libmpv_render] [ 40] weights[5] = c[1];
+[   4.235][d][libmpv_render] [ 41] // scaler samples
+[   4.235][d][libmpv_render] [ 42] c = texture(tex, base + pt * vec2(0.0));
+[   4.235][d][libmpv_render] [ 43] color += vec4(weights[0]) * c;
+[   4.235][d][libmpv_render] [ 44] c = texture(tex, base + pt * vec2(1.0));
+[   4.235][d][libmpv_render] [ 45] color += vec4(weights[1]) * c;
+[   4.235][d][libmpv_render] [ 46] c = texture(tex, base + pt * vec2(2.0));
+[   4.236][d][libmpv_render] [ 47] color += vec4(weights[2]) * c;
+[   4.236][d][libmpv_render] [ 48] c = texture(tex, base + pt * vec2(3.0));
+[   4.236][d][libmpv_render] [ 49] color += vec4(weights[3]) * c;
+[   4.236][d][libmpv_render] [ 50] c = texture(tex, base + pt * vec2(4.0));
+[   4.236][d][libmpv_render] [ 51] color += vec4(weights[4]) * c;
+[   4.236][d][libmpv_render] [ 52] c = texture(tex, base + pt * vec2(5.0));
+[   4.236][d][libmpv_render] [ 53] color += vec4(weights[5]) * c;
+[   4.236][d][libmpv_render] [ 54] }
+[   4.236][d][libmpv_render] [ 55] color *= 1.000000;
+[   4.236][d][libmpv_render] [ 56] out_color = color;
+[   4.236][d][libmpv_render] [ 57] }
+[   4.236][d][libmpv_render] shader link log (status=1): 
+[   4.237][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.237][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.238][d][libmpv_render] Resizing texture: 408x720
+[   4.239][d][libmpv_render] Resizing texture: 408x720
+[   4.239][d][libmpv_render] vertex shader source:
+[   4.239][d][libmpv_render] [  1] #version 410
+[   4.239][d][libmpv_render] [  2] #define tex1D texture
+[   4.239][d][libmpv_render] [  3] #define tex3D texture
+[   4.239][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   4.239][d][libmpv_render] [  5] in vec2 vertex_position;
+[   4.239][d][libmpv_render] [  6] in vec2 vertex_texcoord0;
+[   4.239][d][libmpv_render] [  7] out vec2 texcoord0;
+[   4.239][d][libmpv_render] [  8] in vec2 vertex_texcoord1;
+[   4.239][d][libmpv_render] [  9] out vec2 texcoord1;
+[   4.239][d][libmpv_render] [ 10] void main() {
+[   4.239][d][libmpv_render] [ 11] gl_Position = vec4(vertex_position, 1.0, 1.0);
+[   4.239][d][libmpv_render] [ 12] texcoord0 = vertex_texcoord0;
+[   4.239][d][libmpv_render] [ 13] texcoord1 = vertex_texcoord1;
+[   4.239][d][libmpv_render] [ 14] }
+[   4.240][d][libmpv_render] fragment shader source:
+[   4.240][d][libmpv_render] [  1] #version 410
+[   4.240][d][libmpv_render] [  2] #define tex1D texture
+[   4.240][d][libmpv_render] [  3] #define tex3D texture
+[   4.240][d][libmpv_render] [  4] #define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+[   4.240][d][libmpv_render] [  5] out vec4 out_color;
+[   4.240][d][libmpv_render] [  6] in vec2 texcoord0;
+[   4.240][d][libmpv_render] [  7] in vec2 texcoord1;
+[   4.240][d][libmpv_render] [  8] uniform mat3 colormatrix;
+[   4.240][d][libmpv_render] [  9] uniform vec3 colormatrix_c;
+[   4.240][d][libmpv_render] [ 10] uniform sampler2D texture0;
+[   4.240][d][libmpv_render] [ 11] uniform vec2 texture_size0;
+[   4.240][d][libmpv_render] [ 12] uniform mat2 texture_rot0;
+[   4.240][d][libmpv_render] [ 13] uniform vec2 texture_off0;
+[   4.240][d][libmpv_render] [ 14] uniform vec2 pixel_size0;
+[   4.240][d][libmpv_render] [ 15] uniform sampler2D texture1;
+[   4.240][d][libmpv_render] [ 16] uniform vec2 texture_size1;
+[   4.240][d][libmpv_render] [ 17] uniform mat2 texture_rot1;
+[   4.240][d][libmpv_render] [ 18] uniform vec2 texture_off1;
+[   4.240][d][libmpv_render] [ 19] uniform vec2 pixel_size1;
+[   4.240][d][libmpv_render] [ 20] void main() {
+[   4.240][d][libmpv_render] [ 21] vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+[   4.240][d][libmpv_render] [ 22] color.r = 1.000000 * vec4(texture(texture0, texcoord0)).r;
+[   4.240][d][libmpv_render] [ 23] color.gb = 1.000000 * vec4(texture(texture1, texcoord1)).rg;
+[   4.240][d][libmpv_render] [ 24] color = color.rgbr;
+[   4.240][d][libmpv_render] [ 25] color.rgb = mat3(colormatrix) * color.rgb + colormatrix_c;
+[   4.240][d][libmpv_render] [ 26] color.a = 1.0;
+[   4.240][d][libmpv_render] [ 27] // scaler pre-conversion
+[   4.240][d][libmpv_render] [ 28] // linearize
+[   4.240][d][libmpv_render] [ 29] color.rgb = clamp(color.rgb, 0.0, 1.0);
+[   4.240][d][libmpv_render] [ 30] color.rgb = pow(color.rgb, vec3(2.4));
+[   4.240][d][libmpv_render] [ 31] color.rgb *= vec3(1.0/1.000000);
+[   4.240][d][libmpv_render] [ 32] color.rgb = clamp(color.rgb, 0.0, 1.0);
+[   4.240][d][libmpv_render] [ 33] color.rgb = 0.750000 - log(1.0/(color.rgb * 0.827906 + 0.007577) - 1.0) * 1.0/6.500000;
+[   4.240][d][libmpv_render] [ 34] // main scaling
+[   4.240][d][libmpv_render] [ 35] out_color = color;
+[   4.240][d][libmpv_render] [ 36] }
+[   4.241][d][libmpv_render] shader link log (status=1): 
+[   4.242][d][libmpv_render] Resizing texture: 408x1120
+[   4.243][v][libmpv_render] Dither to 8.
+[   4.260][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.260][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.283][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.283][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.306][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.306][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.329][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.329][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.352][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.352][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.376][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.376][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.399][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.399][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.422][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.423][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.427][d][cplayer] Run command: seek, flags=73, args=[target="126.300000", flags="absolute", legacy="unused"]
+[   4.427][v][lavf] queuing seek to 126.401000
+[   4.427][v][lavf] execute seek (to 126.401000 flags 32)
+[   4.427][v][file] stream level seek from 6901740 to 7557600
+[   4.427][v][cplayer] hr-seek, skipping to 126.300000
+[   4.443][d][libmpv_render] Resizing texture: 1936x1120
+[   4.451][v][lavf] seek done
+[   4.452][d][ffmpeg/video] h264: Reinit context to 416x720, pix_fmt: yuv420p
+[   4.452][e][ffmpeg/video] h264: co located POCs unavailable
+[   4.452][e][ffmpeg/video] h264: mmco: unref short failure
+[   4.467][v][vd] Decoder format: 408x720 [135:136] yuv420p auto/auto/auto/auto/auto CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   4.467][v][cplayer] first video frame after restart shown
+[   4.467][e][ffmpeg/audio] aac: Number of bands (57) exceeds limit (45).
+[   4.467][e][ad] Error decoding audio.
+[   4.467][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.467][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.467][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.467][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.467][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.467][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.467][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.467][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.468][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.469][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.470][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.471][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.471][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.471][v][cplayer] audio ready
+[   4.471][d][cplayer] starting video playback
+[   4.471][v][cplayer] starting audio playback
+[   4.471][v][cplayer] playback restart complete @ 129.693222, audio=playing, video=playing
+[   4.480][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.480][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.503][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.503][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.527][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.527][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.550][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.550][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.573][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.573][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.596][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.596][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.619][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.619][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.643][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.643][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.666][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.666][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.689][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.689][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.712][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.712][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.736][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.736][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.759][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.759][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.782][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.782][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.805][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.805][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.828][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.829][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.852][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.852][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.875][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.875][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.898][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.898][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.921][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.921][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.945][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.945][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.968][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.968][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   4.991][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   4.991][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   5.014][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   5.014][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   5.037][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   5.037][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   5.061][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   5.061][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   5.084][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   5.084][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   5.107][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   5.107][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   5.130][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   5.130][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   5.154][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   5.154][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   5.177][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   5.177][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   5.200][d][ffmpeg/audio] aac: ChannelElement 0.0 missing 
+[   5.200][d][ffmpeg/audio] aac: ChannelElement 0.1 missing 
+[   5.214][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[   5.214][v][cplayer] EOF code: 4  
+[   5.214][d][ad] Uninit decoder.
+[   5.214][d][vd] Uninit decoder.
+[   5.215][d][cplayer] Terminating demuxers...
+[   5.215][d][cplayer] Done terminating demuxers.
+[   5.215][v][cplayer] finished playback, success (reason 2)
+[   5.215][v][cplayer] Running hook: ytdl_hook/on_after_end_file
+[   5.226][d][cplayer] Run command: del, flags=64, args=[name="user-data/mpv/ytdl/json-subprocess-result"]
+[   5.432][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[   5.432][d][cplayer] Run command: loadfile, flags=73, args=[url="/Volumes/RISHI_HDD/filtering/HDD_EXISTING/drives-28-march/formymovies21/cheating/1/cheating/2.mkv", flags="replace", index="-1", options=""]
+[   5.432][v][cplayer] Set property: volume=0.000000 -> 1
+[   5.432][v][cplayer] Set property: mute=true -> 1
+[   5.433][d][global] state path: 'watch_later' -> '-'
+[   5.433][v][cplayer] Running hook: ytdl_hook/on_load
+[   5.433][v][cplayer] Running hook: ytdl_hook/on_load
+[   5.433][v][ytdl_hook] playlist hook
+[   5.433][v][bdmv/bluray] Opening /Volumes/RISHI_HDD/filtering/HDD_EXISTING/drives-28-march/formymovies21/cheating/1/cheating/2.mkv
+[   5.434][v][file] Opening /Volumes/RISHI_HDD/filtering/HDD_EXISTING/drives-28-march/formymovies21/cheating/1/cheating/2.mkv
+[   5.435][d][file] resize stream to 131072 bytes, drop 0 bytes
+[   5.435][d][file] Stream opened successfully.
+[   5.435][v][demux] Trying demuxers for level=normal.
+[   5.435][d][demux] Trying demuxer: directory (force-level: normal)
+[   5.435][d][demux] Trying demuxer: disc (force-level: normal)
+[   5.435][d][demux] Trying demuxer: edl (force-level: normal)
+[   5.435][d][demux] Trying demuxer: cue (force-level: normal)
+[   5.435][d][demux] Trying demuxer: rawaudio (force-level: normal)
+[   5.435][d][demux] Trying demuxer: rawvideo (force-level: normal)
+[   5.435][d][demux] Trying demuxer: mkv (force-level: normal)
+[   5.435][d][demux] Trying demuxer: libarchive (force-level: normal)
+[   5.435][d][demux] Trying demuxer: lavf (force-level: normal)
+[   5.436][v][lavf] Found 'mpegts' at score=50 size=2048.
+[   5.436][d][ffmpeg/demuxer] mpegts: parser not found for codec timed_id3, packets or times may be invalid.
+[   5.436][d][ffmpeg/video] h264: Reinit context to 1280x720, pix_fmt: yuv420p
+[   5.444][w][ffmpeg/demuxer] mpegts: start time for stream 2 is not set in estimate_timings_from_pts
+[   5.444][v][file] stream level seek from 131072 to 17604736
+[   5.444][v][file] stream level seek from 17854736 to 0
+[   5.444][v][lavf] avformat_find_stream_info() finished after 0 bytes.
+[   5.444][v][demux] Detected file format: mpegts (libavformat)
+[   5.444][v][cplayer] Opening done: /Volumes/RISHI_HDD/filtering/HDD_EXISTING/drives-28-march/formymovies21/cheating/1/cheating/2.mkv
+[   5.445][v][find_files] Loading external files in /Volumes/RISHI_HDD/filtering/HDD_EXISTING/drives-28-march/formymovies21/cheating/1/cheating/
+[   5.446][v][cplayer] Running hook: ytdl_hook/on_preloaded
+[   5.446][v][lavf] select track 0
+[   5.446][v][lavf] select track 1
+[   5.446][i][cplayer] ● Video  --vid=1  (h264 1280x720 30 fps)
+[   5.446][i][cplayer] ● Audio  --aid=1  (aac 2ch 44100 Hz 50 kbps)
+[   5.446][v][vd] Container reported FPS: 30.000000
+[   5.446][v][vd] Codec list:
+[   5.447][v][vd]     h264 - H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10
+[   5.447][v][vd] Opening decoder h264
+[   5.447][v][vd] Looking at hwdec h264-videotoolbox...
+[   5.447][v][vd] Trying hardware decoding via h264-videotoolbox.
+[   5.447][v][vd] Requesting 4 threads for decoding.
+[   5.447][v][vd] Selected decoder: h264 - H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10
+[   5.447][v][vf] User filter list:
+[   5.447][v][vf]   (empty)
+[   5.447][v][ad] Codec list:
+[   5.447][v][ad]     aac - AAC (Advanced Audio Coding)
+[   5.447][v][ad]     aac_fixed (aac) - AAC (Advanced Audio Coding)
+[   5.447][v][ad]     aac_at (aac) - aac (AudioToolbox)
+[   5.447][v][ad] Opening decoder aac
+[   5.447][v][ad] Requesting 1 threads for decoding.
+[   5.448][v][ad] Selected decoder: aac - AAC (Advanced Audio Coding)
+[   5.448][v][af] User filter list:
+[   5.448][v][af]   (empty)
+[   5.448][v][cplayer] Starting playback...
+[   5.448][v][vd] Pixel formats supported by decoder: videotoolbox_vld yuv420p
+[   5.448][v][vd] Codec profile: High (0x64)
+[   5.448][v][vd] Requesting pixfmt 'videotoolbox_vld' from decoder.
+[   5.450][d][ffmpeg/video] h264: Reinit context to 1280x720, pix_fmt: videotoolbox_vld
+[   5.468][i][vd] Using hardware decoding (videotoolbox).
+[   5.468][v][vd] Decoder format: 1280x720 videotoolbox[nv12] auto/auto/auto/auto/auto CL=mpeg2/4/h264 crop=1280x720+0+0 A=none
+[   5.468][v][vf] [in] 1280x720 videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=1280x720+0+0 A=none
+[   5.468][v][vf] [userdeint] 1280x720 videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=1280x720+0+0 A=none
+[   5.468][v][vf] [userdeint] (disabled)
+[   5.468][v][vf] [autovflip] 1280x720 videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=1280x720+0+0 A=none
+[   5.468][v][vf] [autovflip] (disabled)
+[   5.468][v][vf] [autorotate] 1280x720 videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=1280x720+0+0 A=none
+[   5.468][v][vf] [autorotate] (disabled)
+[   5.468][v][vf] [convert] 1280x720 videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=1280x720+0+0 A=none
+[   5.468][d][hwupload] looking at format videotoolbox/nv12
+[   5.468][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   5.468][d][hwupload] looking at format videotoolbox/ayuv
+[   5.468][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   5.468][d][hwupload] looking at format videotoolbox/ayuv64
+[   5.468][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   5.468][d][hwupload] looking at format videotoolbox/yuv420p
+[   5.468][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   5.468][d][hwupload] looking at format videotoolbox/uyvy422
+[   5.468][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   5.468][d][hwupload] looking at format videotoolbox/p010
+[   5.468][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   5.468][d][hwupload] looking at format videotoolbox/nv16
+[   5.468][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   5.468][d][hwupload] looking at format videotoolbox/p210
+[   5.468][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   5.468][d][hwupload] looking at format videotoolbox/p216
+[   5.468][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   5.468][d][hwupload] looking at format videotoolbox/nv24
+[   5.468][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   5.468][d][hwupload] looking at format videotoolbox/p410
+[   5.468][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   5.468][d][hwupload] looking at format videotoolbox/p416
+[   5.468][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   5.468][d][hwupload] looking at format videotoolbox/bgra
+[   5.468][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   5.468][v][vf] [out] 1280x720 videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=1280x720+0+0 A=none
+[   5.468][v][af] [in] 44100Hz stereo 2ch floatp
+[   5.468][v][af] [userspeed] 44100Hz stereo 2ch floatp
+[   5.468][v][af] [userspeed] (disabled)
+[   5.468][v][af] [convert] 44100Hz stereo 2ch floatp
+[   5.468][v][ao] Trying audio driver 'coreaudio'
+[   5.468][v][ao/coreaudio] requested format: 44100 Hz, stereo channels, floatp
+[   5.468][v][ao/coreaudio] selected audio output device: External Headphones (84)
+[   5.469][v][libmpv_render] Window size: 1936x1120 (Borders: l=0 t=0 r=0 b=0)
+[   5.469][v][libmpv_render] Video source: 0x0 (0:0)
+[   5.469][v][libmpv_render] Video display: (0, 0) 1x1 -> (0, 559) 1936x1
+[   5.469][v][libmpv_render] Video scale: 1936.000000/1.000000
+[   5.469][v][libmpv_render] OSD borders: l=0 t=559 r=0 b=560
+[   5.469][v][libmpv_render] Video borders: l=0 t=559 r=0 b=560
+[   5.469][v][ao/coreaudio] input channel layout:
+[   5.469][v][ao/coreaudio] audio channel layout: tag: <0>, descriptions <2>
+[   5.469][v][ao/coreaudio]  - description 0: label <4294967295, 64>,  flags: <0>
+[   5.469][v][ao/coreaudio]  - description 1: label <4294967295, 64>,  flags: <0>
+[   5.469][v][ao/coreaudio] mp chmap: unknown2
+[   5.469][v][ao/coreaudio] input channel layout:
+[   5.469][v][ao/coreaudio] audio channel layout: tag: <0>, descriptions <2>
+[   5.469][v][ao/coreaudio]  - description 0: label <1, 0>,  flags: <0>
+[   5.469][v][ao/coreaudio]  - description 1: label <2, 1>,  flags: <0>
+[   5.469][v][ao/coreaudio] mp chmap: stereo
+[   5.469][v][ao/coreaudio] Channel layouts:
+[   5.469][v][ao/coreaudio]  - stereo
+[   5.469][v][ao/coreaudio]  - mono
+[   5.469][v][ao/coreaudio] result: stereo
+[   5.469][v][ao/coreaudio] audio channel layout: tag: <6619138>
+[   5.471][v][ao/coreaudio] Latency property cntl: 70 frames
+[   5.471][v][ao/coreaudio] Latency property zisf: 512 frames
+[   5.471][v][ao/coreaudio] Latency property tfas: 74 frames
+[   5.471][v][ao/coreaudio] Device sample rate: 44100.000000
+[   5.471][v][ao/coreaudio] audiounit latency [ns]: 0
+[   5.471][v][ao/coreaudio] device latency [ns]: 14875283
+[   5.471][v][ao/coreaudio] device buffer: 1312 samples.
+[   5.471][v][ao/coreaudio] using soft-buffer of 8820 samples.
+[   5.471][i][cplayer] AO: [coreaudio] 44100Hz stereo 2ch floatp
+[   5.471][v][cplayer] AO: Description: CoreAudio AudioUnit
+[   5.471][v][af] [convert] (disabled)
+[   5.471][v][af] [out] 44100Hz stereo 2ch floatp
+[   5.474][i][cplayer] VO: [libmpv] 1280x720 videotoolbox[nv12]
+[   5.474][v][cplayer] VO: Description: render API for libmpv
+[   5.474][v][vo/libmpv] reconfig to 1280x720 videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=1280x720+0+0 A=none
+[   5.675][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[   5.675][v][cplayer] first video frame after restart shown
+[   5.880][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[   5.882][v][cplayer] audio ready
+[   5.882][d][cplayer] starting video playback
+[   5.882][v][cplayer] starting audio playback
+[   5.882][v][libmpv_render] Window size: 1936x1120 (Borders: l=0 t=0 r=0 b=0)
+[   5.882][v][libmpv_render] Video source: 1280x720 (1:1)
+[   5.882][v][libmpv_render] Video display: (0, 0) 1280x720 -> (0, 15) 1936x1089
+[   5.882][v][libmpv_render] Video scale: 1.512500/1.512500
+[   5.882][v][libmpv_render] OSD borders: l=0 t=15 r=0 b=16
+[   5.882][v][libmpv_render] Video borders: l=0 t=15 r=0 b=16
+[   5.882][v][libmpv_render] Testing FBO format rgba16f
+[   5.882][d][libmpv_render] Resizing texture: 16x16
+[   5.882][v][libmpv_render] Using FBO format rgba16f.
+[   5.887][d][libmpv_render] Resizing texture: 640x720
+[   5.888][d][libmpv_render] Resizing texture: 1280x720
+[   5.888][v][cplayer] playback restart complete @ 0.066667, audio=playing, video=playing
+[   5.888][d][libmpv_render] Resizing texture: 1280x720
+[   5.889][d][libmpv_render] Resizing texture: 1280x1089
+[   5.890][d][libmpv_render] Resizing texture: 1936x1120
+[   5.890][v][libmpv_render] Dither to 8.
+[   6.128][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[   6.128][w][cplayer] Audio device underrun detected.
+[   6.135][v][cplayer] restarting audio after underrun
+[   7.399][d][cplayer] Run command: seek, flags=73, args=[target="34.100000", flags="absolute", legacy="unused"]
+[   7.399][v][lavf] queuing seek to 34.201000
+[   7.399][v][lavf] execute seek (to 34.201000 flags 32)
+[   7.399][v][file] stream level seek from 458752 to 0
+[   7.400][v][file] stream level seek from 131072 to 17853796
+[   7.400][v][file] stream level seek from 17854736 to 17851728
+[   7.400][v][file] stream level seek from 17854736 to 17847592
+[   7.400][v][file] stream level seek from 17854736 to 4386228
+[   7.402][v][libmpv_render] Reallocating OSD texture to 2048x128.
+[   7.403][v][cplayer] hr-seek, skipping to 34.100000
+[   7.419][v][file] stream level seek from 4517300 to 4201048
+[   7.449][v][file] stream level seek from 4332120 to 4184504
+[   7.450][v][file] stream level seek from 4315576 to 4168120
+[   7.451][v][file] stream level seek from 4299192 to 2090184
+[   7.464][v][file] stream level seek from 2221256 to 4179804
+[   7.464][v][file] stream level seek from 4310876 to 3136216
+[   7.473][v][file] stream level seek from 3267288 to 4179616
+[   7.473][v][file] stream level seek from 4310688 to 3658104
+[   7.477][v][file] stream level seek from 3789176 to 4179428
+[   7.477][v][file] stream level seek from 4310500 to 3920364
+[   7.484][v][file] stream level seek from 4248044 to 4050460
+[   7.484][v][file] stream level seek from 4247068 to 4115696
+[   7.484][v][lavf] seek done
+[   7.485][d][ffmpeg/video] h264: Reinit context to 1280x720, pix_fmt: videotoolbox_vld
+[   7.485][e][ffmpeg/video] h264: co located POCs unavailable
+[   7.485][e][ffmpeg/video] h264: mmco: unref short failure
+[   7.490][e][ffmpeg/video] h264: co located POCs unavailable
+[   7.521][v][vd] Decoder format: 1280x720 videotoolbox[nv12] auto/auto/auto/auto/auto CL=mpeg2/4/h264 crop=1280x720+0+0 A=none
+[   7.725][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[   7.725][v][cplayer] first video frame after restart shown
+[   7.726][v][cplayer] audio ready
+[   7.727][d][cplayer] starting video playback
+[   7.727][v][cplayer] starting audio playback
+[   7.727][v][cplayer] playback restart complete @ 34.668356, audio=playing, video=playing
+[   8.097][d][cplayer] Run command: seek, flags=73, args=[target="64.300000", flags="absolute", legacy="unused"]
+[   8.097][v][lavf] queuing seek to 64.401000
+[   8.097][v][lavf] execute seek (to 64.401000 flags 32)
+[   8.097][v][file] stream level seek from 4574448 to 8132692
+[   8.101][v][cplayer] hr-seek, skipping to 64.300000
+[   8.127][v][file] stream level seek from 8263764 to 7767408
+[   8.135][v][file] stream level seek from 7898480 to 7712888
+[   8.137][v][file] stream level seek from 7843960 to 7685628
+[   8.138][v][file] stream level seek from 7816700 to 7669244
+[   8.139][v][file] stream level seek from 7800316 to 6037056
+[   8.154][v][file] stream level seek from 6168128 to 7684876
+[   8.154][v][file] stream level seek from 7815948 to 6863692
+[   8.161][v][file] stream level seek from 6994764 to 7684688
+[   8.161][v][file] stream level seek from 7815760 to 7274284
+[   8.163][v][libmpv_render] Reallocating OSD texture to 2048x256.
+[   8.165][v][file] stream level seek from 7405356 to 7684312
+[   8.165][v][file] stream level seek from 7815384 to 7479580
+[   8.170][v][file] stream level seek from 7741724 to 7582040
+[   8.170][v][lavf] seek done
+[   8.170][d][ffmpeg/video] h264: Reinit context to 1280x720, pix_fmt: videotoolbox_vld
+[   8.171][e][ffmpeg/video] h264: co located POCs unavailable
+[   8.171][e][ffmpeg/video] h264: mmco: unref short failure
+[   8.176][e][ffmpeg/video] h264: co located POCs unavailable
+[   8.202][v][vd] Decoder format: 1280x720 videotoolbox[nv12] auto/auto/auto/auto/auto CL=mpeg2/4/h264 crop=1280x720+0+0 A=none
+[   8.408][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[   8.408][v][cplayer] first video frame after restart shown
+[   8.408][e][ffmpeg/audio] aac: ms_present = 3 is reserved.
+[   8.409][e][ad] Error decoding audio.
+[   8.410][v][cplayer] audio ready
+[   8.410][d][cplayer] starting video playback
+[   8.410][v][cplayer] starting audio playback
+[   8.410][v][cplayer] playback restart complete @ 64.769811, audio=playing, video=playing
+[   8.952][d][cplayer] Run command: seek, flags=73, args=[target="111.900000", flags="absolute", legacy="unused"]
+[   8.952][v][lavf] queuing seek to 112.001000
+[   8.952][v][lavf] execute seek (to 112.001000 flags 32)
+[   8.952][v][file] stream level seek from 8106328 to 14190428
+[   8.956][v][cplayer] hr-seek, skipping to 111.900000
+[   8.977][v][file] stream level seek from 14321500 to 13975168
+[   8.981][v][file] stream level seek from 14106240 to 13952608
+[   8.982][v][file] stream level seek from 14083680 to 13936224
+[   8.982][v][file] stream level seek from 14067296 to 11042556
+[   9.007][v][file] stream level seek from 11173628 to 13951292
+[   9.007][v][file] stream level seek from 14082364 to 12501812
+[   9.018][v][file] stream level seek from 12632884 to 13950540
+[   9.019][v][file] stream level seek from 14081612 to 13227492
+[   9.024][v][file] stream level seek from 13358564 to 13949788
+[   9.024][v][file] stream level seek from 14080860 to 13589016
+[   9.028][v][file] stream level seek from 13720088 to 13949224
+[   9.028][v][file] stream level seek from 14080296 to 13769496
+[   9.033][v][lavf] seek done
+[   9.033][d][ffmpeg/video] h264: Reinit context to 1280x720, pix_fmt: videotoolbox_vld
+[   9.036][e][ffmpeg/video] h264: mmco: unref short failure
+[   9.111][v][vd] Decoder format: 1280x720 videotoolbox[nv12] auto/auto/auto/auto/auto CL=mpeg2/4/h264 crop=1280x720+0+0 A=none
+[   9.316][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[   9.520][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[   9.520][v][cplayer] first video frame after restart shown
+[   9.521][e][ffmpeg/audio] aac: skip_data_stream_element: Input buffer exhausted before END element found
+[   9.521][e][ad] Error decoding audio.
+[   9.523][v][cplayer] audio ready
+[   9.524][d][cplayer] starting video playback
+[   9.524][v][cplayer] starting audio playback
+[   9.524][v][cplayer] playback restart complete @ 113.372178, audio=playing, video=playing
+[   9.732][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[   9.733][v][cplayer] EOF code: 4  
+[   9.733][d][ad] Uninit decoder.
+[   9.733][d][vd] Uninit decoder.
+[   9.739][d][cplayer] Terminating demuxers...
+[   9.739][d][cplayer] Done terminating demuxers.
+[   9.740][v][cplayer] finished playback, success (reason 2)
+[   9.740][v][cplayer] Running hook: ytdl_hook/on_after_end_file
+[   9.763][d][cplayer] Run command: del, flags=64, args=[name="user-data/mpv/ytdl/json-subprocess-result"]
+[   9.968][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[   9.968][d][cplayer] Run command: loadfile, flags=73, args=[url="/Volumes/RISHI_HDD/filtering/HDD_EXISTING/drives-28-march/formymovies21/cheating/1/cheating/3.mkv", flags="replace", index="-1", options=""]
+[   9.968][v][cplayer] Set property: volume=0.000000 -> 1
+[   9.968][v][cplayer] Set property: mute=true -> 1
+[   9.968][d][global] state path: 'watch_later' -> '-'
+[   9.968][v][cplayer] Running hook: ytdl_hook/on_load
+[   9.969][v][cplayer] Running hook: ytdl_hook/on_load
+[   9.969][v][ytdl_hook] playlist hook
+[   9.969][v][bdmv/bluray] Opening /Volumes/RISHI_HDD/filtering/HDD_EXISTING/drives-28-march/formymovies21/cheating/1/cheating/3.mkv
+[   9.969][v][file] Opening /Volumes/RISHI_HDD/filtering/HDD_EXISTING/drives-28-march/formymovies21/cheating/1/cheating/3.mkv
+[   9.970][d][file] resize stream to 131072 bytes, drop 0 bytes
+[   9.970][d][file] Stream opened successfully.
+[   9.970][v][demux] Trying demuxers for level=normal.
+[   9.970][d][demux] Trying demuxer: directory (force-level: normal)
+[   9.970][d][demux] Trying demuxer: disc (force-level: normal)
+[   9.970][d][demux] Trying demuxer: edl (force-level: normal)
+[   9.970][d][demux] Trying demuxer: cue (force-level: normal)
+[   9.970][d][demux] Trying demuxer: rawaudio (force-level: normal)
+[   9.970][d][demux] Trying demuxer: rawvideo (force-level: normal)
+[   9.970][d][demux] Trying demuxer: mkv (force-level: normal)
+[   9.970][d][demux] Trying demuxer: libarchive (force-level: normal)
+[   9.970][d][demux] Trying demuxer: lavf (force-level: normal)
+[   9.970][v][lavf] Found 'mpegts' at score=50 size=2048.
+[   9.971][d][ffmpeg/demuxer] mpegts: parser not found for codec timed_id3, packets or times may be invalid.
+[   9.971][d][ffmpeg/video] h264: Reinit context to 416x720, pix_fmt: yuv420p
+[   9.975][w][ffmpeg/demuxer] mpegts: start time for stream 2 is not set in estimate_timings_from_pts
+[   9.975][v][file] stream level seek from 131072 to 17659256
+[   9.975][v][file] stream level seek from 17909256 to 0
+[   9.976][v][lavf] avformat_find_stream_info() finished after 0 bytes.
+[   9.976][v][demux] Detected file format: mpegts (libavformat)
+[   9.976][v][cplayer] Opening done: /Volumes/RISHI_HDD/filtering/HDD_EXISTING/drives-28-march/formymovies21/cheating/1/cheating/3.mkv
+[   9.977][v][find_files] Loading external files in /Volumes/RISHI_HDD/filtering/HDD_EXISTING/drives-28-march/formymovies21/cheating/1/cheating/
+[   9.977][v][cplayer] Running hook: ytdl_hook/on_preloaded
+[   9.977][v][lavf] select track 0
+[   9.977][v][lavf] select track 1
+[   9.977][i][cplayer] ● Video  --vid=1  (h264 408x720 59.9401 fps)
+[   9.977][i][cplayer] ● Audio  --aid=1  (aac 2ch 44100 Hz 51 kbps)
+[   9.978][v][vd] Container reported FPS: 59.940060
+[   9.978][v][vd] Codec list:
+[   9.978][v][vd]     h264 - H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10
+[   9.978][v][vd] Opening decoder h264
+[   9.978][v][vd] Looking at hwdec h264-videotoolbox...
+[   9.978][v][vd] Trying hardware decoding via h264-videotoolbox.
+[   9.978][v][vd] Requesting 4 threads for decoding.
+[   9.978][v][vd] Selected decoder: h264 - H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10
+[   9.978][v][vf] User filter list:
+[   9.978][v][vf]   (empty)
+[   9.978][v][ad] Codec list:
+[   9.978][v][ad]     aac - AAC (Advanced Audio Coding)
+[   9.978][v][ad]     aac_fixed (aac) - AAC (Advanced Audio Coding)
+[   9.978][v][ad]     aac_at (aac) - aac (AudioToolbox)
+[   9.978][v][ad] Opening decoder aac
+[   9.978][v][ad] Requesting 1 threads for decoding.
+[   9.979][v][ad] Selected decoder: aac - AAC (Advanced Audio Coding)
+[   9.979][v][af] User filter list:
+[   9.979][v][af]   (empty)
+[   9.979][v][cplayer] Starting playback...
+[   9.979][v][vd] Pixel formats supported by decoder: videotoolbox_vld yuv420p
+[   9.979][v][vd] Codec profile: High (0x64)
+[   9.979][v][vd] Requesting pixfmt 'videotoolbox_vld' from decoder.
+[   9.980][v][libmpv_render] Window size: 1936x1120 (Borders: l=0 t=0 r=0 b=0)
+[   9.980][v][libmpv_render] Video source: 0x0 (0:0)
+[   9.980][v][libmpv_render] Video display: (0, 0) 1x1 -> (0, 559) 1936x1
+[   9.980][v][libmpv_render] Video scale: 1936.000000/1.000000
+[   9.980][v][libmpv_render] OSD borders: l=0 t=559 r=0 b=560
+[   9.980][v][libmpv_render] Video borders: l=0 t=559 r=0 b=560
+[   9.982][d][ffmpeg/video] h264: Reinit context to 416x720, pix_fmt: videotoolbox_vld
+[   9.997][i][vd] Using hardware decoding (videotoolbox).
+[   9.997][v][vd] Decoder format: 408x720 [135:136] videotoolbox[nv12] auto/auto/auto/auto/auto CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   9.997][v][vf] [in] 408x720 [135:136] videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   9.997][v][vf] [userdeint] 408x720 [135:136] videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   9.997][v][vf] [userdeint] (disabled)
+[   9.997][v][vf] [autovflip] 408x720 [135:136] videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   9.997][v][vf] [autovflip] (disabled)
+[   9.997][v][vf] [autorotate] 408x720 [135:136] videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   9.997][v][vf] [autorotate] (disabled)
+[   9.997][v][vf] [convert] 408x720 [135:136] videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   9.997][d][hwupload] looking at format videotoolbox/nv12
+[   9.997][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   9.997][d][hwupload] looking at format videotoolbox/ayuv
+[   9.997][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   9.997][d][hwupload] looking at format videotoolbox/ayuv64
+[   9.997][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   9.997][d][hwupload] looking at format videotoolbox/yuv420p
+[   9.997][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   9.997][d][hwupload] looking at format videotoolbox/uyvy422
+[   9.997][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   9.997][d][hwupload] looking at format videotoolbox/p010
+[   9.997][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   9.997][d][hwupload] looking at format videotoolbox/nv16
+[   9.997][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   9.997][d][hwupload] looking at format videotoolbox/p210
+[   9.997][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   9.997][d][hwupload] looking at format videotoolbox/p216
+[   9.997][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   9.997][d][hwupload] looking at format videotoolbox/nv24
+[   9.997][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   9.997][d][hwupload] looking at format videotoolbox/p410
+[   9.997][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   9.997][d][hwupload] looking at format videotoolbox/p416
+[   9.997][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   9.997][d][hwupload] looking at format videotoolbox/bgra
+[   9.997][d][hwupload]   supports: nv12 ayuv ayuv64 yuv420p uyvy422 p010 nv16 p210 p216 nv24 p410 p416 bgra
+[   9.997][v][vf] [out] 408x720 [135:136] videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[   9.997][v][af] [in] 44100Hz stereo 2ch floatp
+[   9.997][v][af] [userspeed] 44100Hz stereo 2ch floatp
+[   9.997][v][af] [userspeed] (disabled)
+[   9.997][v][af] [convert] 44100Hz stereo 2ch floatp
+[   9.997][v][ao] Trying audio driver 'coreaudio'
+[   9.997][v][ao/coreaudio] requested format: 44100 Hz, stereo channels, floatp
+[   9.997][v][ao/coreaudio] selected audio output device: External Headphones (84)
+[   9.998][v][ao/coreaudio] input channel layout:
+[   9.998][v][ao/coreaudio] audio channel layout: tag: <0>, descriptions <2>
+[   9.998][v][ao/coreaudio]  - description 0: label <4294967295, 64>,  flags: <0>
+[   9.998][v][ao/coreaudio]  - description 1: label <4294967295, 64>,  flags: <0>
+[   9.998][v][ao/coreaudio] mp chmap: unknown2
+[   9.998][v][ao/coreaudio] input channel layout:
+[   9.998][v][ao/coreaudio] audio channel layout: tag: <0>, descriptions <2>
+[   9.998][v][ao/coreaudio]  - description 0: label <1, 0>,  flags: <0>
+[   9.998][v][ao/coreaudio]  - description 1: label <2, 1>,  flags: <0>
+[   9.998][v][ao/coreaudio] mp chmap: stereo
+[   9.998][v][ao/coreaudio] Channel layouts:
+[   9.998][v][ao/coreaudio]  - stereo
+[   9.998][v][ao/coreaudio]  - mono
+[   9.998][v][ao/coreaudio] result: stereo
+[   9.998][v][ao/coreaudio] audio channel layout: tag: <6619138>
+[  10.000][v][ao/coreaudio] Latency property cntl: 70 frames
+[  10.000][v][ao/coreaudio] Latency property zisf: 512 frames
+[  10.000][v][ao/coreaudio] Latency property tfas: 74 frames
+[  10.000][v][ao/coreaudio] Device sample rate: 44100.000000
+[  10.000][v][ao/coreaudio] audiounit latency [ns]: 0
+[  10.000][v][ao/coreaudio] device latency [ns]: 14875283
+[  10.000][v][ao/coreaudio] device buffer: 1312 samples.
+[  10.000][v][ao/coreaudio] using soft-buffer of 8820 samples.
+[  10.000][i][cplayer] AO: [coreaudio] 44100Hz stereo 2ch floatp
+[  10.000][v][cplayer] AO: Description: CoreAudio AudioUnit
+[  10.000][v][af] [convert] (disabled)
+[  10.000][v][af] [out] 44100Hz stereo 2ch floatp
+[  10.003][i][cplayer] VO: [libmpv] 408x720 => 408x725 videotoolbox[nv12]
+[  10.003][v][cplayer] VO: Description: render API for libmpv
+[  10.003][v][vo/libmpv] reconfig to 408x720 [135:136] videotoolbox[nv12] bt.709/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[  10.208][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[  10.208][v][cplayer] first video frame after restart shown
+[  10.209][v][cplayer] audio ready
+[  10.209][d][cplayer] starting video playback
+[  10.209][v][cplayer] starting audio playback
+[  10.210][v][libmpv_render] Window size: 1936x1120 (Borders: l=0 t=0 r=0 b=0)
+[  10.210][v][libmpv_render] Video source: 408x720 (135:136)
+[  10.210][v][libmpv_render] Video display: (0, 0) 408x720 -> (653, 0) 630x1120
+[  10.210][v][libmpv_render] Video scale: 1.544118/1.555556
+[  10.210][v][libmpv_render] OSD borders: l=653 t=0 r=653 b=0
+[  10.210][v][libmpv_render] Video borders: l=653 t=0 r=653 b=0
+[  10.210][v][libmpv_render] Testing FBO format rgba16f
+[  10.210][d][libmpv_render] Resizing texture: 16x16
+[  10.213][v][libmpv_render] Using FBO format rgba16f.
+[  10.213][d][libmpv_render] Resizing texture: 204x720
+[  10.215][v][cplayer] playback restart complete @ 0.033367, audio=playing, video=playing
+[  10.215][d][libmpv_render] Resizing texture: 408x720
+[  10.216][d][libmpv_render] Resizing texture: 408x720
+[  10.217][d][libmpv_render] Resizing texture: 408x1120
+[  10.218][d][libmpv_render] Resizing texture: 1936x1120
+[  10.218][v][libmpv_render] Dither to 8.
+[  10.443][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[  11.565][d][cplayer] Run command: seek, flags=73, args=[target="48.200000", flags="absolute", legacy="unused"]
+[  11.566][v][lavf] queuing seek to 48.301000
+[  11.566][v][lavf] execute seek (to 48.301000 flags 32)
+[  11.566][v][file] stream level seek from 262144 to 0
+[  11.566][v][file] stream level seek from 131072 to 17908316
+[  11.566][v][file] stream level seek from 17909256 to 17906248
+[  11.566][v][file] stream level seek from 17909256 to 3846480
+[  11.567][v][libmpv_render] Reallocating OSD texture to 2048x128.
+[  11.567][v][cplayer] hr-seek, skipping to 48.200000
+[  11.593][v][file] stream level seek from 3977552 to 2963256
+[  11.609][v][lavf] seek done
+[  11.609][d][ffmpeg/video] h264: Reinit context to 416x720, pix_fmt: videotoolbox_vld
+[  11.611][e][ffmpeg/video] h264: mmco: unref short failure
+[  11.668][v][vd] Decoder format: 408x720 [135:136] videotoolbox[nv12] auto/auto/auto/auto/auto CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[  11.874][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[  11.875][v][cplayer] first video frame after restart shown
+[  11.875][e][ffmpeg/audio] aac: channel element 3.3 is not allocated
+[  11.875][e][ad] Error decoding audio.
+[  11.876][v][cplayer] audio ready
+[  11.876][d][cplayer] starting video playback
+[  11.876][v][cplayer] starting audio playback
+[  11.876][v][cplayer] playback restart complete @ 49.132822, audio=playing, video=playing
+[  12.275][d][cplayer] Run command: seek, flags=73, args=[target="88.100000", flags="absolute", legacy="unused"]
+[  12.277][v][lavf] queuing seek to 88.201000
+[  12.277][v][lavf] execute seek (to 88.201000 flags 32)
+[  12.277][v][file] stream level seek from 3225400 to 6066196
+[  12.279][v][cplayer] hr-seek, skipping to 88.100000
+[  12.292][v][file] stream level seek from 6197268 to 5629660
+[  12.300][v][file] stream level seek from 5760732 to 5549196
+[  12.303][v][file] stream level seek from 5680268 to 5532812
+[  12.307][v][lavf] seek done
+[  12.308][d][ffmpeg/video] h264: Reinit context to 416x720, pix_fmt: videotoolbox_vld
+[  12.308][e][ffmpeg/video] h264: co located POCs unavailable
+[  12.308][e][ffmpeg/video] h264: mmco: unref short failure
+[  12.310][e][ffmpeg/video] h264: co located POCs unavailable
+[  12.494][v][vd] Decoder format: 408x720 [135:136] videotoolbox[nv12] auto/auto/auto/auto/auto CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[  12.495][v][libmpv_render] Reallocating OSD texture to 2048x256.
+[  12.700][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[  12.700][v][cplayer] first video frame after restart shown
+[  12.700][d][ffmpeg/audio] aac: ChannelElement 1.0 missing 
+[  12.700][e][ffmpeg/audio] aac: skip_data_stream_element: Input buffer exhausted before END element found
+[  12.700][e][ad] Error decoding audio.
+[  12.706][v][cplayer] audio ready
+[  12.706][d][cplayer] starting video playback
+[  12.706][v][cplayer] starting audio playback
+[  12.706][v][cplayer] playback restart complete @ 91.308633, audio=playing, video=playing
+[ 144.636][v][lavf] EOF reached.
+[ 145.658][v][af] filter input EOF
+[ 145.658][v][af] filter output EOF
+[ 145.658][v][cplayer] audio filter EOF
+[ 145.658][v][cplayer] audio draining
+[ 145.658][v][cplayer] audio EOF reached
+[ 145.774][v][vf] filter input EOF
+[ 145.774][v][vf] filter output EOF
+[ 145.780][d][cplayer] video EOF (status=4)
+[ 145.797][d][cplayer] video EOF (status=4)
+[ 145.797][d][cplayer] video EOF (status=4)
+[ 145.820][d][cplayer] video EOF (status=4)
+[ 145.829][d][cplayer] video EOF (status=4)
+[ 145.830][d][cplayer] video EOF (status=4)
+[ 145.843][d][cplayer] video EOF (status=4)
+[ 145.867][d][cplayer] video EOF (status=4)
+[ 152.902][v][ao/coreaudio] Stopping audio unit due to idle timeout
+[1026.010][v][cplayer] Set property: pause=false -> 1
+[1026.010][d][cplayer] video EOF (status=4)
+[1027.176][d][cplayer] Run command: seek, flags=73, args=[target="90.000000", flags="absolute", legacy="unused"]
+[1027.176][v][lavf] queuing seek to 90.101000
+[1027.176][v][lavf] execute seek (to 90.101000 flags 32)
+[1027.177][v][file] stream level seek from 17909256 to 5691136
+[1027.177][v][cplayer] hr-seek, skipping to 90.000000
+[1027.197][v][file] stream level seek from 5822208 to 5674752
+[1027.197][v][lavf] seek done
+[1027.197][d][ffmpeg/video] h264: Reinit context to 416x720, pix_fmt: videotoolbox_vld
+[1027.197][e][ffmpeg/video] h264: co located POCs unavailable
+[1027.201][e][ffmpeg/video] h264: co located POCs unavailable
+[1027.204][e][ffmpeg/video] h264: mmco: unref short failure
+[1027.303][v][vd] Decoder format: 408x720 [135:136] videotoolbox[nv12] auto/auto/auto/auto/auto CL=mpeg2/4/h264 crop=408x720+0+0 A=none
+[1027.510][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[1027.510][v][cplayer] first video frame after restart shown
+[1027.510][e][ffmpeg/audio] aac: TYPE_FIL: Input buffer exhausted before END element found
+[1027.510][e][ad] Error decoding audio.
+[1027.515][v][cplayer] audio ready
+[1027.515][d][cplayer] starting video playback
+[1027.515][v][cplayer] starting audio playback
+[1027.515][v][cplayer] playback restart complete @ 91.308633, audio=playing, video=playing (paused)
+[1028.127][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1028.127][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1028.127][v][cplayer] EOF code: 4  
+[1028.127][d][ad] Uninit decoder.
+[1028.127][d][vd] Uninit decoder.
+[1028.136][d][cplayer] Terminating demuxers...
+[1028.136][d][cplayer] Done terminating demuxers.
+[1028.136][v][cplayer] finished playback, success (reason 2)
+[1028.136][v][cplayer] Running hook: ytdl_hook/on_after_end_file
+[1028.136][d][cplayer] Run command: del, flags=64, args=[name="user-data/mpv/ytdl/json-subprocess-result"]
+[1028.341][v][vo/libmpv] mpv_render_context_render() not being called or stuck.
+[1033.810][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1034.610][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1034.610][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1034.654][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1034.658][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1034.674][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1034.691][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1034.707][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1034.724][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.481][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.484][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.487][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.489][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.495][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.496][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.499][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.503][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.526][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.542][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.559][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.576][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.592][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.609][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.626][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.642][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.659][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.777][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.780][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.782][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.785][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.787][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.789][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.791][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.793][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.807][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.810][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.824][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.843][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.859][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.876][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.893][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.909][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.926][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.943][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.960][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.976][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1035.993][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1036.010][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1036.027][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1036.043][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1036.060][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1036.076][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1036.093][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1036.110][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1036.110][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1036.110][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1037.306][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1037.872][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1039.022][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1039.722][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1041.147][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1041.693][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1043.710][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1044.226][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1045.914][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1047.343][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1048.543][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1049.610][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1050.376][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1052.543][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1057.226][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1057.710][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1058.289][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1058.856][d][cplayer] Run command: stop, flags=73, args=[flags=""]
+[1663.136][d][libmpv_render] flushing shader cache
+[1663.139][d][main] Destroying client handle...
+[1663.139][d][cplayer] Run command: quit, flags=64, args=[code="0"]
+[1663.139][d][cplayer] Run command: del, flags=64, args=[name="user-data/mpv/console"]
+[1663.139][d][positioning] Destroying client handle...
+[1663.139][d][ytdl_hook] Destroying client handle...
+[1663.139][d][select] Destroying client handle...
+[1663.139][d][stats] Destroying client handle...
+[1663.139][d][console] Destroying client handle...
+[1663.140][d][commands] Destroying client handle...
+[1663.140][d][context_menu] Destroying client handle...
