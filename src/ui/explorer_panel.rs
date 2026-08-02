@@ -61,7 +61,7 @@ const CAT_ORDER: [(Cat, &str); 7] = [
 
 pub fn explorer_sidebar(app: &mut SmartFileManagerApp, ui: &mut egui::Ui) {
     ui.label(muted("PLACES"));
-    ui.add_space(8.0);
+    ui.add_space(6.0);
 
     let mut nav: Option<PathBuf> = None;
     for (icon, label, path) in places() {
@@ -71,54 +71,18 @@ pub fn explorer_sidebar(app: &mut SmartFileManagerApp, ui: &mut egui::Ui) {
         }
     }
 
-    ui.add_space(14.0);
-    ui.separator();
-    ui.add_space(12.0);
-    ui.label(muted("ACTIONS"));
     ui.add_space(8.0);
+    ui.separator();
+    ui.add_space(6.0);
     if secondary_button(ui, "Open folder…").clicked() {
         if let Some(dir) = rfd::FileDialog::new().pick_folder() {
             nav = Some(dir);
         }
     }
-    ui.add_space(6.0);
-    if secondary_button(ui, "＋ New folder").clicked() {
-        app.explorer_new_folder();
-    }
-    ui.add_space(6.0);
-    if primary_button(ui, "🔍  Find duplicates here").clicked() {
-        app.scan_explorer_dir();
-    }
-
-    // ---- Queues ----
-    ui.add_space(14.0);
-    ui.separator();
-    ui.add_space(12.0);
-    ui.label(muted("QUEUES"));
-    ui.add_space(8.0);
-
-    let mut queue_act: Option<Act> = None;
-    if app.explorer_queues.is_empty() {
-        ui.label(muted("No queues yet."));
-        ui.add_space(6.0);
-    } else {
-        for (i, q) in app.explorer_queues.iter().enumerate() {
-            let selected = app.explorer_active_queue == Some(i);
-            let label = format!("{} ({})", q.name, q.items.len());
-            if place_row(ui, "🗂", &label, selected).clicked() {
-                queue_act = Some(Act::OpenQueue(i));
-            }
-        }
-        ui.add_space(6.0);
-    }
-    if secondary_button(ui, "＋ New Queue").clicked() {
-        queue_act = Some(Act::NewQueue);
-    }
 
     if let Some(p) = nav {
         app.explorer_navigate(p);
     }
-    apply_action(app, queue_act);
 }
 
 fn place_row(ui: &mut egui::Ui, icon: &str, label: &str, selected: bool) -> egui::Response {
@@ -187,22 +151,25 @@ pub fn explorer_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx
     let mut act: Option<Act> = None;
 
     toolbar(app, ui, &mut act);
-    ui.add_space(8.0);
+    ui.add_space(4.0);
     breadcrumb_bar(app, ui, &mut act);
-    ui.add_space(10.0);
+    ui.add_space(6.0);
 
     if let Some(err) = app.explorer_error.clone() {
         banner(ui, Color32::from_rgb(60, 36, 36), Color32::from_rgb(255, 160, 160), &format!("⚠  {err}"));
-        ui.add_space(8.0);
+        ui.add_space(4.0);
     }
     if let Some(msg) = app.explorer_status.clone() {
         banner(ui, Color32::from_rgb(34, 48, 40), Color32::from_rgb(150, 220, 180), &msg);
-        ui.add_space(8.0);
+        ui.add_space(4.0);
     }
 
-    file_table(app, ui, &mut act);
+    // Footer-first: reserve status strip, then give the table the remaining height.
+    let footer_h = 36.0;
+    let table_h = (ui.available_height() - footer_h).max(160.0);
+    file_table(app, ui, &mut act, table_h);
 
-    ui.add_space(8.0);
+    ui.add_space(4.0);
     selection_bar(app, ui, &mut act);
 
     // Modals.
@@ -342,19 +309,14 @@ fn toolbar(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, act: &mut Option<Ac
                     .size(11.5),
             );
         }
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if primary_button(ui, "🔍  Find duplicates here").clicked() {
-                app.scan_explorer_dir();
-            }
-        });
     });
 
     if app.explorer_is_recursive_search && !app.explorer_searching {
-        ui.add_space(6.0);
+        ui.add_space(4.0);
         search_selection_bar(app, ui);
     }
 
-    ui.add_space(6.0);
+    ui.add_space(4.0);
     ui.horizontal(|ui| {
         ui.label(muted("Sort:"));
         let mut key = app.explorer_sort_key;
@@ -381,7 +343,7 @@ fn toolbar(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, act: &mut Option<Ac
             app.explorer_sort_asc = !app.explorer_sort_asc;
             app.explorer_sort_entries();
         }
-        ui.add_space(8.0);
+        ui.add_space(6.0);
         ui.label(muted("Filter:"));
         let mut type_filter = app.explorer_type_filter;
         egui::ComboBox::new(egui::Id::new("explorer_type_filter"), "")
@@ -402,10 +364,10 @@ fn toolbar(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, act: &mut Option<Ac
             });
         app.explorer_type_filter = type_filter;
 
-        ui.add_space(8.0);
+        ui.add_space(6.0);
         ui.checkbox(&mut app.explorer_group_by_kind, "Group by type");
 
-        ui.add_space(8.0);
+        ui.add_space(6.0);
         view_toggle(app, ui);
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -438,20 +400,29 @@ fn breadcrumb_bar(app: &SmartFileManagerApp, ui: &mut egui::Ui, act: &mut Option
     egui::Frame::none()
         .fill(Color32::from_rgb(32, 32, 40))
         .rounding(egui::Rounding::same(7.0))
-        .inner_margin(egui::Margin::symmetric(10.0, 6.0))
+        .inner_margin(egui::Margin::symmetric(12.0, 10.0))
         .show(ui, |ui| {
+            // Thin horizontal scrollbar so long paths don't dominate the bar height.
+            ui.spacing_mut().scroll.bar_width = 4.0;
+            ui.spacing_mut().scroll.handle_min_length = 24.0;
+            ui.set_min_height(32.0);
             ScrollArea::horizontal()
                 .auto_shrink([false, true])
                 .max_width(ui.available_width())
                 .id_salt("breadcrumb_scroll")
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
+                        ui.set_min_height(28.0);
                         let mut crumbs: Vec<PathBuf> =
                             app.explorer_dir.ancestors().map(|p| p.to_path_buf()).collect();
                         crumbs.reverse();
                         for (i, c) in crumbs.iter().enumerate() {
                             if i > 0 {
-                                ui.label(RichText::new("›").color(Color32::from_rgb(90, 94, 112)));
+                                ui.label(
+                                    RichText::new("›")
+                                        .size(14.0)
+                                        .color(Color32::from_rgb(90, 94, 112)),
+                                );
                             }
                             let name = c
                                 .file_name()
@@ -465,8 +436,10 @@ fn breadcrumb_bar(app: &SmartFileManagerApp, ui: &mut egui::Ui, act: &mut Option
                             };
                             if ui
                                 .add(
-                                    egui::Label::new(RichText::new(name).color(color))
-                                        .sense(egui::Sense::click()),
+                                    egui::Label::new(
+                                        RichText::new(name).size(14.0).color(color),
+                                    )
+                                    .sense(egui::Sense::click()),
                                 )
                                 .clicked()
                             {
@@ -478,7 +451,7 @@ fn breadcrumb_bar(app: &SmartFileManagerApp, ui: &mut egui::Ui, act: &mut Option
         });
 }
 
-fn file_table(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, act: &mut Option<Act>) {
+fn file_table(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, act: &mut Option<Act>, table_h: f32) {
     let filter = app.explorer_filter.trim().to_lowercase();
     let type_filter = app.explorer_type_filter;
     // When in recursive-search mode, explorer_entries already holds globally-filtered
@@ -510,11 +483,10 @@ fn file_table(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, act: &mut Option
     };
 
     let is_list = app.explorer_view_mode == ExplorerViewMode::List;
-    let table_h = (ui.available_height() - 56.0).max(160.0);
     let padding = if is_list {
         egui::Margin::same(2.0)
     } else {
-        egui::Margin::symmetric(16.0, 10.0)
+        egui::Margin::symmetric(12.0, 8.0)
     };
     egui::Frame::none()
         .fill(Color32::from_rgb(24, 24, 30))
@@ -910,6 +882,10 @@ fn item_interactions(resp: &egui::Response, e: &ExplorerEntry, act: &mut Option<
                 *act = Some(Act::Nav(e.path.clone()));
                 ui.close_menu();
             }
+            if ui.button("Open in player").clicked() {
+                *act = Some(Act::Preview(e.path.clone()));
+                ui.close_menu();
+            }
         } else {
             if ui.button("Open in player").clicked() {
                 *act = Some(Act::Preview(e.path.clone()));
@@ -945,11 +921,11 @@ fn item_interactions(resp: &egui::Response, e: &ExplorerEntry, act: &mut Option<
     });
 }
 
-fn selection_bar(app: &SmartFileManagerApp, ui: &mut egui::Ui, act: &mut Option<Act>) {
+fn selection_bar(app: &SmartFileManagerApp, ui: &mut egui::Ui, _act: &mut Option<Act>) {
     egui::Frame::none()
         .fill(Color32::from_rgb(30, 30, 38))
         .rounding(egui::Rounding::same(7.0))
-        .inner_margin(egui::Margin::symmetric(12.0, 8.0))
+        .inner_margin(egui::Margin::symmetric(12.0, 6.0))
         .show(ui, |ui| {
             let total = app.explorer_entries.len();
             let folders = app.explorer_entries.iter().filter(|e| e.is_dir).count();
@@ -958,31 +934,6 @@ fn selection_bar(app: &SmartFileManagerApp, ui: &mut egui::Ui, act: &mut Option<
                     "{total} items · {folders} folders · {} files",
                     total - folders
                 )));
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let sel = app
-                        .explorer_selected
-                        .and_then(|i| app.explorer_entries.get(i))
-                        .map(|e| (e.name.clone(), e.path.clone(), e.is_dir));
-                    if let Some((name, path, is_dir)) = sel {
-                        if secondary_button(ui, "Reveal").clicked() {
-                            *act = Some(Act::Reveal(path.clone()));
-                        }
-                        if secondary_button(ui, "Open").clicked() {
-                            *act = Some(if is_dir {
-                                Act::Nav(path.clone())
-                            } else {
-                                Act::OpenDefault(path.clone())
-                            });
-                        }
-                        ui.label(
-                            RichText::new(name)
-                                .strong()
-                                .color(Color32::from_rgb(210, 216, 236)),
-                        );
-                    } else {
-                        ui.label(muted("No selection"));
-                    }
-                });
             });
         });
 }
@@ -1014,28 +965,38 @@ pub fn player_window(app: &mut SmartFileManagerApp, ctx: &egui::Context) {
         });
 
     let filter = app.explorer_filter.trim().to_lowercase();
-    let files: Vec<PathBuf> = app
+    let type_filter = app.explorer_type_filter;
+    // Include folders so prev/next can land on them and “➕ Queue” can stage a folder.
+    let slides: Vec<(PathBuf, bool)> = app
         .explorer_entries
         .iter()
-        .filter(|e| !e.is_dir && (filter.is_empty() || e.name.to_lowercase().contains(&filter)))
-        .map(|e| e.path.clone())
+        .filter(|e| {
+            matches_type_filter(e, type_filter)
+                && (filter.is_empty() || e.name.to_lowercase().contains(&filter))
+        })
+        .map(|e| (e.path.clone(), e.is_dir))
         .collect();
-    let cur = files.iter().position(|p| p == &path);
+    let cur = slides.iter().position(|(p, _)| p == &path);
     let can_prev = cur.map(|i| i > 0).unwrap_or(false);
-    let can_next = cur.map(|i| i + 1 < files.len()).unwrap_or(false);
+    let can_next = cur.map(|i| i + 1 < slides.len()).unwrap_or(false);
+    let path_is_dir = slides
+        .iter()
+        .find(|(p, _)| p == &path)
+        .map(|(_, d)| *d)
+        .unwrap_or_else(|| path.is_dir());
 
     let mut goto: Option<PathBuf> = None;
     if !ctx.wants_keyboard_input() {
         if can_next && ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
-            goto = Some(files[cur.unwrap() + 1].clone());
+            goto = Some(slides[cur.unwrap() + 1].0.clone());
         }
         if can_prev && ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
-            goto = Some(files[cur.unwrap() - 1].clone());
+            goto = Some(slides[cur.unwrap() - 1].0.clone());
         }
     }
 
     #[cfg(feature = "mpv")]
-    let is_video = crate::ui::preview::is_video_path(&path);
+    let is_video = !path_is_dir && crate::ui::preview::is_video_path(&path);
 
     // Use embedded libmpv for video when available; otherwise the image/text loader.
     #[cfg(feature = "mpv")]
@@ -1051,7 +1012,13 @@ pub fn player_window(app: &mut SmartFileManagerApp, ctx: &egui::Context) {
         app.mpv_loaded_path = None;
     }
 
-    if !mpv_active {
+    if path_is_dir {
+        // Avoid stale media from the previous slide.
+        app.preview_texture = None;
+        app.preview_scroll_text = None;
+        app.inline_video = None;
+        app.preview_path = None;
+    } else if !mpv_active {
         super::results_panel::update_preview(ctx, app, &path, app.explorer_preview_rotation);
     }
 
@@ -1062,10 +1029,10 @@ pub fn player_window(app: &mut SmartFileManagerApp, ctx: &egui::Context) {
     }
     let mut seek_to: Option<f64> = None;
 
-    // Fixed window size: 72% w × 78% h, clamped, no per-frame rounding that causes drift
+    // Fixed window size: ~82% w × 86% h, larger caps so media can fill big displays.
     let screen = ctx.screen_rect().size();
-    let win_w = (screen.x * 0.72).clamp(520.0, 1000.0);
-    let win_h = (screen.y * 0.78).clamp(380.0, 760.0);
+    let win_w = (screen.x * 0.82).clamp(520.0, 1200.0);
+    let win_h = (screen.y * 0.86).clamp(380.0, 900.0);
     let win_x = (screen.x - win_w) / 2.0;
     let win_y = (screen.y - win_h) / 2.0;
 
@@ -1083,9 +1050,10 @@ pub fn player_window(app: &mut SmartFileManagerApp, ctx: &egui::Context) {
         .fixed_pos([win_x, win_y])
         .fixed_size([win_w, win_h])
         .show(ctx, |ui| {
-            // Row 1: Padded Title Bar Frame
+            // Header: fixed RTL order so Trash never jumps —
+            // Close · Trash · Reveal · Open · Folder · Rotate · N/total
             egui::Frame::none()
-                .inner_margin(egui::Margin::symmetric(16.0, 12.0))
+                .inner_margin(egui::Margin::symmetric(14.0, 8.0))
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.label(
@@ -1097,45 +1065,193 @@ pub fn player_window(app: &mut SmartFileManagerApp, ctx: &egui::Context) {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             if ui
                                 .add(
-                                    egui::Button::new(RichText::new("✕  Close").strong().color(Color32::from_rgb(240, 200, 200)))
-                                        .fill(Color32::from_rgb(50, 30, 34))
-                                        .stroke(egui::Stroke::new(1.0, Color32::from_rgb(90, 50, 56))),
+                                    egui::Button::new(
+                                        RichText::new("✕  Close")
+                                            .strong()
+                                            .color(Color32::from_rgb(240, 200, 200)),
+                                    )
+                                    .fill(Color32::from_rgb(50, 30, 34))
+                                    .stroke(egui::Stroke::new(1.0, Color32::from_rgb(90, 50, 56))),
                                 )
                                 .clicked()
                             {
                                 close = true;
                             }
+                            ui.add_space(4.0);
+                            if ui
+                                .add(
+                                    egui::Button::new(
+                                        RichText::new("🗑")
+                                            .size(12.0)
+                                            .color(Color32::from_rgb(255, 120, 120)),
+                                    )
+                                    .fill(Color32::from_rgb(45, 25, 28))
+                                    .stroke(egui::Stroke::new(1.0, Color32::from_rgb(90, 50, 56)))
+                                    .min_size(egui::vec2(28.0, 24.0)),
+                                )
+                                .on_hover_text(if path_is_dir {
+                                    "Move this folder to Trash / Recycle Bin"
+                                } else {
+                                    "Move this file to Trash / Recycle Bin"
+                                })
+                                .clicked()
+                            {
+                                let trash_name =
+                                    path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                                let next_preview = if let Some(i) = cur {
+                                    if i + 1 < slides.len() {
+                                        Some(slides[i + 1].0.clone())
+                                    } else if i > 0 {
+                                        Some(slides[i - 1].0.clone())
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                };
+                                match trash_single_path(&path) {
+                                    Ok(()) => {
+                                        app.explorer_status =
+                                            Some(format!("Moved “{trash_name}” to Trash."));
+                                        app.explorer_selected = None;
+                                        app.explorer_reload();
+                                        if let Some(next_p) = next_preview {
+                                            goto = Some(next_p);
+                                        } else {
+                                            close = true;
+                                        }
+                                    }
+                                    Err(e) => {
+                                        app.explorer_status = Some(format!("Trash failed: {e}"));
+                                    }
+                                }
+                            }
+                            ui.add_space(2.0);
+                            if ui
+                                .add(preview_header_btn("📂 Reveal"))
+                                .on_hover_text("Reveal in Finder / Explorer")
+                                .clicked()
+                            {
+                                reveal_in_folder(&path);
+                            }
+                            ui.add_space(2.0);
+                            let open_tip = if app.inline_video.is_some() || mpv_active {
+                                "Open in system player (with audio)"
+                            } else {
+                                "Open in default app"
+                            };
+                            if ui
+                                .add(preview_header_btn("↗ Open"))
+                                .on_hover_text(open_tip)
+                                .clicked()
+                            {
+                                open_in_default_app(&path);
+                            }
+                            ui.add_space(2.0);
+                            // Folder slide → queue this folder; file → queue its parent.
+                            let queue_folder_path = if path_is_dir {
+                                Some(path.clone())
+                            } else {
+                                path.parent().map(|p| p.to_path_buf())
+                            };
+                            let folder_tip = queue_folder_path
+                                .as_ref()
+                                .and_then(|p| p.file_name())
+                                .map(|n| {
+                                    format!(
+                                        "Queue folder “{}” (moves on Submit)",
+                                        n.to_string_lossy()
+                                    )
+                                })
+                                .unwrap_or_else(|| "Queue folder (moves on Submit)".into());
+                            if ui
+                                .add(preview_header_btn("📁"))
+                                .on_hover_text(folder_tip)
+                                .clicked()
+                            {
+                                if let Some(folder) = queue_folder_path {
+                                    let before = app.explorer_queues.len();
+                                    if before == 0 {
+                                        app.explorer_new_queue();
+                                    }
+                                    if !app.explorer_queues.is_empty() {
+                                        if before == 0 && app.explorer_queues.len() > before {
+                                            app.explorer_preview_queue_pick =
+                                                Some(app.explorer_queues.len() - 1);
+                                        }
+                                        if let Some(i) = app
+                                            .explorer_preview_queue_pick
+                                            .filter(|&i| i < app.explorer_queues.len())
+                                        {
+                                            app.explorer_add_to_queue(i, folder);
+                                        } else {
+                                            app.explorer_status =
+                                                Some("Choose a queue first".to_string());
+                                        }
+                                    }
+                                }
+                            }
+                            ui.add_space(2.0);
+                            if ui
+                                .add(preview_header_btn("🔄"))
+                                .on_hover_text("Rotate")
+                                .clicked()
+                            {
+                                app.explorer_preview_rotation =
+                                    (app.explorer_preview_rotation + 90) % 360;
+                                // Keep paint/update paths in sync without wiping the modal.
+                                app.preview_rotation = app.explorer_preview_rotation;
+                                #[cfg(feature = "mpv")]
+                                if mpv_active {
+                                    if let Some(p) = app.mpv.as_ref() {
+                                        p.set_rotation(app.explorer_preview_rotation as i64);
+                                    }
+                                }
+                            }
                             if let Some(i) = cur {
                                 ui.add_space(8.0);
-                                ui.label(muted(format!("{} / {}", i + 1, files.len())));
+                                ui.label(muted(format!("{} / {}", i + 1, slides.len())));
                             }
                         });
                     });
                 });
 
-            // Row 2: Media row: 100% full width centered media viewport (edge-to-edge!)
-            let row_h = (win_h - 164.0).max(180.0);
-            let media_w = win_w;
-            ui.allocate_ui(egui::vec2(media_w, row_h), |ui| {
-                #[cfg(feature = "mpv")]
-                if mpv_active {
-                    mpv_media(app, ui, ctx);
-                } else {
-                    player_media(app, ui, ctx, egui::vec2(media_w, row_h));
-                }
-                #[cfg(not(feature = "mpv"))]
-                player_media(app, ui, ctx, egui::vec2(media_w, row_h));
-            });
+            // Media stage — reserve timeline + one control row (transport+queue or image+queue).
+            let has_video_transport = mpv_active || app.inline_video.is_some();
+            let footer_reserve = if has_video_transport { 72.0 } else { 52.0 };
+            let media_w = ui.available_width();
+            let row_h = (ui.available_height() - footer_reserve).max(180.0);
+            ui.allocate_ui_with_layout(
+                egui::vec2(media_w, row_h),
+                egui::Layout::top_down(egui::Align::Center),
+                |ui| {
+                    ui.set_min_size(egui::vec2(media_w, row_h));
+                    ui.set_max_size(egui::vec2(media_w, row_h));
+                    if path_is_dir {
+                        player_folder_slide(ui, &name, egui::vec2(media_w, row_h));
+                    } else {
+                        #[cfg(feature = "mpv")]
+                        if mpv_active {
+                            mpv_media(app, ui, ctx);
+                        } else {
+                            player_media(app, ui, ctx, egui::vec2(media_w, row_h));
+                        }
+                        #[cfg(not(feature = "mpv"))]
+                        player_media(app, ui, ctx, egui::vec2(media_w, row_h));
+                    }
+                },
+            );
 
-            // Row 3: Embedded mpv transport (play/pause + FULL-width timeline + volume).
+            // Video: timeline + ONE row (transport + queue + volume). No second footer.
             #[cfg(feature = "mpv")]
             if mpv_active {
-                if let Some(next_path) = mpv_transport(app, ui, ctx, can_prev, &files, cur, can_next) {
+                if let Some(next_path) =
+                    mpv_transport(app, ui, ctx, can_prev, &slides, cur, can_next, &path)
+                {
                     goto = Some(next_path);
                 }
             }
 
-            // Row 4: Frame-pipe video transport (non-mpv builds / fallback) with FULL-width timeline bar.
             if !mpv_active && app.inline_video.is_some() {
                 let (dur, pos, is_paused) = {
                     let dec = app.inline_video.as_ref().unwrap();
@@ -1145,267 +1261,121 @@ pub fn player_window(app: &mut SmartFileManagerApp, ctx: &egui::Context) {
                     (dur, pos, is_paused)
                 };
                 let mut toggle = false;
-                
+
                 ui.vertical(|ui| {
-                    // Sleek edge-to-edge horizontal player timeline bar (Row 3 overlay)
                     if dur > 0.0 {
                         let mut v = pos as f32;
                         let slider_w = ui.available_width();
-                        
                         ui.scope(|ui| {
                             ui.spacing_mut().slider_width = slider_w;
                             let slider = ui.add_sized(
                                 [slider_w, 6.0],
-                                egui::Slider::new(&mut v, 0.0..=dur as f32)
-                                    .show_value(false),
+                                egui::Slider::new(&mut v, 0.0..=dur as f32).show_value(false),
                             );
                             if slider.drag_stopped() || slider.lost_focus() {
                                 seek_to = Some(v as f64);
                             }
                         });
                     }
-                    
-                    // Controls (padded)
+
                     egui::Frame::none()
-                        .inner_margin(egui::Margin::symmetric(16.0, 10.0))
+                        .inner_margin(egui::Margin::symmetric(12.0, 6.0))
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
-                                // Previous button
                                 let prev_btn = egui::Button::new(RichText::new("⏮").size(15.0).strong())
                                     .fill(Color32::from_rgb(28, 30, 40))
                                     .stroke(egui::Stroke::new(1.0, Color32::from_rgb(50, 52, 68)))
                                     .min_size(egui::vec2(32.0, 26.0));
                                 if ui.add_enabled(can_prev, prev_btn).clicked() {
-                                    goto = Some(files[cur.unwrap() - 1].clone());
+                                    goto = Some(slides[cur.unwrap() - 1].0.clone());
                                 }
 
-                                // Play/Pause button
                                 let icon = if is_paused { "▶" } else { "⏸" };
                                 if ui
-                                    .add(egui::Button::new(RichText::new(icon).size(16.0)).min_size(egui::vec2(36.0, 26.0)))
+                                    .add(
+                                        egui::Button::new(RichText::new(icon).size(16.0))
+                                            .min_size(egui::vec2(36.0, 26.0)),
+                                    )
                                     .on_hover_text("Play / Pause (Space)")
                                     .clicked()
                                 {
                                     toggle = true;
                                 }
-                                if !ctx.wants_keyboard_input() && ctx.input(|i| i.key_pressed(egui::Key::Space)) {
+                                if !ctx.wants_keyboard_input()
+                                    && ctx.input(|i| i.key_pressed(egui::Key::Space))
+                                {
                                     toggle = true;
                                 }
 
-                                // Next button
                                 let next_btn = egui::Button::new(RichText::new("⏭").size(15.0).strong())
                                     .fill(Color32::from_rgb(28, 30, 40))
                                     .stroke(egui::Stroke::new(1.0, Color32::from_rgb(50, 52, 68)))
                                     .min_size(egui::vec2(32.0, 26.0));
                                 if ui.add_enabled(can_next, next_btn).clicked() {
-                                    goto = Some(files[cur.unwrap() + 1].clone());
+                                    goto = Some(slides[cur.unwrap() + 1].0.clone());
                                 }
 
                                 ui.add_space(6.0);
-                                
                                 if dur > 0.0 {
                                     ui.label(
-                                        RichText::new(format!("{}  /  {}", fmt_clock(pos), fmt_clock(dur)))
-                                            .color(Color32::from_rgb(180, 185, 200))
-                                            .size(13.0)
+                                        RichText::new(format!(
+                                            "{}  /  {}",
+                                            fmt_clock(pos),
+                                            fmt_clock(dur)
+                                        ))
+                                        .color(Color32::from_rgb(180, 185, 200))
+                                        .size(13.0),
                                     );
                                 } else {
                                     ui.label(muted("live"));
                                 }
 
-                                // Symmetrical "🔄 Rotate" button placed in transport controls!
-                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                    if ui.add(
-                                        egui::Button::new(RichText::new("🔄  Rotate").size(13.0).strong())
-                                            .fill(Color32::from_rgb(38, 40, 50))
-                                            .stroke(egui::Stroke::new(1.0, Color32::from_rgb(60, 62, 78)))
-                                            .min_size(egui::vec2(72.0, 26.0))
-                                    ).clicked()
-                                    {
-                                        app.explorer_preview_rotation = (app.explorer_preview_rotation + 90) % 360;
-                                        app.clear_preview_cache();
-                                    }
-                                });
+                                ui.add_space(10.0);
+                                preview_queue_controls(app, ui, &path, path_is_dir);
                             });
                         });
                 });
-                
+
                 if toggle {
                     if let Some(dec) = app.inline_video.as_ref() {
                         dec.toggle_pause();
                     }
                 }
-                ui.add_space(4.0);
             }
 
-            // Playlist navigation bar for non-video files (images, text, documents)
-            if !mpv_active && app.inline_video.is_none() {
+            // Images / folders / other: single row — prev/next + queue.
+            if !has_video_transport {
                 egui::Frame::none()
-                    .fill(Color32::from_rgb(25, 25, 32))
-                    .inner_margin(egui::Margin::symmetric(16.0, 10.0))
+                    .inner_margin(egui::Margin::symmetric(12.0, 8.0))
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
-                            ui.add_space(4.0);
-                            // Previous button
-                            let prev_btn = egui::Button::new(RichText::new("⏮  Previous").size(13.0).strong())
+                            let prev_btn = egui::Button::new(RichText::new("⏮").size(14.0).strong())
                                 .fill(Color32::from_rgb(28, 30, 40))
                                 .stroke(egui::Stroke::new(1.0, Color32::from_rgb(50, 52, 68)))
-                                .min_size(egui::vec2(90.0, 28.0));
-                            if ui.add_enabled(can_prev, prev_btn).clicked() {
-                                goto = Some(files[cur.unwrap() - 1].clone());
-                            }
-
-                            ui.add_space(10.0);
-
-                            if let Some(i) = cur {
-                                ui.label(
-                                    RichText::new(format!("File {} of {}", i + 1, files.len()))
-                                        .color(Color32::from_rgb(180, 185, 200))
-                                        .size(13.0)
-                                );
-                            }
-
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                ui.add_space(4.0);
-                                // Next button
-                                let next_btn = egui::Button::new(RichText::new("Next  ⏭").size(13.0).strong())
-                                    .fill(Color32::from_rgb(28, 30, 40))
-                                    .stroke(egui::Stroke::new(1.0, Color32::from_rgb(50, 52, 68)))
-                                    .min_size(egui::vec2(90.0, 28.0));
-                                if ui.add_enabled(can_next, next_btn).clicked() {
-                                    goto = Some(files[cur.unwrap() + 1].clone());
-                                }
-                                
-                                ui.add_space(10.0);
-                                
-                                // Rotate button for images/files!
-                                if ui.add(
-                                    egui::Button::new(RichText::new("🔄  Rotate").size(13.0).strong())
-                                        .fill(Color32::from_rgb(38, 40, 50))
-                                        .stroke(egui::Stroke::new(1.0, Color32::from_rgb(60, 62, 78)))
-                                        .min_size(egui::vec2(72.0, 26.0))
-                                ).clicked()
-                                {
-                                    app.explorer_preview_rotation = (app.explorer_preview_rotation + 90) % 360;
-                                    app.clear_preview_cache();
-                                }
-                            });
-                        });
-                    });
-                ui.add_space(4.0);
-            }
-
-            // Padded separator and actions
-            egui::Frame::none()
-                .inner_margin(egui::Margin::symmetric(16.0, 10.0))
-                .show(ui, |ui| {
-                    ui.separator();
-                    ui.add_space(6.0);
-
-                    // Bottom actions.
-                    ui.horizontal_wrapped(|ui| {
-                        let is_video = app.inline_video.is_some();
-                        let open_label = if is_video {
-                            "▶  Open in system player (with audio)"
-                        } else {
-                            "Open in default app"
-                        };
-                        if is_video {
-                            if primary_button(ui, open_label).clicked() {
-                                open_in_default_app(&path);
-                            }
-                        } else if secondary_button(ui, open_label).clicked() {
-                            open_in_default_app(&path);
-                        }
-                        if secondary_button(ui, "Reveal").clicked() {
-                            reveal_in_folder(&path);
-                        }
-
-                        // Add-to-queue controls: pick a queue, stage this file.
-                        ui.add_space(6.0);
-                        let queue_names: Vec<String> = app
-                            .explorer_queues
-                            .iter()
-                            .map(|q| format!("{} ({})", q.name, q.items.len()))
-                            .collect();
-                        if queue_names.is_empty() {
-                            if secondary_button(ui, "＋ New Queue").clicked() {
-                                app.explorer_new_queue();
-                            }
-                        } else {
-                            let mut pick = app
-                                .explorer_preview_queue_pick
-                                .filter(|&i| i < queue_names.len());
-                            let selected_text = pick
-                                .map(|i| queue_names[i].clone())
-                                .unwrap_or_else(|| "Choose queue…".to_string());
-                            egui::ComboBox::new(egui::Id::new("preview_queue_pick"), "")
-                                .width(150.0)
-                                .selected_text(selected_text)
-                                .show_ui(ui, |ui| {
-                                    for (i, name) in queue_names.iter().enumerate() {
-                                        ui.selectable_value(&mut pick, Some(i), name);
-                                    }
-                                });
-                            app.explorer_preview_queue_pick = pick;
-                            let add_enabled = pick.is_some();
+                                .min_size(egui::vec2(32.0, 26.0));
                             if ui
-                                .add_enabled(
-                                    add_enabled,
-                                    egui::Button::new(
-                                        RichText::new("➕  Add to Queue")
-                                            .strong()
-                                            .color(Color32::from_rgb(248, 250, 255)),
-                                    )
-                                    .fill(style::ACCENT),
-                                )
-                                .on_hover_text("Stage this file (moves on Submit)")
+                                .add_enabled(can_prev, prev_btn)
+                                .on_hover_text("Previous")
                                 .clicked()
                             {
-                                if let Some(i) = pick {
-                                    app.explorer_add_to_queue(i, path.clone());
-                                }
+                                goto = Some(slides[cur.unwrap() - 1].0.clone());
                             }
-                        }
-
-                        ui.add_space(6.0);
-                        if ui.add(
-                            egui::Button::new(RichText::new("🗑  Move to Trash").color(Color32::from_rgb(255, 120, 120)))
-                                .fill(Color32::from_rgb(45, 25, 28))
-                                .stroke(egui::Stroke::new(1.0, Color32::from_rgb(90, 50, 56))),
-                        ).on_hover_text("Move this file to Trash / Recycle Bin").clicked() {
-                            let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
-                            let next_preview = if let Some(i) = cur {
-                                if i + 1 < files.len() {
-                                    Some(files[i + 1].clone())
-                                } else if i > 0 {
-                                    Some(files[i - 1].clone())
-                                } else {
-                                    None
-                                }
-                            } else {
-                                None
-                            };
-                            match trash_single_path(&path) {
-                                Ok(()) => {
-                                    app.explorer_status = Some(format!("Moved “{name}” to Trash."));
-                                    app.explorer_selected = None;
-                                    app.explorer_reload();
-                                    if let Some(next_p) = next_preview {
-                                        goto = Some(next_p);
-                                    } else {
-                                        close = true;
-                                    }
-                                }
-                                Err(e) => {
-                                    app.explorer_status = Some(format!("Trash failed: {e}"));
-                                }
+                            let next_btn = egui::Button::new(RichText::new("⏭").size(14.0).strong())
+                                .fill(Color32::from_rgb(28, 30, 40))
+                                .stroke(egui::Stroke::new(1.0, Color32::from_rgb(50, 52, 68)))
+                                .min_size(egui::vec2(32.0, 26.0));
+                            if ui
+                                .add_enabled(can_next, next_btn)
+                                .on_hover_text("Next")
+                                .clicked()
+                            {
+                                goto = Some(slides[cur.unwrap() + 1].0.clone());
                             }
-                        }
-                        ui.add_space(12.0);
-                        ui.label(muted(entry_kind_for(&path)));
+                            ui.add_space(8.0);
+                            preview_queue_controls(app, ui, &path, path_is_dir);
+                        });
                     });
-                });
+            }
         });
 
     if let Some(secs) = seek_to {
@@ -1417,16 +1387,7 @@ pub fn player_window(app: &mut SmartFileManagerApp, ctx: &egui::Context) {
     if let Some(next) = goto {
         app.explorer_open_preview(next);
     } else if close {
-        app.explorer_preview_open = false;
-        app.explorer_preview_path = None;
-        app.clear_preview_cache();
-        #[cfg(feature = "mpv")]
-        {
-            if let Some(p) = app.mpv.as_ref() {
-                p.stop(); // stop playback/audio when leaving a video without dropping context
-            }
-            app.mpv_loaded_path = None;
-        }
+        app.close_explorer_preview();
     }
 }
 
@@ -1588,15 +1549,21 @@ pub fn queue_window(app: &mut SmartFileManagerApp, ctx: &egui::Context) {
                             .show(ui, |ui| {
                                 if items.is_empty() {
                                     ui.add_space(8.0);
-                                    ui.label(muted("No files staged. Add files from the player’s “Add to Queue”."));
+                                    ui.label(muted("No items staged. Add files or folders from the player."));
                                     ui.add_space(8.0);
                                 } else {
                                     for p in &items {
+                                        let is_dir = p.is_dir();
                                         let name = p
                                             .file_name()
                                             .unwrap_or_default()
                                             .to_string_lossy()
                                             .to_string();
+                                        let label = if is_dir {
+                                            format!("📁 {name}/")
+                                        } else {
+                                            name
+                                        };
                                         ui.horizontal(|ui| {
                                             if ui
                                                 .add(egui::Button::new(
@@ -1609,9 +1576,14 @@ pub fn queue_window(app: &mut SmartFileManagerApp, ctx: &egui::Context) {
                                                 act = Some(Act::RemoveFromQueue(idx, p.clone()));
                                             }
                                             ui.label(
-                                                RichText::new(name)
-                                                    .color(Color32::from_rgb(214, 219, 236)),
-                                            );
+                                                RichText::new(label)
+                                                    .color(if is_dir {
+                                                        Color32::from_rgb(160, 195, 240)
+                                                    } else {
+                                                        Color32::from_rgb(214, 219, 236)
+                                                    }),
+                                            )
+                                            .on_hover_text(p.display().to_string());
                                         });
                                     }
                                 }
@@ -1687,6 +1659,103 @@ pub fn queue_window(app: &mut SmartFileManagerApp, ctx: &egui::Context) {
     }
 }
 
+fn preview_header_btn(label: &str) -> egui::Button<'static> {
+    egui::Button::new(RichText::new(label.to_owned()).size(12.0))
+        .fill(Color32::from_rgb(34, 36, 48))
+        .stroke(egui::Stroke::new(1.0, Color32::from_rgb(60, 64, 80)))
+        .min_size(egui::vec2(28.0, 24.0))
+}
+
+/// Queue combo / New Queue + Add — meant to sit on the same row as transport/nav.
+fn preview_queue_controls(
+    app: &mut SmartFileManagerApp,
+    ui: &mut egui::Ui,
+    path: &PathBuf,
+    is_dir: bool,
+) {
+    let queue_names: Vec<String> = app
+        .explorer_queues
+        .iter()
+        .map(|q| format!("{} ({})", q.name, q.items.len()))
+        .collect();
+    if queue_names.is_empty() {
+        if secondary_button(ui, "＋ New Queue").clicked() {
+            app.explorer_new_queue();
+        }
+        return;
+    }
+    let mut pick = app
+        .explorer_preview_queue_pick
+        .filter(|&i| i < queue_names.len());
+    let selected_text = pick
+        .map(|i| queue_names[i].clone())
+        .unwrap_or_else(|| "Choose a queue…".to_string());
+    egui::ComboBox::new(egui::Id::new("preview_queue_pick"), "")
+        .width(180.0)
+        .selected_text(selected_text)
+        .show_ui(ui, |ui| {
+            for (i, name) in queue_names.iter().enumerate() {
+                ui.selectable_value(&mut pick, Some(i), name);
+            }
+        });
+    app.explorer_preview_queue_pick = pick;
+    let tip = if is_dir {
+        "Stage this folder (moves on Submit)"
+    } else {
+        "Stage this file (moves on Submit)"
+    };
+    if ui
+        .add_enabled(
+            pick.is_some(),
+            egui::Button::new(
+                RichText::new("➕ Queue")
+                    .strong()
+                    .color(Color32::from_rgb(248, 250, 255)),
+            )
+            .fill(style::ACCENT),
+        )
+        .on_hover_text(tip)
+        .clicked()
+    {
+        if let Some(i) = pick {
+            app.explorer_add_to_queue(i, path.clone());
+        }
+    }
+}
+
+fn player_folder_slide(ui: &mut egui::Ui, name: &str, area: egui::Vec2) {
+    let stage = egui::vec2(
+        area.x.min(ui.available_width()).max(120.0),
+        area.y.min(ui.available_height()).max(120.0),
+    );
+    egui::Frame::none()
+        .fill(Color32::from_rgb(10, 10, 14))
+        .rounding(egui::Rounding::same(8.0))
+        .inner_margin(egui::Margin::symmetric(12.0, 8.0))
+        .show(ui, |ui| {
+            ui.set_min_size(stage);
+            ui.set_max_size(stage);
+            let inner = ui.available_size();
+            ui.allocate_ui_with_layout(inner, egui::Layout::top_down(egui::Align::Center), |ui| {
+                ui.add_space((inner.y / 2.0 - 60.0).max(10.0));
+                ui.label(
+                    RichText::new("📁")
+                        .size(56.0)
+                        .color(Color32::from_rgb(160, 195, 240)),
+                );
+                ui.add_space(10.0);
+                ui.label(
+                    RichText::new(format!("{name}/"))
+                        .strong()
+                        .size(18.0)
+                        .color(Color32::from_rgb(232, 236, 250)),
+                );
+                ui.add_space(6.0);
+                ui.label(muted("Folder — use ➕ Queue to stage the whole folder"));
+            });
+        });
+}
+
 fn fmt_clock(secs: f64) -> String {
     if !secs.is_finite() || secs < 0.0 {
         return "0:00".to_string();
@@ -1701,14 +1770,28 @@ fn player_media(
     ctx: &egui::Context,
     area: egui::Vec2,
 ) {
+    let stage = egui::vec2(
+        area.x.min(ui.available_width()).max(120.0),
+        area.y.min(ui.available_height()).max(120.0),
+    );
+
+    let has_visual = app.preview_texture.is_some() || app.inline_video.is_some();
+    let media_margin = if has_visual {
+        egui::Margin::same(0.0)
+    } else {
+        egui::Margin::symmetric(12.0, 8.0)
+    };
+
     egui::Frame::none()
         .fill(Color32::from_rgb(10, 10, 14))
         .rounding(egui::Rounding::same(8.0))
-        .inner_margin(egui::Margin::symmetric(16.0, 8.0))
+        .inner_margin(media_margin)
         .show(ui, |ui| {
-            // Fill the available stage without forcing the window to grow.
-            let _ = area;
-            ui.set_min_height((ui.available_height()).max(120.0));
+            // Lock the stage so large textures cannot expand the modal.
+            ui.set_min_size(stage);
+            ui.set_max_size(stage);
+            let inner = ui.available_size();
+
             // Pull the freshest decoded video frame, if any.
             if let Some(dec) = app.inline_video.as_ref() {
                 let mut latest = None;
@@ -1727,58 +1810,66 @@ fn player_media(
                 ctx.request_repaint_after(std::time::Duration::from_millis(32));
             }
 
-            ui.centered_and_justified(|ui| {
-                if let Some(tex) = &app.preview_texture {
-                    let [tw, th] = tex.size();
-                    let (tw, th) = (tw as f32, th as f32);
-                    let rotation = app.explorer_preview_rotation;
-                    let is_rotated_90_or_270 = rotation == 90 || rotation == 270;
-                    
-                    let (display_w, display_h) = if is_rotated_90_or_270 { (th, tw) } else { (tw, th) };
-                    let avail = ui.available_size();
-                    let scale = (avail.x / display_w).min(avail.y / display_h).min(4.0);
-                    let display_size = egui::vec2(display_w * scale, display_h * scale);
-                    
-                    // Allocate the exact visual layout space for the rotated image bounding box
-                    let (rect, _response) = ui.allocate_exact_size(display_size, egui::Sense::hover());
-                    
-                    // Calculate original texture dimensions scaled to fit
-                    let tex_size = egui::vec2(tw * scale, th * scale);
-                    let image_rect = egui::Rect::from_center_size(rect.center(), tex_size);
-                    
-                    let angle_rad = (rotation as f32).to_radians();
-                    let image_widget = egui::Image::from_texture(SizedTexture::from_handle(tex))
-                        .rotate(angle_rad, egui::Vec2::splat(0.5));
-                        
-                    image_widget.paint_at(ui, image_rect);
-                } else if let Some(text) = app.preview_scroll_text.clone() {
-                    ScrollArea::both()
-                        .auto_shrink([false, false])
-                        .id_salt("player_text")
-                        .show(ui, |ui| {
-                            ui.add(
-                                egui::Label::new(
-                                    RichText::new(text).font(egui::FontId::monospace(12.0)),
-                                )
-                                .wrap_mode(egui::TextWrapMode::Extend),
-                            );
-                        });
+            if let Some(tex) = &app.preview_texture {
+                let [tw, th] = tex.size();
+                let (tw, th) = (tw as f32, th as f32);
+                let rotation = app.explorer_preview_rotation;
+                let is_rotated_90_or_270 = rotation == 90 || rotation == 270;
+                let (display_w, display_h) = if is_rotated_90_or_270 {
+                    (th, tw)
                 } else {
-                    ui.vertical_centered(|ui| {
-                        ui.add_space((area.y / 2.0 - 40.0).max(10.0));
-                        ui.label(RichText::new("🔍").size(34.0).color(Color32::from_rgb(150, 156, 176)));
-                        ui.add_space(8.0);
-                        ui.label(
-                            RichText::new(
-                                app.preview_subtitle
-                                    .clone()
-                                    .unwrap_or_else(|| "No inline preview — use “Open in default app”.".into()),
+                    (tw, th)
+                };
+
+                // Fit inside stage (never allocate larger than the viewport).
+                let scale = if display_w > 0.0 && display_h > 0.0 {
+                    (inner.x / display_w).min(inner.y / display_h)
+                } else {
+                    1.0
+                };
+
+                let (rect, _response) = ui.allocate_exact_size(inner, egui::Sense::hover());
+                let tex_size = egui::vec2(tw * scale, th * scale);
+                let image_rect = egui::Rect::from_center_size(rect.center(), tex_size);
+
+                let angle_rad = (rotation as f32).to_radians();
+                let image_widget = egui::Image::from_texture(SizedTexture::from_handle(tex))
+                    .rotate(angle_rad, egui::Vec2::splat(0.5));
+                image_widget.paint_at(ui, image_rect);
+            } else if let Some(text) = app.preview_scroll_text.clone() {
+                ScrollArea::both()
+                    .auto_shrink([false, false])
+                    .max_width(inner.x)
+                    .max_height(inner.y)
+                    .id_salt("player_text")
+                    .show(ui, |ui| {
+                        ui.set_max_width(inner.x);
+                        ui.add(
+                            egui::Label::new(
+                                RichText::new(text).font(egui::FontId::monospace(12.0)),
                             )
-                            .color(Color32::from_rgb(180, 185, 200))
+                            .wrap_mode(egui::TextWrapMode::Extend),
                         );
                     });
-                }
-            });
+            } else {
+                ui.allocate_ui_with_layout(inner, egui::Layout::top_down(egui::Align::Center), |ui| {
+                    ui.add_space((inner.y / 2.0 - 40.0).max(10.0));
+                    ui.label(
+                        RichText::new("🔍")
+                            .size(34.0)
+                            .color(Color32::from_rgb(150, 156, 176)),
+                    );
+                    ui.add_space(8.0);
+                    ui.label(
+                        RichText::new(
+                            app.preview_subtitle.clone().unwrap_or_else(|| {
+                                "No inline preview — use “Open in default app”.".into()
+                            }),
+                        )
+                        .color(Color32::from_rgb(180, 185, 200)),
+                    );
+                });
+            }
         });
 }
 
@@ -1835,7 +1926,7 @@ fn mpv_media(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx: &egui::Conte
     egui::Frame::none()
         .fill(Color32::from_rgb(8, 8, 10))
         .rounding(egui::Rounding::same(8.0))
-        .inner_margin(egui::Margin::symmetric(16.0, 8.0))
+        .inner_margin(egui::Margin::same(0.0))
         .show(ui, |ui| {
             let avail = ui.available_size();
             let (rect, _) = ui.allocate_exact_size(
@@ -1878,9 +1969,10 @@ fn mpv_transport(
     ui: &mut egui::Ui,
     ctx: &egui::Context,
     can_prev: bool,
-    files: &[PathBuf],
+    slides: &[(PathBuf, bool)],
     cur: Option<usize>,
     can_next: bool,
+    path: &PathBuf,
 ) -> Option<PathBuf> {
     // 1. Get properties in a short-lived borrow block
     let (dur, pos, paused, vol, is_muted) = {
@@ -1893,13 +1985,12 @@ fn mpv_transport(
     let mut toggle_pause = false;
     let mut set_vol: Option<f32> = None;
     let mut toggle_mute = false;
-    let mut rotate_clicked = false;
 
     egui::Frame::none()
         .inner_margin(egui::Margin::same(0.0)) // 0 margin for edge-to-edge timeline!
         .show(ui, |ui| {
             ui.vertical(|ui| {
-                // Row 1: Sleek Full-width Progress Bar
+                // Thin seek bar above the single control row.
                 if dur > 0.0 {
                     let mut v = pos as f32;
                     let slider_w = ui.available_width();
@@ -1917,22 +2008,19 @@ fn mpv_transport(
                     });
                 }
                 
-                // Row 2: Controls layout (padded)
+                // One row: transport + queue + volume (no stacked footer).
                 egui::Frame::none()
-                    .inner_margin(egui::Margin::symmetric(16.0, 10.0))
+                    .inner_margin(egui::Margin::symmetric(12.0, 6.0))
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
-                            // Playlist controls: ◀  Play  ▶
-                            // Previous button
                             let prev_btn = egui::Button::new(RichText::new("⏮").size(15.0).strong())
                                 .fill(Color32::from_rgb(28, 30, 40))
                                 .stroke(egui::Stroke::new(1.0, Color32::from_rgb(50, 52, 68)))
                                 .min_size(egui::vec2(32.0, 26.0));
                             if ui.add_enabled(can_prev, prev_btn).clicked() {
-                                goto = Some(files[cur.unwrap() - 1].clone());
+                                goto = Some(slides[cur.unwrap() - 1].0.clone());
                             }
 
-                            // Play/Pause button
                             let icon = if paused { "▶" } else { "⏸" };
                             if ui
                                 .add(egui::Button::new(RichText::new(icon).size(16.0)).min_size(egui::vec2(36.0, 26.0)))
@@ -1945,13 +2033,12 @@ fn mpv_transport(
                                 toggle_pause = true;
                             }
 
-                            // Next button
                             let next_btn = egui::Button::new(RichText::new("⏭").size(15.0).strong())
                                 .fill(Color32::from_rgb(28, 30, 40))
                                 .stroke(egui::Stroke::new(1.0, Color32::from_rgb(50, 52, 68)))
                                 .min_size(egui::vec2(32.0, 26.0));
                             if ui.add_enabled(can_next, next_btn).clicked() {
-                                goto = Some(files[cur.unwrap() + 1].clone());
+                                goto = Some(slides[cur.unwrap() + 1].0.clone());
                             }
                             
                             ui.add_space(6.0);
@@ -1965,8 +2052,10 @@ fn mpv_transport(
                             } else {
                                 ui.label(muted("live"));
                             }
+
+                            ui.add_space(10.0);
+                            preview_queue_controls(app, ui, path, false);
                             
-                            // Push volume controls to the far right
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                                 let vol_w = 60.0;
                                 let vol_display = if is_muted { 0 } else { vol as i32 };
@@ -1999,19 +2088,6 @@ fn mpv_transport(
                                 if ui.add(speaker_btn).clicked() {
                                     toggle_mute = true;
                                 }
-                                ui.add_space(8.0);
-
-                                // Symmetrical "🔄 Rotate" button placed in transport controls!
-                                if ui.add(
-                                    egui::Button::new(RichText::new("🔄  Rotate").size(13.0).strong())
-                                        .fill(Color32::from_rgb(38, 40, 50))
-                                        .stroke(egui::Stroke::new(1.0, Color32::from_rgb(60, 62, 78)))
-                                        .min_size(egui::vec2(72.0, 26.0))
-                                ).clicked()
-                                {
-                                    rotate_clicked = true;
-                                }
-                                ui.add_space(4.0);
                             });
                         });
                     });
@@ -2043,22 +2119,10 @@ fn mpv_transport(
                 p.set_volume(50.0); // default to 50% on unmute
             }
         }
-        if rotate_clicked {
-            app.explorer_preview_rotation = (app.explorer_preview_rotation + 90) % 360;
-            p.set_rotation(app.explorer_preview_rotation as i64);
-            app.clear_preview_cache();
-        }
     }
     
     ctx.request_repaint(); // keep position/time live
     goto
-}
-
-fn entry_kind_for(path: &std::path::Path) -> String {
-    match path.extension().and_then(|x| x.to_str()) {
-        Some(ext) if !ext.is_empty() => format!("{} file", ext.to_uppercase()),
-        _ => "File".to_string(),
-    }
 }
 
 fn delete_zip_prompt(app: &mut SmartFileManagerApp, ctx: &egui::Context) {

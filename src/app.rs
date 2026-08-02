@@ -843,7 +843,7 @@ impl SmartFileManagerApp {
         }
     }
 
-    /// Stage a file into queue[idx] (deduped by path).
+    /// Stage a file or folder into queue[idx] (deduped by path).
     pub fn explorer_add_to_queue(&mut self, idx: usize, path: PathBuf) {
         let Some(q) = self.explorer_queues.get_mut(idx) else { return };
         let fname = path
@@ -890,9 +890,8 @@ impl SmartFileManagerApp {
         }
     }
 
-    /// Move all staged files in queue[idx] into its target folder. Mirrors
-    /// `execute_move_archive_files`: confirm → background thread → collision-safe
-    /// destinations → `fast_move` → progress via Mutex → counts over a channel.
+    /// Move all staged items in queue[idx] into its target folder. Files use
+    /// `name_N.ext`; directories move as a unit with `Name_2` collision names.
     pub fn submit_queue(&mut self, idx: usize) {
         let Some(q) = self.explorer_queues.get(idx) else { return };
         let target_dir = q.target.clone();
@@ -914,7 +913,7 @@ impl SmartFileManagerApp {
             .set_level(rfd::MessageLevel::Info)
             .set_title("Submit Queue")
             .set_description(format!(
-                "Move {} file(s) to:\n{}",
+                "Move {} item(s) to:\n{}",
                 total,
                 target_dir.display()
             ))
@@ -947,43 +946,66 @@ impl SmartFileManagerApp {
                     *prog = (i, total, fname.clone());
                 }
 
-                if !p.is_file() {
-                    fail_count += 1;
-                    continue;
-                }
-                let file_name = match p.file_name() {
-                    Some(n) => n,
-                    None => { fail_count += 1; continue; }
-                };
-
-                // Resolve a free destination name (never overwrite).
-                let stem = p.file_stem().and_then(|s| s.to_str()).unwrap_or("file").to_string();
-                let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("").to_string();
-                let mut dest = target_dir.join(file_name);
-                let mut counter = 1u32;
-                while dest.exists() {
-                    let new_name = if ext.is_empty() {
-                        format!("{}_{}", stem, counter)
+                let moved = if p.is_dir() {
+                    let dest = unique_dir_dest(&target_dir, &fname);
+                    if fast_move_dir(p, &dest).is_ok() {
+                        true
                     } else {
-                        format!("{}_{}.{}", stem, counter, ext)
+                        let fallback = unique_dir_dest(&target_dir, &fname);
+                        fast_move_dir(p, &fallback).is_ok()
+                    }
+                } else if p.is_file() {
+                    let file_name = match p.file_name() {
+                        Some(n) => n,
+                        None => {
+                            fail_count += 1;
+                            continue;
+                        }
                     };
-                    dest = target_dir.join(&new_name);
-                    counter += 1;
-                }
 
-                let moved = if fast_move(p, &dest).is_ok() {
-                    true
+                    // Resolve a free destination name (never overwrite).
+                    let stem = p
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("file")
+                        .to_string();
+                    let ext = p
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let mut dest = target_dir.join(file_name);
+                    let mut counter = 1u32;
+                    while dest.exists() {
+                        let new_name = if ext.is_empty() {
+                            format!("{}_{}", stem, counter)
+                        } else {
+                            format!("{}_{}.{}", stem, counter, ext)
+                        };
+                        dest = target_dir.join(&new_name);
+                        counter += 1;
+                    }
+
+                    if fast_move(p, &dest).is_ok() {
+                        true
+                    } else {
+                        let fallback_name = if ext.is_empty() {
+                            format!("{}_{}", stem, counter)
+                        } else {
+                            format!("{}_{}.{}", stem, counter, ext)
+                        };
+                        let fallback = target_dir.join(&fallback_name);
+                        fast_move(p, &fallback).is_ok()
+                    }
                 } else {
-                    let fallback_name = if ext.is_empty() {
-                        format!("{}_{}", stem, counter)
-                    } else {
-                        format!("{}_{}.{}", stem, counter, ext)
-                    };
-                    let fallback = target_dir.join(&fallback_name);
-                    fast_move(p, &fallback).is_ok()
+                    false
                 };
 
-                if moved { success_count += 1; } else { fail_count += 1; }
+                if moved {
+                    success_count += 1;
+                } else {
+                    fail_count += 1;
+                }
             }
 
             if let Ok(mut prog) = progress.lock() {
@@ -1545,7 +1567,7 @@ impl SmartFileManagerApp {
         self.view = AppView::Scan;
         self.last_result = None;
         self.results_selected_group = None;
-        self.clear_preview_cache();
+        self.close_explorer_preview();
     }
 
     pub fn clear_preview_cache(&mut self) {
@@ -1562,8 +1584,15 @@ impl SmartFileManagerApp {
             }
         }
         self.mpv_loaded_path = None;
+        // Do not touch explorer_preview_open / explorer_preview_path —
+        // those close the modal; callers that want dismiss set them explicitly.
+    }
+
+    pub fn close_explorer_preview(&mut self) {
         self.explorer_preview_open = false;
         self.explorer_preview_path = None;
+        self.explorer_preview_rotation = 0;
+        self.clear_preview_cache();
     }
 }
 
@@ -1709,13 +1738,13 @@ impl eframe::App for SmartFileManagerApp {
         if show_sidebar {
             egui::SidePanel::left("sidebar")
                 .resizable(true)
-                .default_width(if results_ready { 300.0 } else { 268.0 })
-                .min_width(236.0)
+                .default_width(if results_ready { 300.0 } else { 220.0 })
+                .min_width(if results_ready { 236.0 } else { 180.0 })
                 .max_width(560.0)
                 .frame(
                     egui::Frame::none()
                         .fill(crate::ui::style::NAV_FILL)
-                        .inner_margin(egui::Margin::same(14.0))
+                        .inner_margin(egui::Margin::same(if results_ready { 14.0 } else { 10.0 }))
                         .stroke(egui::Stroke::new(1.0, crate::ui::style::BORDER)),
                 )
                 .show(ctx, |ui| {
@@ -1729,11 +1758,16 @@ impl eframe::App for SmartFileManagerApp {
                 });
         }
 
+        let central_margin = if mode == AppMode::Explorer {
+            egui::Margin::symmetric(12.0, 10.0)
+        } else {
+            egui::Margin::symmetric(22.0, 18.0)
+        };
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::none()
                     .fill(crate::ui::style::CANVAS_FILL)
-                    .inner_margin(egui::Margin::symmetric(22.0, 18.0)),
+                    .inner_margin(central_margin),
             )
             .show(ctx, |ui| {
                 match mode {
@@ -1801,7 +1835,12 @@ fn mode_switch(app: &mut SmartFileManagerApp, ui: &mut egui::Ui) {
     ui.allocate_ui(egui::vec2(w, 32.0), |ui| {
         ui.set_width(w);
         if seg(ui, "🔍 Dedupe", app.mode == AppMode::Dedupe) {
-            app.mode = AppMode::Dedupe;
+            // Preserve “scan current Explorer folder” without a duplicate Explorer CTA.
+            if app.mode == AppMode::Explorer && app.roots.is_empty() {
+                app.scan_explorer_dir();
+            } else {
+                app.mode = AppMode::Dedupe;
+            }
         }
     });
     ui.allocate_ui(egui::vec2(w, 32.0), |ui| {
@@ -1854,6 +1893,67 @@ fn fast_move(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()
     Ok(())
 }
 
+/// Move a directory as a unit: rename when possible, else recursive copy + delete.
+fn fast_move_dir(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    if std::fs::rename(src, dst).is_ok() {
+        return Ok(());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let status = std::process::Command::new("cp")
+            .args(["-R", "--"])
+            .arg(src)
+            .arg(dst)
+            .status();
+        if status.map(|s| s.success()).unwrap_or(false) {
+            std::fs::remove_dir_all(src)?;
+            return Ok(());
+        }
+        // Clean partial dest if `cp` left anything behind.
+        let _ = std::fs::remove_dir_all(dst);
+    }
+
+    copy_dir_recursive(src, dst)?;
+    std::fs::remove_dir_all(src)?;
+    Ok(())
+}
+
+fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in walkdir::WalkDir::new(src).follow_links(false) {
+        let entry = entry?;
+        let rel = match entry.path().strip_prefix(src) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        if rel.as_os_str().is_empty() {
+            continue;
+        }
+        let dest_path = dst.join(rel);
+        if entry.file_type().is_dir() {
+            std::fs::create_dir_all(&dest_path)?;
+        } else {
+            if let Some(parent) = dest_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::copy(entry.path(), &dest_path)?;
+        }
+    }
+    Ok(())
+}
+
+/// Unique destination for a directory: `Name`, then `Name_2`, `Name_3`, …
+fn unique_dir_dest(target_dir: &std::path::Path, folder_name: &str) -> PathBuf {
+    let mut dest = target_dir.join(folder_name);
+    let mut counter = 2u32;
+    while dest.exists() {
+        dest = target_dir.join(format!("{folder_name}_{counter}"));
+        counter += 1;
+    }
+    dest
+}
+
 /// Drop search hits that live under a matched folder (folder is the selectable unit).
 fn collapse_search_results(entries: Vec<ExplorerEntry>) -> Vec<ExplorerEntry> {
     let mut dir_paths: Vec<PathBuf> = entries
@@ -1888,6 +1988,11 @@ fn collapse_search_results(entries: Vec<ExplorerEntry>) -> Vec<ExplorerEntry> {
 
 /// True for known OS/dev junk that should never appear in Explorer listings.
 pub fn is_system_entry(name: &str, is_dir: bool) -> bool {
+    // AppleDouble / Finder metadata (`._photo.jpg`) — always hide, even when
+    // showing other hidden files.
+    if name.starts_with("._") {
+        return true;
+    }
     let lower = name.to_lowercase();
     if is_dir {
         matches!(
