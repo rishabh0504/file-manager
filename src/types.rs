@@ -24,6 +24,9 @@ pub struct FileEntry {
     pub path: PathBuf,
     pub size: u64,
     pub mtime: SystemTime,
+    /// Modification time as seconds since UNIX epoch, pre-computed at scan time.
+    /// Used by the pipeline and hash cache — avoids repeated stat() syscalls.
+    pub mtime_secs: u64,
     pub file_id: FileId,
     /// Unix link count when known; 1 on Windows if unknown.
     pub nlink: u32,
@@ -64,6 +67,10 @@ pub struct FolderConfig {
 pub struct ScanConfig {
     pub roots: Vec<PathBuf>,
     pub folder_configs: Vec<FolderConfig>,
+    /// When true, skips files/dirs whose name starts with `.`.
+    /// Defaults to FALSE — hidden directories like `.photos/`, `.local/` are
+    /// traversed so media files inside them are found. System dirs (.git,
+    /// node_modules, etc.) are always excluded separately via `skip_system_dirs`.
     pub skip_hidden: bool,
     pub skip_system_dirs: bool,
     pub min_file_size: u64,
@@ -75,6 +82,9 @@ pub struct ScanConfig {
     pub use_hash_cache: bool,
     pub skip_logs_and_locks: bool,
     pub io_profile: IoProfile,
+    /// When Some(split_idx), roots 0..split_idx are Source (A) and roots split_idx..roots.len() are Destination (B).
+    /// Asymmetric mode: only find duplicates in B that exist in A. Internal duplicates in A or B are ignored.
+    pub asymmetric_split_index: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -90,7 +100,7 @@ impl Default for ScanConfig {
         Self {
             roots: Vec::new(),
             folder_configs: Vec::new(),
-            skip_hidden: true,
+            skip_hidden: false,
             skip_system_dirs: true,
             min_file_size: 1,
             action_mode: ActionMode::DryRun,
@@ -100,6 +110,7 @@ impl Default for ScanConfig {
             use_hash_cache: true,
             skip_logs_and_locks: false,
             io_profile: IoProfile::default(),
+            asymmetric_split_index: None,
         }
     }
 }

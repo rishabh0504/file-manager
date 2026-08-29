@@ -11,7 +11,7 @@ use crate::ui::style::{
 use eframe::egui::{self, load::SizedTexture, RichText, ScrollArea, TextureOptions};
 use eframe::egui::scroll_area::ScrollBarVisibility;
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
-use smart_file_manager::resolver::{self, trash_single_path};
+use smart_file_manager::resolver::{self, trash_single_path, trash_batch};
 use smart_file_manager::summarize_folders;
 use smart_file_manager::types::{self, ActionManifest, ActionMode, DuplicateGroup, ManifestAction, ScanResult};
 use std::fs;
@@ -233,9 +233,68 @@ pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx:
                     ui.label(section_title(&format!("Group #{} — Media Preview", gi + 1)));
                     
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        // Trash Selected Files in current group button
+                        let group_selected_files: Vec<PathBuf> = g.files
+                            .iter()
+                            .map(|f| f.path.clone())
+                            .filter(|p| app.results_selected_files.contains(p))
+                            .collect();
+
+                        if !group_selected_files.is_empty() {
+                            let n = group_selected_files.len();
+                            let btn = egui::Button::new(
+                                RichText::new(format!("🗑 Trash Selected ({})", n))
+                                    .strong()
+                                    .color(egui::Color32::WHITE),
+                            )
+                            .fill(style::DANGER);
+
+                            if ui.add(btn).on_hover_text("Move selected copies in this group to Trash").clicked() {
+                                let total_bytes: u64 = g.files
+                                    .iter()
+                                    .filter(|f| app.results_selected_files.contains(&f.path))
+                                    .map(|f| f.size)
+                                    .sum();
+
+                                let yes = MessageDialog::new()
+                                    .set_level(MessageLevel::Warning)
+                                    .set_title("Trash Selected Duplicates")
+                                    .set_description(format!(
+                                        "Move {} selected duplicate file(s) to Trash?\nReclaimable space: {}",
+                                        n,
+                                        format_bytes(total_bytes)
+                                    ))
+                                    .set_buttons(MessageButtons::YesNo)
+                                    .show();
+
+                                if yes == MessageDialogResult::Yes {
+                                    match trash_batch(&group_selected_files) {
+                                        Ok(trashed) => {
+                                            let trashed_set: std::collections::HashSet<PathBuf> =
+                                                trashed.into_iter().collect();
+                                            for p in &trashed_set {
+                                                app.results_selected_files.remove(p);
+                                            }
+                                            prune_paths_from_results(app, &trashed_set);
+                                            app.clear_preview_cache();
+                                            app.apply_message = Some(format!(
+                                                "Moved {} selected file(s) to Trash.",
+                                                trashed_set.len()
+                                            ));
+                                            app.apply_errors = None;
+                                        }
+                                        Err(e) => {
+                                            app.apply_errors = Some(format!("Error trashing selected: {}", e));
+                                        }
+                                    }
+                                }
+                            }
+                            ui.add_space(4.0);
+                        }
+
                         if g.files.len() >= 2 {
                             let best_file = &g.files[g.keep_index];
-                            let tooltip = format!("Keep: {} (Score: {})", 
+                            let tooltip = format!("Select duplicate copies (keep: {}, score: {})", 
                                 best_file.path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
                                 best_file.score);
                                 
@@ -269,7 +328,45 @@ pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx:
 
             // Folder-grouped File Rows
             ui.add_space(12.0);
-            ui.label(section_title("Copies in Group"));
+            ui.add_space(12.0);
+            ui.horizontal(|ui| {
+                ui.label(section_title("Copies in Group"));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let btn = egui::Button::new(
+                        RichText::new("🗑 Delete All Copies")
+                            .strong()
+                            .color(egui::Color32::WHITE),
+                    )
+                    .fill(style::DANGER);
+                    
+                    if ui.add(btn).on_hover_text("Delete EVERY copy in this group to Trash").clicked() {
+                        let total_bytes: u64 = g.files.iter().map(|f| f.size).sum();
+                        
+                        let yes = MessageDialog::new()
+                            .set_level(MessageLevel::Warning)
+                            .set_title("Delete ALL copies")
+                            .set_description(&format!("Move ALL {} copies in this group to trash? This leaves zero copies.\n\nReclaimable space: {}", g.files.len(), format_bytes(total_bytes)))
+                            .set_buttons(MessageButtons::YesNo)
+                            .show();
+
+                        if yes == MessageDialogResult::Yes {
+                            let paths_vec: Vec<PathBuf> = g.files.iter().map(|f| f.path.clone()).collect();
+                            match trash_batch(&paths_vec) {
+                                Ok(trashed) => {
+                                    let trashed_set: std::collections::HashSet<PathBuf> = trashed.into_iter().collect();
+                                    prune_paths_from_results(app, &trashed_set);
+                                    app.clear_preview_cache();
+                                    app.apply_message = Some(format!("Removed {} file(s) from group.", trashed_set.len()));
+                                    app.apply_errors = None;
+                                }
+                                Err(e) => {
+                                    app.apply_errors = Some(format!("Batch trash error: {}", e));
+                                }
+                            }
+                        }
+                    }
+                });
+            });
             ui.add_space(6.0);
 
             // Group files by parent folder
@@ -291,10 +388,6 @@ pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx:
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui: &mut egui::Ui| {
                         if ui.small_button("Delete all here").clicked() {
-                            let mut errors = Vec::new();
-                            let mut moved_count = 0;
-                            let mut paths_to_remove = std::collections::HashSet::new();
-
                             let yes = MessageDialog::new()
                                 .set_level(MessageLevel::Warning)
                                 .set_title("Delete folder copies")
@@ -303,22 +396,19 @@ pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx:
                                 .show();
 
                             if yes == MessageDialogResult::Yes {
-                                for (_, f) in &files {
-                                    match trash_single_path(&f.path) {
-                                        Ok(()) => {
-                                            paths_to_remove.insert(f.path.clone());
-                                            moved_count += 1;
-                                        }
-                                        Err(e) => { errors.push(e.to_string()); }
+                                let paths_vec: Vec<PathBuf> = files.iter().map(|(_, f)| f.path.clone()).collect();
+
+                                match trash_batch(&paths_vec) {
+                                    Ok(trashed) => {
+                                        let trashed_set: std::collections::HashSet<PathBuf> = trashed.into_iter().collect();
+                                        prune_paths_from_results(app, &trashed_set);
+                                        app.clear_preview_cache();
+                                        app.apply_message = Some(format!("Removed {} file(s) from folder.", trashed_set.len()));
+                                        app.apply_errors = None;
                                     }
-                                }
-                                if moved_count > 0 {
-                                    prune_paths_from_results(app, &paths_to_remove);
-                                    app.clear_preview_cache();
-                                    app.apply_message = Some(format!("Removed {} file(s) from folder.", moved_count));
-                                }
-                                if !errors.is_empty() {
-                                    app.apply_errors = Some(errors.join("; "));
+                                    Err(e) => {
+                                        app.apply_errors = Some(format!("Batch delete error: {}", e));
+                                    }
                                 }
                             }
                         }
@@ -330,6 +420,8 @@ pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx:
                 for (fi, f) in files {
                     let sel = app.results_selected_file_in_group == fi;
                     let row_bg = if sel { style::SURFACE_2 } else { egui::Color32::from_rgb(20, 20, 24) };
+
+                    let mut file_to_trash_now: Option<PathBuf> = None;
 
                     let clicked = egui::Frame::none()
                         .fill(row_bg)
@@ -359,6 +451,11 @@ pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx:
                                     .clicked();
 
                                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui: &mut egui::Ui| {
+                                    if !f.is_keep {
+                                        if ui.small_button("🗑").on_hover_text("Move this file to Trash").clicked() {
+                                            file_to_trash_now = Some(f.path.clone());
+                                        }
+                                    }
                                     if ui.small_button("Reveal").clicked() {
                                         reveal_in_folder(&f.path);
                                     }
@@ -370,6 +467,29 @@ pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx:
                             .inner
                         })
                         .inner;
+
+                    if let Some(target) = file_to_trash_now {
+                        let yes = MessageDialog::new()
+                            .set_level(MessageLevel::Warning)
+                            .set_title("Move File to Trash")
+                            .set_description(format!("Move this file to Trash?\n\n{}", target.display()))
+                            .set_buttons(MessageButtons::YesNo)
+                            .show();
+                        if yes == MessageDialogResult::Yes {
+                            match trash_single_path(&target) {
+                                Ok(()) => {
+                                    prune_path_from_results(app, &target);
+                                    app.results_selected_files.remove(&target);
+                                    app.clear_preview_cache();
+                                    app.apply_message = Some("File moved to Trash.".into());
+                                    app.apply_errors = None;
+                                }
+                                Err(e) => {
+                                    app.apply_errors = Some(format!("Trash error: {}", e));
+                                }
+                            }
+                        }
+                    }
 
                     if clicked {
                         app.results_selected_file_in_group = fi;
@@ -1001,11 +1121,24 @@ fn apply_all(app: &mut SmartFileManagerApp, result: &ScanResult) {
             return;
         }
         ActionMode::Delete => {
+            let mut all_paths = Vec::new();
             for g in &result.duplicate_groups {
-                for r in resolver::apply_delete_group(g, ActionMode::Delete) {
-                    match r {
-                        Ok(()) => ok += 1,
-                        Err(e) => errs.push(e.to_string()),
+                for (i, f) in g.files.iter().enumerate() {
+                    if i != g.keep_index {
+                        all_paths.push(f.path.clone());
+                    }
+                }
+            }
+            if !all_paths.is_empty() {
+                match trash_batch(&all_paths) {
+                    Ok(trashed) => {
+                        ok = trashed.len();
+                        let trashed_set: std::collections::HashSet<PathBuf> = trashed.into_iter().collect();
+                        prune_paths_from_results(app, &trashed_set);
+                        app.clear_preview_cache();
+                    }
+                    Err(e) => {
+                        errs.push(e);
                     }
                 }
             }
@@ -1060,41 +1193,22 @@ fn clean_all_same_folder_duplicates(app: &mut SmartFileManagerApp, result: &Scan
     }
 
     let total_freed_bytes: u64 = files_to_trash.iter().map(|f| f.size).sum();
+    let paths_vec: Vec<PathBuf> = files_to_trash.iter().map(|f| f.path.clone()).collect();
 
-    let yes = MessageDialog::new()
-        .set_level(MessageLevel::Warning)
-        .set_title("Clean Same-Folder Duplicates")
-        .set_description(&format!("This will move {} duplicate files to the Trash, freeing approximately {}.\n\nIt keeps exactly one copy per folder, leaving cross-folder duplicates untouched.\n\nProceed?", files_to_trash.len(), format_bytes(total_freed_bytes)))
-        .set_buttons(MessageButtons::YesNo)
-        .show();
-
-    if yes == MessageDialogResult::Yes {
-        let mut paths_to_remove = std::collections::HashSet::new();
-        let mut moved_count = 0;
-        let mut errors = Vec::new();
-
-        for f in files_to_trash {
-            match smart_file_manager::resolver::trash_single_path(&f.path) {
-                Ok(()) => {
-                    paths_to_remove.insert(f.path.clone());
-                    moved_count += 1;
-                }
-                Err(e) => {
-                    errors.push(e.to_string());
-                }
-            }
-        }
-
-        if moved_count > 0 {
-            prune_paths_from_results(app, &paths_to_remove);
+    match trash_batch(&paths_vec) {
+        Ok(trashed) => {
+            let trashed_set: std::collections::HashSet<PathBuf> = trashed.into_iter().collect();
+            prune_paths_from_results(app, &trashed_set);
             app.clear_preview_cache();
-            app.apply_message = Some(format!("{} same-folder duplicate(s) moved to Trash.", moved_count));
-        }
-        
-        if !errors.is_empty() {
-            app.apply_errors = Some(format!("Failed to trash some files: {}", errors.join("; ")));
-        } else if moved_count > 0 {
+            app.apply_message = Some(format!(
+                "Successfully moved {} same-folder duplicate(s) to Trash, freeing {}.",
+                trashed_set.len(),
+                format_bytes(total_freed_bytes)
+            ));
             app.apply_errors = None;
+        }
+        Err(e) => {
+            app.apply_errors = Some(format!("Batch trash error: {}", e));
         }
     }
 }

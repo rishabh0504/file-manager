@@ -29,7 +29,7 @@ enum Act {
     NewQueue,
     OpenQueue(usize),
     RemoveFromQueue(usize, PathBuf),
-    SubmitQueue(usize),
+    SubmitAllQueues,
     DeleteQueue(usize),
     ChangeQueueTarget(usize),
 }
@@ -1611,8 +1611,10 @@ pub fn queue_window(app: &mut SmartFileManagerApp, ctx: &egui::Context) {
                         ui.separator();
                         ui.add_space(6.0);
                         ui.horizontal(|ui| {
-                            let can_submit = !submitting && !items.is_empty();
-                            let submit_label = format!("Submit — move {} file(s)", items.len());
+                            let total_all_queues: usize = app.explorer_queues.iter().map(|q| q.items.len()).sum();
+                            let can_submit = !submitting && total_all_queues > 0;
+                            let submit_label = format!("📦 Move All ({total_all_queues} files)");
+                            
                             if ui
                                 .add_enabled(can_submit, {
                                     egui::Button::new(
@@ -1622,10 +1624,12 @@ pub fn queue_window(app: &mut SmartFileManagerApp, ctx: &egui::Context) {
                                     )
                                     .fill(style::ACCENT)
                                 })
+                                .on_hover_text("Move all staged items to the selected destination folder")
                                 .clicked()
                             {
-                                act = Some(Act::SubmitQueue(idx));
+                                act = Some(Act::SubmitAllQueues);
                             }
+
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                                 if !submitting
                                     && ui
@@ -2188,7 +2192,7 @@ fn apply_action(app: &mut SmartFileManagerApp, act: Option<Act>) {
             app.explorer_queue_view_open = true;
         }
         Act::RemoveFromQueue(i, p) => app.explorer_remove_from_queue(i, p),
-        Act::SubmitQueue(i) => app.submit_queue(i),
+        Act::SubmitAllQueues => app.submit_all_queues(),
         Act::DeleteQueue(i) => app.explorer_delete_queue(i),
         Act::ChangeQueueTarget(i) => app.explorer_change_queue_target(i),
     }

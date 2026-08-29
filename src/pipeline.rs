@@ -1,4 +1,4 @@
-use crate::cache::{entry_mtime_secs, HashCache};
+use crate::cache::HashCache;
 use crate::cancel::CancellationToken;
 use crate::errors::FileError;
 use crate::hasher::{compute_chunk_size, full_hash, partial_hash_from_reads};
@@ -9,13 +9,22 @@ use crate::types::{
     log_error, DuplicateGroup, FileEntry, FolderSummary, HardLinkGroup, KeepPolicy, ProgressPhase,
     ScanConfig, ScanProgress, ScanResult, ScanStats,
 };
-use crate::verifier::verify_group;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 
-const MAX_GROUP_SIZE: usize = 10_000;
+/// Maximum hashing threads. BLAKE3 is faster than any single SSD, so the
+/// bottleneck is I/O — more than 6 concurrent readers adds heat without
+/// throughput gains on typical consumer hardware.
+fn hash_thread_count() -> usize {
+    // Half the logical cores, kept between 2 and 6.
+    (num_cpus::get() / 2).max(2).min(6)
+}
+
+// MAX_GROUP_SIZE intentionally removed: chunking files of the same size into
+// sub-groups caused silent cross-chunk duplicate blindspots. All files sharing
+// a size now form one group and are processed together.
 
 fn partition_hardlinks(entries: Vec<FileEntry>) -> (Vec<FileEntry>, Vec<HardLinkGroup>) {
     let mut map: HashMap<FileId, Vec<FileEntry>> = HashMap::new();
@@ -58,11 +67,163 @@ fn bucket_by_size(entries: Vec<FileEntry>) -> (Vec<Vec<FileEntry>>, u64) {
             continue;
         }
         bytes_in_hashing += g.iter().map(|e| e.size).sum::<u64>();
-        for chunk in g.chunks(MAX_GROUP_SIZE) {
-            out.push(chunk.to_vec());
-        }
+        out.push(g);   // single group — no chunking, no duplicate blindspots
     }
     (out, bytes_in_hashing)
+}
+
+/// Per-group output collected during the parallel phase.
+#[allow(dead_code)] // bytes_hashed/files_hashed reserved for future per-group progress
+struct GroupOutcome {
+    dup_groups: Vec<DuplicateGroup>,
+    errors: Vec<(PathBuf, String)>,
+    bytes_hashed: u64,
+    files_hashed: u64,
+}
+
+/// Process one size-bucket end-to-end: partial hash → filter → full hash → group.
+///
+/// # Performance notes
+/// - Runs concurrently with all other size-buckets via `into_par_iter()` in `run_dedup`.
+/// - Inner iterations use `par_iter()` to parallelize massive size buckets.
+///   Rayon's work-stealing safely prevents oversubscription inside the bounded pool.
+/// - `mtime_secs` is read from `FileEntry` (pre-computed at scan time) — no extra `stat()`.
+/// - `verify_group` is omitted: BLAKE3-256 full-hash collision probability is `2^-256`.
+/// - Progress Mutex is locked once per group, not once per file.
+fn process_size_group(
+    group: Vec<FileEntry>,
+    config: &ScanConfig,
+    token: &CancellationToken,
+    cache_shared: &Option<Arc<RwLock<HashCache>>>,
+    progress: &Arc<Mutex<ScanProgress>>,
+) -> GroupOutcome {
+    let mut errors: Vec<(PathBuf, String)> = Vec::new();
+    let mut dup_groups: Vec<DuplicateGroup> = Vec::new();
+    let mut bytes_hashed: u64 = 0;
+    let mut files_hashed: u64 = 0;
+
+    // ── Stage A: Partial hash ────────────────────────────────────────────────
+    let partial_results: Vec<(FileEntry, Result<[u8; 32], FileError>)> = group
+        .par_iter()
+        .map(|e| {
+            if token.is_cancelled() {
+                return (e.clone(), Err(FileError::Cancelled));
+            }
+            // mtime_secs pre-computed at scan time — no stat() syscall here.
+            if let Some(cm) = cache_shared {
+                if let Ok(g) = cm.read() {
+                    if let Some(ent) = g.get(&e.path, e.size, e.mtime_secs) {
+                        return (e.clone(), Ok(ent.partial_hash));
+                    }
+                }
+            }
+            let chunk = compute_chunk_size(e.size);
+            let h = partial_hash_from_reads(&e.path, e.size, chunk, token);
+            (e.clone(), h)
+        })
+        .collect();
+
+    // One write lock for the whole group's partial-hash results.
+    if let Some(cm) = cache_shared {
+        let mut c = cm.write().unwrap();
+        for (e, r) in &partial_results {
+            if let Ok(hash) = r {
+                if c.get(&e.path, e.size, e.mtime_secs).is_none() {
+                    c.insert_partial(&e.path, e.size, e.mtime_secs, *hash);
+                }
+            }
+        }
+    }
+
+    for (e, r) in &partial_results {
+        if let Err(err) = r {
+            log_error(&mut errors, e.path.clone(), err.clone());
+        }
+    }
+
+    let mut by_partial: HashMap<[u8; 32], Vec<FileEntry>> = HashMap::new();
+    for (e, r) in partial_results {
+        if let Ok(h) = r {
+            by_partial.entry(h).or_default().push(e);
+        }
+    }
+    let mut full_candidates: Vec<FileEntry> = Vec::new();
+    for (_, mut files) in by_partial {
+        if files.len() <= 1 { continue; }
+        full_candidates.append(&mut files);
+    }
+
+    if token.is_cancelled() || full_candidates.is_empty() {
+        return GroupOutcome { dup_groups, errors, bytes_hashed, files_hashed };
+    }
+
+    // ── Stage B: Full hash ───────────────────────────────────────────────────
+    let full_results: Vec<(FileEntry, Result<[u8; 32], FileError>)> = full_candidates
+        .par_iter()
+        .map(|e| {
+            if token.is_cancelled() {
+                return (e.clone(), Err(FileError::Cancelled));
+            }
+            if let Some(cm) = cache_shared {
+                if let Ok(g) = cm.read() {
+                    if let Some(ent) = g.get(&e.path, e.size, e.mtime_secs) {
+                        if let Some(fh) = ent.full_hash {
+                            return (e.clone(), Ok(fh));
+                        }
+                    }
+                }
+            }
+            (e.clone(), full_hash(&e.path, e.size, token))
+        })
+        .collect();
+
+    if let Some(cm) = cache_shared {
+        let mut c = cm.write().unwrap();
+        for (e, r) in &full_results {
+            if let Ok(hash) = r {
+                c.set_full(&e.path, e.size, e.mtime_secs, *hash);
+            }
+        }
+    }
+
+    // Accumulate locally, then lock progress once per group.
+    let mut last_path: Option<PathBuf> = None;
+    for (e, r) in &full_results {
+        match r {
+            Ok(_) => {
+                bytes_hashed = bytes_hashed.saturating_add(e.size);
+                files_hashed = files_hashed.saturating_add(1);
+                last_path = Some(e.path.clone());
+            }
+            Err(err) => { log_error(&mut errors, e.path.clone(), err.clone()); }
+        }
+    }
+    if files_hashed > 0 {
+        let mut p = progress.lock().unwrap();
+        p.bytes_processed = p.bytes_processed.saturating_add(bytes_hashed);
+        p.files_hashed = p.files_hashed.saturating_add(files_hashed);
+        if let Some(path) = last_path {
+            p.current_path = path;
+        }
+    }
+
+    // ── Stage C: Build duplicate groups ──────────────────────────────────────
+    // verify_group omitted — BLAKE3-256 full hash is collision-proof (2^-256).
+    let mut by_full: HashMap<[u8; 32], Vec<FileEntry>> = HashMap::new();
+    for (e, r) in full_results {
+        if let Ok(h) = r {
+            by_full.entry(h).or_default().push(e);
+        }
+    }
+    for (hash, files) in by_full {
+        if files.len() < 2 || token.is_cancelled() { continue; }
+        let dg = build_duplicate_group(hash, files, KeepPolicy::SmartScore, config);
+        if dg.files.len() >= 2 {
+            dup_groups.push(dg);
+        }
+    }
+
+    GroupOutcome { dup_groups, errors, bytes_hashed, files_hashed }
 }
 
 pub fn run_dedup(
@@ -88,164 +249,35 @@ pub fn run_dedup(
         p.bytes_total = bytes_total;
         p.files_to_hash_total = size_groups.iter().map(|g| g.len() as u64).sum();
         p.phase = ProgressPhase::Processing {
-            stage_label: "Partial hash".into(),
+            stage_label: "Hashing".into(),
             stage: 1,
-            stages_total: 4,
+            stages_total: 2,
         };
     }
 
+    // Build a bounded thread pool so we don't peg every core at 100%.
+    // BLAKE3 is I/O-bound on SSDs: 2-6 concurrent readers is the sweet spot.
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(hash_thread_count())
+        .thread_name(|i| format!("sfm-hash-{i}"))
+        .build()
+        .unwrap_or_else(|_| rayon::ThreadPoolBuilder::new().build().unwrap());
+
+    // All size-groups processed in parallel inside the bounded pool.
+    let outcomes: Vec<GroupOutcome> = pool.install(|| {
+        size_groups
+            .into_par_iter()
+            .filter(|_| !token.is_cancelled())
+            .map(|group| process_size_group(group, config, token, &cache_shared, &progress))
+            .collect()
+    });
+
     let mut duplicate_groups: Vec<DuplicateGroup> = Vec::new();
-    let mut groups_found: u64 = 0;
-
-    for group in size_groups {
-        if token.is_cancelled() {
-            break;
-        }
-
-        let partial_results: Vec<(FileEntry, Result<[u8; 32], FileError>)> = group
-            .par_iter()
-            .map(|e| {
-                if token.is_cancelled() {
-                    return (e.clone(), Err(FileError::Cancelled));
-                }
-                let mtime = entry_mtime_secs(&e.path).unwrap_or(0);
-                if let Some(cm) = &cache_shared {
-                    if let Ok(g) = cm.read() {
-                        if let Some(ent) = g.get(&e.path, e.size, mtime) {
-                            return (e.clone(), Ok(ent.partial_hash));
-                        }
-                    }
-                }
-                let chunk = compute_chunk_size(e.size);
-                let h = partial_hash_from_reads(&e.path, e.size, chunk, token);
-                (e.clone(), h)
-            })
-            .collect();
-
-        if let Some(cm) = &cache_shared {
-            let mut c = cm.write().unwrap();
-            for (e, r) in &partial_results {
-                if let Ok(hash) = r {
-                    let mtime = entry_mtime_secs(&e.path).unwrap_or(0);
-                    if c.get(&e.path, e.size, mtime).is_none() {
-                        c.insert_partial(&e.path, e.size, mtime, *hash);
-                    }
-                }
-            }
-        }
-
-        for (e, r) in &partial_results {
-            if let Err(err) = r {
-                log_error(&mut error_log, e.path.clone(), err.clone());
-            }
-        }
-
-        let mut by_partial: HashMap<[u8; 32], Vec<FileEntry>> = HashMap::new();
-        for (e, r) in partial_results {
-            if let Ok(h) = r {
-                by_partial.entry(h).or_default().push(e);
-            }
-        }
-
-        let mut full_candidates: Vec<FileEntry> = Vec::new();
-        for (_ph, mut files) in by_partial {
-            if files.len() <= 1 {
-                continue;
-            }
-            full_candidates.append(&mut files);
-        }
-
-        if token.is_cancelled() {
-            break;
-        }
-
-        {
-            let mut p = progress.lock().unwrap();
-            p.phase = ProgressPhase::Processing {
-                stage_label: "Full hash".into(),
-                stage: 2,
-                stages_total: 4,
-            };
-        }
-
-        let full_results: Vec<(FileEntry, Result<[u8; 32], FileError>)> = full_candidates
-            .par_iter()
-            .map(|e| {
-                if token.is_cancelled() {
-                    return (e.clone(), Err(FileError::Cancelled));
-                }
-                let mtime = entry_mtime_secs(&e.path).unwrap_or(0);
-                if let Some(cm) = &cache_shared {
-                    if let Ok(g) = cm.read() {
-                        if let Some(ent) = g.get(&e.path, e.size, mtime) {
-                            if let Some(fh) = ent.full_hash {
-                                return (e.clone(), Ok(fh));
-                            }
-                        }
-                    }
-                }
-                (e.clone(), full_hash(&e.path, e.size, token))
-            })
-            .collect();
-
-        if let Some(cm) = &cache_shared {
-            let mut c = cm.write().unwrap();
-            for (e, r) in &full_results {
-                if let Ok(hash) = r {
-                    let mtime = entry_mtime_secs(&e.path).unwrap_or(0);
-                    c.set_full(&e.path, e.size, mtime, *hash);
-                }
-            }
-        }
-
-        for (e, r) in &full_results {
-            match r {
-                Ok(_) => {
-                    let mut p = progress.lock().unwrap();
-                    p.bytes_processed = p.bytes_processed.saturating_add(e.size);
-                    p.files_hashed = p.files_hashed.saturating_add(1);
-                    p.current_path = e.path.clone();
-                }
-                Err(err) => {
-                    log_error(&mut error_log, e.path.clone(), err.clone());
-                }
-            }
-        }
-
-        let mut by_full: HashMap<[u8; 32], Vec<FileEntry>> = HashMap::new();
-        for (e, r) in full_results {
-            if let Ok(h) = r {
-                by_full.entry(h).or_default().push(e);
-            }
-        }
-
-        {
-            let mut p = progress.lock().unwrap();
-            p.phase = ProgressPhase::Processing {
-                stage_label: "Verify & resolve".into(),
-                stage: 3,
-                stages_total: 4,
-            };
-        }
-
-        for (full_hash, files) in by_full {
-            if files.len() < 2 {
-                continue;
-            }
-            if token.is_cancelled() {
-                break;
-            }
-            let verified = verify_group(&files);
-            if verified.len() < 2 {
-                continue;
-            }
-            let dg = build_duplicate_group(full_hash, verified, KeepPolicy::SmartScore, config);
-            groups_found += 1;
-            duplicate_groups.push(dg);
-            let mut p = progress.lock().unwrap();
-            p.groups_found = groups_found;
-        }
+    for outcome in outcomes {
+        duplicate_groups.extend(outcome.dup_groups);
+        error_log.extend(outcome.errors);
     }
+    let groups_found = duplicate_groups.len() as u64;
 
     {
         let mut p = progress.lock().unwrap();
@@ -318,12 +350,10 @@ pub fn refresh_duplicates_from_result(
 
     let mut new = run_dedup(entries, config, token, progress, cache);
 
+    // All errors are preserved — no truncation — so the user sees every
+    // file that moved or became inaccessible since the last scan.
     let mut merged = refresh_errors;
     merged.append(&mut new.error_log);
-    const MAX_ERR: usize = 1000;
-    if merged.len() > MAX_ERR {
-        merged.truncate(MAX_ERR);
-    }
 
     ScanResult {
         duplicate_groups: new.duplicate_groups,

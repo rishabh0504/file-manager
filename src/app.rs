@@ -39,6 +39,7 @@ pub enum AppMode {
     #[default]
     Explorer,
     Dedupe,
+    CompareSourceDest,
     EmptyFolders,
     ArchiveFiles,
 }
@@ -82,6 +83,14 @@ pub struct ExplorerEntry {
 /// A named staging list bound to a destination folder. Files are added to the
 /// queue's `items` while browsing (no move yet); a Submit action moves them all
 /// into `target`.
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct GroupOutcome {
+    pub name: String,
+    pub target: PathBuf,
+    pub items: Vec<PathBuf>,
+}
+
 #[derive(Debug, Clone)]
 pub struct FileQueue {
     pub name: String,
@@ -172,6 +181,10 @@ pub struct SmartFileManagerApp {
     // ---- Dedupe workflow state ----
     pub view: AppView,
     pub roots: Vec<PathBuf>,
+    /// Source (A) reference roots for CompareSourceDest mode.
+    pub source_roots: Vec<PathBuf>,
+    /// Destination (B) roots where duplicates will be found for CompareSourceDest mode.
+    pub dest_roots: Vec<PathBuf>,
     pub preferred_dirs_text: String,
     pub exclude_globs_text: String,
     /// Full paths of subtrees to exclude (applied to every selected root’s tree).
@@ -293,10 +306,12 @@ impl Default for SmartFileManagerApp {
             explorer_queue_submitting_idx: None,
             view: AppView::Scan,
             roots: Vec::new(),
+            source_roots: Vec::new(),
+            dest_roots: Vec::new(),
             preferred_dirs_text: String::new(),
             exclude_globs_text: String::new(),
             excluded_subdirs_text: String::new(),
-            skip_hidden: true,
+            skip_hidden: false,
             skip_system_dirs: true,
             min_file_size: 1,
             action_mode: ActionMode::DryRun,
@@ -379,8 +394,16 @@ impl SmartFileManagerApp {
             .map(PathBuf::from)
             .collect();
 
-        let folder_configs: Vec<FolderConfig> = self
-            .roots
+        let (combined_roots, asymmetric_split_index) = if self.mode == AppMode::CompareSourceDest {
+            let mut all = self.source_roots.clone();
+            let split_idx = all.len();
+            all.extend(self.dest_roots.clone());
+            (all, Some(split_idx))
+        } else {
+            (self.roots.clone(), None)
+        };
+
+        let folder_configs: Vec<FolderConfig> = combined_roots
             .iter()
             .map(|r| FolderConfig {
                 root: r.clone(),
@@ -389,18 +412,19 @@ impl SmartFileManagerApp {
             .collect();
 
         ScanConfig {
-            roots: self.roots.clone(),
+            roots: combined_roots.clone(),
             folder_configs,
             skip_hidden: self.skip_hidden,
             skip_system_dirs: self.skip_system_dirs,
             min_file_size: self.min_file_size,
             action_mode: self.action_mode,
             preferred_dirs: preferred,
-            root_order: self.roots.clone(),
+            root_order: combined_roots,
             exclude_globs,
             use_hash_cache: self.use_hash_cache,
             skip_logs_and_locks: self.skip_logs_and_locks,
             io_profile: self.io_profile,
+            asymmetric_split_index,
         }
     }
 
@@ -414,11 +438,14 @@ impl SmartFileManagerApp {
         self.last_result = None;
         self.scan_work = ScanWorkKind::FullScan;
         self.token = CancellationToken::new();
+
+        let cfg = self.build_scan_config();
+        let roots = cfg.roots.clone();
+
         {
             let mut p = self.progress.lock().unwrap();
             *p = ScanProgress::default();
-            p.folders = self
-                .roots
+            p.folders = roots
                 .iter()
                 .map(|r| FolderProgress {
                     folder_path: r.clone(),
@@ -434,14 +461,13 @@ impl SmartFileManagerApp {
         let (tx, rx) = std::sync::mpsc::channel();
         self.result_rx = Some(rx);
 
-        let cfg = self.build_scan_config();
-        let roots = self.roots.clone();
         let token = self.token.clone_token();
         let progress = Arc::clone(&self.progress);
 
         std::thread::spawn(move || {
-            let entries = parallel_scan_roots(&roots, &cfg, &token, |n, path| {
-                let mut g = progress.lock().unwrap();
+            let progress_scan = Arc::clone(&progress);
+            let entries = parallel_scan_roots(&roots, &cfg, &token, move |n, path| {
+                let mut g = progress_scan.lock().unwrap();
                 g.phase = smart_file_manager::types::ProgressPhase::Enumerating {
                     files_found: n,
                     current_path: path,
@@ -1015,6 +1041,133 @@ impl SmartFileManagerApp {
         });
     }
 
+    /// Move all staged items across ALL queues into their respective target folders in one batch.
+    pub fn submit_all_queues(&mut self) {
+        let total_files: usize = self.explorer_queues.iter().map(|q| q.items.len()).sum();
+        if total_files == 0 {
+            self.explorer_status = Some("All queues are empty — nothing to move.".to_string());
+            return;
+        }
+
+        let confirm = rfd::MessageDialog::new()
+            .set_level(rfd::MessageLevel::Info)
+            .set_title("Submit All Queues")
+            .set_description(format!(
+                "Move all {} file(s) across {} queue(s) to their respective target folders?",
+                total_files,
+                self.explorer_queues.len()
+            ))
+            .set_buttons(rfd::MessageButtons::YesNo)
+            .show();
+        if confirm != rfd::MessageDialogResult::Yes {
+            return;
+        }
+
+        self.explorer_queue_submitting = true;
+        self.explorer_queue_submitting_idx = None; // None signals "all queues"
+        if let Ok(mut p) = self.explorer_queue_submit_progress.lock() {
+            *p = (0, total_files, String::new());
+        }
+
+        let queue_snapshots: Vec<(PathBuf, Vec<PathBuf>)> = self
+            .explorer_queues
+            .iter()
+            .map(|q| (q.target.clone(), q.items.clone()))
+            .collect();
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.explorer_queue_submit_rx = Some(rx);
+        let progress = std::sync::Arc::clone(&self.explorer_queue_submit_progress);
+
+        std::thread::spawn(move || {
+            let mut success_count = 0;
+            let mut fail_count = 0;
+            let mut current_idx = 0;
+
+            for (target_dir, items) in queue_snapshots {
+                if !target_dir.is_dir() {
+                    let _ = std::fs::create_dir_all(&target_dir);
+                }
+
+                for p in items {
+                    let fname = p
+                        .file_name()
+                        .map(|n| n.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    if let Ok(mut prog) = progress.lock() {
+                        *prog = (current_idx, total_files, fname.clone());
+                    }
+                    current_idx += 1;
+
+                    let moved = if p.is_dir() {
+                        let dest = unique_dir_dest(&target_dir, &fname);
+                        if fast_move_dir(&p, &dest).is_ok() {
+                            true
+                        } else {
+                            let fallback = unique_dir_dest(&target_dir, &fname);
+                            fast_move_dir(&p, &fallback).is_ok()
+                        }
+                    } else if p.is_file() {
+                        let file_name = match p.file_name() {
+                            Some(n) => n,
+                            None => {
+                                fail_count += 1;
+                                continue;
+                            }
+                        };
+
+                        let stem = p
+                            .file_stem()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("file")
+                            .to_string();
+                        let ext = p
+                            .extension()
+                            .and_then(|e| e.to_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let mut dest = target_dir.join(file_name);
+                        let mut counter = 1u32;
+                        while dest.exists() {
+                            let new_name = if ext.is_empty() {
+                                format!("{}_{}", stem, counter)
+                            } else {
+                                format!("{}_{}.{}", stem, counter, ext)
+                            };
+                            dest = target_dir.join(&new_name);
+                            counter += 1;
+                        }
+
+                        if fast_move(&p, &dest).is_ok() {
+                            true
+                        } else {
+                            let fallback_name = if ext.is_empty() {
+                                format!("{}_{}", stem, counter)
+                            } else {
+                                format!("{}_{}.{}", stem, counter, ext)
+                            };
+                            let fallback = target_dir.join(&fallback_name);
+                            fast_move(&p, &fallback).is_ok()
+                        }
+                    } else {
+                        false
+                    };
+
+                    if moved {
+                        success_count += 1;
+                    } else {
+                        fail_count += 1;
+                    }
+                }
+            }
+
+            if let Ok(mut prog) = progress.lock() {
+                *prog = (total_files, total_files, String::new());
+            }
+            let _ = tx.send((success_count, fail_count));
+        });
+    }
+
     /// Poll the background submit thread; on completion clear moved items and
     /// refresh the listing. Mirrors `poll_archive_files_move_result`.
     pub fn poll_queue_submit_result(&mut self) {
@@ -1023,15 +1176,19 @@ impl SmartFileManagerApp {
                 self.explorer_queue_submitting = false;
                 self.explorer_queue_submit_rx = None;
 
-                // Clear the moved items from the submitted queue.
+                // Clear the moved items from the submitted queue (or all queues if submitting_idx was None).
                 if let Some(idx) = self.explorer_queue_submitting_idx.take() {
                     if let Some(q) = self.explorer_queues.get_mut(idx) {
+                        q.items.clear();
+                    }
+                } else {
+                    for q in &mut self.explorer_queues {
                         q.items.clear();
                     }
                 }
 
                 let msg = if fail_count == 0 {
-                    format!("Moved {success_count} file(s) to the queue folder.")
+                    format!("Moved {success_count} file(s) across queues.")
                 } else {
                     format!("Moved {success_count} file(s); {fail_count} failed.")
                 };
@@ -1726,11 +1883,13 @@ impl eframe::App for SmartFileManagerApp {
             });
 
         let results_ready =
-            mode == AppMode::Dedupe && matches!(self.view, AppView::Results) && self.last_result.is_some();
+            (mode == AppMode::Dedupe || mode == AppMode::CompareSourceDest)
+                && matches!(self.view, AppView::Results)
+                && self.last_result.is_some();
 
         let show_sidebar = match mode {
             AppMode::Explorer => true,
-            AppMode::Dedupe => results_ready,
+            AppMode::Dedupe | AppMode::CompareSourceDest => results_ready,
             AppMode::EmptyFolders => false,
             AppMode::ArchiveFiles => false,
         };
@@ -1750,7 +1909,7 @@ impl eframe::App for SmartFileManagerApp {
                 .show(ctx, |ui| {
                     match mode {
                         AppMode::Explorer => crate::ui::explorer_sidebar(self, ui),
-                        AppMode::Dedupe if results_ready => {
+                        AppMode::Dedupe | AppMode::CompareSourceDest if results_ready => {
                             results_dup_list_panel(self, ui, ctx);
                         }
                         _ => {}
@@ -1772,7 +1931,7 @@ impl eframe::App for SmartFileManagerApp {
             .show(ctx, |ui| {
                 match mode {
                     AppMode::Explorer => crate::ui::explorer_main_panel(self, ui, ctx),
-                    AppMode::Dedupe => match self.view {
+                    AppMode::Dedupe | AppMode::CompareSourceDest => match self.view {
                         AppView::Scan => scan_panel(self, ui),
                         AppView::Scanning => progress_panel(self, ui, ctx),
                         AppView::Results => results_main_panel(self, ui, ctx),
@@ -1817,7 +1976,8 @@ fn mode_switch(app: &mut SmartFileManagerApp, ui: &mut egui::Ui) {
     };
     ui.spacing_mut().item_spacing.x = 8.0;
     
-    let w = 90.0;
+    let w = 88.0;
+    let w_wide = 118.0;
     ui.allocate_ui(egui::vec2(w, 32.0), |ui| {
         ui.set_width(w);
         if seg(ui, "📦 Archives", app.mode == AppMode::ArchiveFiles) {
@@ -1829,6 +1989,13 @@ fn mode_switch(app: &mut SmartFileManagerApp, ui: &mut egui::Ui) {
         ui.set_width(w);
         if seg(ui, "📁 Empty", app.mode == AppMode::EmptyFolders) {
             app.mode = AppMode::EmptyFolders;
+            app.view = AppView::Scan;
+        }
+    });
+    ui.allocate_ui(egui::vec2(w_wide, 32.0), |ui| {
+        ui.set_width(w_wide);
+        if seg(ui, "⚡ A -> B Compare", app.mode == AppMode::CompareSourceDest) {
+            app.mode = AppMode::CompareSourceDest;
             app.view = AppView::Scan;
         }
     });

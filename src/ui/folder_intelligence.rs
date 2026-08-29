@@ -648,7 +648,7 @@ fn trash_selected_twins(
     }
 
     use rfd::{MessageDialog, MessageLevel, MessageButtons, MessageDialogResult};
-    use smart_file_manager::resolver::trash_single_path;
+    use smart_file_manager::resolver::trash_batch;
 
     let yes = MessageDialog::new()
         .set_level(MessageLevel::Warning)
@@ -658,30 +658,20 @@ fn trash_selected_twins(
         .show();
 
     if yes == MessageDialogResult::Yes {
-        let mut moved_count = 0;
-        let mut errors = Vec::new();
-        let mut paths_removed = std::collections::HashSet::new();
+        let paths_vec: Vec<PathBuf> = to_trash.into_iter().collect();
 
-        for path in to_trash {
-            match trash_single_path(&path) {
-                Ok(()) => {
-                    paths_removed.insert(path);
-                    moved_count += 1;
-                }
-                Err(e) => {
-                    errors.push(e.to_string());
-                }
+        match trash_batch(&paths_vec) {
+            Ok(trashed) => {
+                let paths_removed: std::collections::HashSet<PathBuf> = trashed.into_iter().collect();
+                crate::ui::results_panel::prune_paths_from_results(app, &paths_removed);
+                app.clear_preview_cache();
+                app.twins_trash_selections.clear();
+                app.apply_message = Some(format!("Removed {} duplicate file(s) in one batch.", paths_removed.len()));
+                app.apply_errors = None;
             }
-        }
-
-        if moved_count > 0 {
-            crate::ui::results_panel::prune_paths_from_results(app, &paths_removed);
-            app.clear_preview_cache();
-            app.twins_trash_selections.clear();
-            app.apply_message = Some(format!("Removed {} duplicate file(s).", moved_count));
-        }
-        if !errors.is_empty() {
-            app.apply_errors = Some(errors.join("; "));
+            Err(e) => {
+                app.apply_errors = Some(format!("Batch trash error: {}", e));
+            }
         }
     }
 }

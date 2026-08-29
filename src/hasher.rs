@@ -6,9 +6,11 @@ use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
 
-/// Shipped behavior (Implementation §17 Enhancement 3): ~25% of file per region, capped at 8 KiB.
+/// Shipped behavior: ~25% of file per region, capped at 64 KiB.
+/// 3 regions × 64 KiB = 192 KiB total sampled — excellent discrimination
+/// for large video/RAW files while staying fast.
 pub fn compute_chunk_size(file_size: u64) -> usize {
-    const MAX_CHUNK: u64 = 8192;
+    const MAX_CHUNK: u64 = 65_536; // 64 KiB per region, up from 8 KiB
     (file_size / 4).clamp(1, MAX_CHUNK) as usize
 }
 
@@ -71,7 +73,10 @@ pub fn full_hash(
         return Err(FileError::Cancelled);
     }
 
-    let use_mmap = size > 64 * 1024 * 1024
+    // Use mmap for files above 4 MB — covers most photo/audio files (JPEG, HEIC, RAW,
+    // MP3, FLAC etc.) and avoids the extra user-space copy in BufReader. Falls back to
+    // buffered_hash automatically if mmap fails.
+    let use_mmap = size > 4 * 1024 * 1024
         && !is_network_path(path)
         && !is_sparse_file(path, size);
 

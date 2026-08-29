@@ -3,29 +3,41 @@ use crate::excludes::{compile_patterns, path_matches_any};
 use crate::platform::file_id;
 use crate::types::{ScanConfig, FileEntry};
 use glob::Pattern;
+use ignore::WalkBuilder;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use walkdir::WalkDir;
+
+fn is_system_dir(lower_name: &str) -> bool {
+    matches!(
+        lower_name,
+        // VCS
+        ".git" | ".svn" | ".hg" | ".bzr"
+        // JS / Node
+            | "node_modules"
+        // Python
+            | "__pycache__" | ".tox" | ".pytest_cache" | ".mypy_cache" | ".ruff_cache"
+        // macOS system dirs
+            | ".trashes" | ".spotlight-v100" | ".fseventsd"
+            | ".documentrevisions-v100" | ".temporaryitems" | ".mobilebackups"
+            | ".vol" | ".apdisk" | "__macosx"
+        // Windows system dirs (lowercased)
+            | "$recycle.bin" | "system volume information" | "$sysreset"
+            | "$winreagent" | "recovery" | "msocache"
+        // Linux virtual / pseudo FS
+            | "proc" | "sys" | "dev" | "run" | "snap" | "lost+found"
+        // Build / cache tools
+            | ".trash" | ".gradle" | ".m2" | ".cargo"
+    )
+}
 
 fn should_skip_dir(path: &Path, config: &ScanConfig, exclude_patterns: &[Pattern]) -> bool {
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
     if config.skip_hidden && name.starts_with('.') && name != "." && name != ".." {
         return true;
     }
-    if config.skip_system_dirs {
-        let lower = name.to_lowercase();
-        if matches!(
-            lower.as_str(),
-            "node_modules"
-                | ".git"
-                | "__pycache__"
-                | ".trash"
-                | "$recycle.bin"
-                | "proc"
-                | "sys"
-                | "dev"
-        ) {
-            return true;
-        }
+    if config.skip_system_dirs && is_system_dir(&name.to_lowercase()) {
+        return true;
     }
     path_matches_any(path, exclude_patterns)
 }
@@ -44,8 +56,6 @@ fn is_under_excluded_subdir(path: &Path, config: &ScanConfig) -> bool {
     false
 }
 
-/// Build a [`FileEntry`] for a single path (used when re-hashing known duplicate paths).
-/// When `respect_min_size` is false, small files are still included so refresh matches prior findings.
 pub fn file_entry_for_path(
     path: &Path,
     config: &ScanConfig,
@@ -70,9 +80,16 @@ pub fn file_entry_for_path(
 }
 
 fn make_entry(path: &Path, meta: &std::fs::Metadata, root_index: usize) -> Option<FileEntry> {
-    let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    // canonicalize() is skipped: follow_links=false means the path from WalkDir is
+    // already the real path — calling realpath() on every file is an unnecessary syscall.
+    let path = path.to_path_buf();
     let file_id = file_id(&path).ok()?;
     let mtime = meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+    // Pre-compute mtime_secs once here so the pipeline never needs to stat() again.
+    let mtime_secs = mtime
+        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
     let atime_secs = atime_seconds(meta);
     #[cfg(unix)]
     let nlink = {
@@ -86,6 +103,7 @@ fn make_entry(path: &Path, meta: &std::fs::Metadata, root_index: usize) -> Optio
         path,
         size: meta.len(),
         mtime,
+        mtime_secs,
         file_id,
         nlink,
         root_index,
@@ -104,16 +122,25 @@ fn atime_seconds(_meta: &std::fs::Metadata) -> u64 {
     0
 }
 
-/// Walk selected roots; skips directories per config. Progress: (files_found_delta, last_path).
+/// Walk selected roots in parallel using `ignore::WalkBuilder`.
+/// Each root is walked with up to 8 threads for fast SSD enumeration.
+/// Applies all configured filters: system dirs, hidden, min size, glob excludes.
 pub fn parallel_scan_roots(
     roots: &[PathBuf],
     config: &ScanConfig,
     token: &CancellationToken,
-    on_progress: impl Fn(u64, PathBuf),
+    on_progress: impl Fn(u64, PathBuf) + Send + Sync + 'static,
 ) -> Vec<FileEntry> {
     let exclude_patterns = compile_patterns(&config.exclude_globs);
-    let mut all = Vec::new();
-    let mut count: u64 = 0;
+    let all: Arc<Mutex<Vec<FileEntry>>> = Arc::new(Mutex::new(Vec::new()));
+    let count = Arc::new(std::sync::atomic::AtomicU64::new(0));
+    // Wrap callback in Arc so it can be shared across multiple roots + threads.
+    let on_progress = Arc::new(on_progress);
+
+    // Walking is I/O-bound: saturating a single drive with more than 4 concurrent
+    // readdir() threads produces no throughput gain and wastes CPU heat.
+    // Using half the cores keeps the system responsive and cool.
+    let thread_count = (num_cpus::get() / 2).max(2).min(4);
 
     for (root_index, root) in roots.iter().enumerate() {
         if token.is_cancelled() {
@@ -123,46 +150,78 @@ pub fn parallel_scan_roots(
             continue;
         }
 
-        let walker = WalkDir::new(root).follow_links(false).into_iter();
-        for entry in walker.filter_entry(|e| {
-            let p = e.path();
-            if p == root.as_path() {
-                return true;
-            }
-            if should_skip_dir(p, config, &exclude_patterns) {
-                return false;
-            }
-            if is_under_excluded_subdir(p, config) {
-                return false;
-            }
-            true
-        }) {
-            if token.is_cancelled() {
-                break;
-            }
-            let Ok(entry) = entry else { continue };
-            if !entry.file_type().is_file() {
-                continue;
-            }
-            let path = entry.path();
-            if is_under_excluded_subdir(path, config) {
-                continue;
-            }
-            let Ok(meta) = entry.metadata() else {
-                continue;
-            };
-            if meta.len() < config.min_file_size {
-                continue;
-            }
-            if let Some(fe) = make_entry(path, &meta, root_index) {
-                count += 1;
-                on_progress(count, fe.path.clone());
-                all.push(fe);
-            }
-        }
+        let all = Arc::clone(&all);
+        let count = Arc::clone(&count);
+        let token = token.clone_token();
+        let on_progress = Arc::clone(&on_progress);
+        let config_ref = config;
+        let excl_ref = &exclude_patterns;
+        let root_clone = root.clone();
+
+        WalkBuilder::new(root)
+            .threads(thread_count)
+            .follow_links(false)
+            // Disable ignore-file processing — we do our own filtering.
+            .git_ignore(false)
+            .git_global(false)
+            .git_exclude(false)
+            .hidden(false)  // we handle hidden ourselves via skip_hidden
+            .build_parallel()
+            .run(|| {
+                let all = Arc::clone(&all);
+                let count = Arc::clone(&count);
+                let token = token.clone_token();
+                let on_progress = Arc::clone(&on_progress);
+                let root_for_thread = root_clone.clone();
+                Box::new(move |result| {
+                    use ignore::WalkState;
+                    if token.is_cancelled() {
+                        return WalkState::Quit;
+                    }
+                    let entry = match result {
+                        Ok(e) => e,
+                        Err(_) => return WalkState::Continue,
+                    };
+                    let path = entry.path();
+
+                    // Directory filtering (controls descent).
+                    if entry.file_type().map(|t| t.is_dir()).unwrap_or(false)
+                        && path != root_for_thread.as_path()
+                    {
+                        if should_skip_dir(path, config_ref, excl_ref) {
+                            return WalkState::Skip;
+                        }
+                        return WalkState::Continue;
+                    }
+
+                    // File filtering.
+                    if !entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
+                        return WalkState::Continue;
+                    }
+                    if should_skip_dir(path, config_ref, excl_ref) {
+                        return WalkState::Continue;
+                    }
+                    if is_under_excluded_subdir(path, config_ref) {
+                        return WalkState::Continue;
+                    }
+                    let meta = match entry.metadata() {
+                        Ok(m) => m,
+                        Err(_) => return WalkState::Continue,
+                    };
+                    if meta.len() < config_ref.min_file_size {
+                        return WalkState::Continue;
+                    }
+                    if let Some(fe) = make_entry(path, &meta, root_index) {
+                        let n = count.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                        on_progress(n, fe.path.clone());
+                        all.lock().unwrap().push(fe);
+                    }
+                    WalkState::Continue
+                })
+            });
     }
 
-    all
+    Arc::try_unwrap(all).unwrap().into_inner().unwrap()
 }
 
 fn is_dir_empty_rec(path: &Path, token: &CancellationToken) -> bool {
@@ -219,7 +278,7 @@ pub fn find_empty_folders(
             if token.is_cancelled() {
                 break;
             }
-            let Ok(entry) = entry else { continue };
+            let Ok(entry): Result<walkdir::DirEntry, _> = entry else { continue };
             let path = entry.path();
             if path == root.as_path() {
                 continue;
@@ -258,7 +317,7 @@ pub fn find_archive_files(
             if token.is_cancelled() {
                 break;
             }
-            let Ok(entry) = entry else { continue };
+            let Ok(entry): Result<walkdir::DirEntry, _> = entry else { continue };
             let path = entry.path();
             if entry.file_type().is_file() {
                 if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
