@@ -46,6 +46,9 @@ pub struct DuplicateGroup {
     pub files: Vec<FileEntrySnapshot>,
     pub total_wasted_bytes: u64,
     pub keep_index: usize,
+    /// Plain-language reason the keep file was chosen (U10). Empty when unknown.
+    #[serde(default)]
+    pub keep_reason: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,7 +90,7 @@ pub struct ScanConfig {
     pub asymmetric_split_index: Option<usize>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum IoProfile {
     #[default]
     Auto,
@@ -102,7 +105,7 @@ impl Default for ScanConfig {
             folder_configs: Vec::new(),
             skip_hidden: false,
             skip_system_dirs: true,
-            min_file_size: 1,
+            min_file_size: 4 * 1024,
             action_mode: ActionMode::DryRun,
             preferred_dirs: Vec::new(),
             root_order: Vec::new(),

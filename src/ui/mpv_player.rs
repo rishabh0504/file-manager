@@ -40,7 +40,7 @@ impl MpvPlayer {
             let _ = init.set_property("volume", 0.0);
             let _ = init.set_property("mute", true);
             // Enable mpv logging to help diagnose file loading issues
-            let _ = init.set_property("log-file", "/Users/rishiwork/Desktop/old-projects/smart-file-manager/mpv_log.txt");
+            let _ = init.set_property("log-file", "/Users/rishiwork/Desktop/old-projects/sortwise/mpv_log.txt");
             Ok(())
         })
         .map_err(|e| format!("mpv init failed: {e:?}"))?;

@@ -243,3 +243,23 @@ pub fn open_in_default_app(path: &Path) {
         let _ = Command::new("xdg-open").arg(path).spawn();
     }
 }
+
+/// Open the macOS Files & Folders privacy pane (R4). Errors are returned, not swallowed.
+pub fn open_privacy_settings() -> std::io::Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")
+            .spawn()
+            .map(|_| ())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "privacy settings are macOS only"))
+    }
+}
+
+/// True when an error string is a macOS privacy denial (R4).
+pub fn is_privacy_denied(reason: &str) -> bool {
+    reason.contains("Operation not permitted") || reason.contains("Permission denied")
+}

@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use walkdir::WalkDir;
 
-fn is_system_dir(lower_name: &str) -> bool {
+pub fn is_system_dir(lower_name: &str) -> bool {
     matches!(
         lower_name,
         // VCS
@@ -140,7 +140,7 @@ pub fn parallel_scan_roots(
     // Walking is I/O-bound: saturating a single drive with more than 4 concurrent
     // readdir() threads produces no throughput gain and wastes CPU heat.
     // Using half the cores keeps the system responsive and cool.
-    let thread_count = (num_cpus::get() / 2).max(2).min(4);
+    let thread_count = (num_cpus::get() / 2).clamp(2, 4);
 
     for (root_index, root) in roots.iter().enumerate() {
         if token.is_cancelled() {
@@ -250,11 +250,10 @@ fn is_dir_empty_rec(path: &Path, token: &CancellationToken) -> bool {
         if file_type.is_file() || file_type.is_symlink() {
             return false;
         }
-        if file_type.is_dir() {
-            if !is_dir_empty_rec(&entry.path(), token) {
+        if file_type.is_dir()
+            && !is_dir_empty_rec(&entry.path(), token) {
                 return false;
             }
-        }
     }
     true
 }
@@ -283,13 +282,12 @@ pub fn find_empty_folders(
             if path == root.as_path() {
                 continue;
             }
-            if entry.file_type().is_dir() {
-                if is_dir_empty_rec(path, token) {
+            if entry.file_type().is_dir()
+                && is_dir_empty_rec(path, token) {
                     count += 1;
                     on_progress(count, path.to_path_buf());
                     empty_dirs.push(path.to_path_buf());
                 }
-            }
         }
     }
     empty_dirs

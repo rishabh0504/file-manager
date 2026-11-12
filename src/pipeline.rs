@@ -7,7 +7,7 @@ use crate::platform::FileId;
 use crate::resolver::{build_duplicate_group, detect_cross_folder_conflicts};
 use crate::types::{
     log_error, DuplicateGroup, FileEntry, FolderSummary, HardLinkGroup, KeepPolicy, ProgressPhase,
-    ScanConfig, ScanProgress, ScanResult, ScanStats,
+    IoProfile, ScanConfig, ScanProgress, ScanResult, ScanStats,
 };
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -17,10 +17,24 @@ use std::sync::{Arc, Mutex, RwLock};
 /// Maximum hashing threads. BLAKE3 is faster than any single SSD, so the
 /// bottleneck is I/O — more than 6 concurrent readers adds heat without
 /// throughput gains on typical consumer hardware.
-fn hash_thread_count() -> usize {
-    // Half the logical cores, kept between 2 and 6.
-    (num_cpus::get() / 2).max(2).min(6)
+/// Reader threads for hashing (P-8, U7). `Auto` uses 2–6 only when every root is on
+/// solid-state storage; anything else (spinning, network, unknown) gets 2 readers.
+fn hash_thread_count(config: &ScanConfig) -> usize {
+    let ssd_max = (num_cpus::get() / 2).clamp(2, 6);
+    match config.io_profile {
+        IoProfile::HddSafe => 2,
+        IoProfile::SsdFast => ssd_max,
+        IoProfile::Auto => {
+            let all_ssd = !config.roots.is_empty()
+                && config
+                    .roots
+                    .iter()
+                    .all(|r| crate::platform::volume_info(r).solid_state == Some(true));
+            if all_ssd { ssd_max } else { 2 }
+        }
+    }
 }
+
 
 // MAX_GROUP_SIZE intentionally removed: chunking files of the same size into
 // sub-groups caused silent cross-chunk duplicate blindspots. All files sharing
@@ -233,6 +247,31 @@ pub fn run_dedup(
     progress: Arc<Mutex<ScanProgress>>,
     cache: Option<HashCache>,
 ) -> ScanResult {
+    run_dedup_inner(entries, config, token, progress, cache, None)
+}
+
+/// Same result as `run_dedup`, and also sends each size group's duplicate groups on
+/// `live` as soon as that group is finished (P-6). The final result is identical; the
+/// stream only lets the UI show groups before the scan ends.
+pub fn run_dedup_streaming(
+    entries: Vec<FileEntry>,
+    config: &ScanConfig,
+    token: &CancellationToken,
+    progress: Arc<Mutex<ScanProgress>>,
+    cache: Option<HashCache>,
+    live: std::sync::mpsc::Sender<Vec<DuplicateGroup>>,
+) -> ScanResult {
+    run_dedup_inner(entries, config, token, progress, cache, Some(live))
+}
+
+fn run_dedup_inner(
+    entries: Vec<FileEntry>,
+    config: &ScanConfig,
+    token: &CancellationToken,
+    progress: Arc<Mutex<ScanProgress>>,
+    cache: Option<HashCache>,
+    live: Option<std::sync::mpsc::Sender<Vec<DuplicateGroup>>>,
+) -> ScanResult {
     let cache_shared: Option<Arc<RwLock<HashCache>>> =
         if config.use_hash_cache { cache.map(|c| Arc::new(RwLock::new(c))) } else { None };
 
@@ -258,7 +297,7 @@ pub fn run_dedup(
     // Build a bounded thread pool so we don't peg every core at 100%.
     // BLAKE3 is I/O-bound on SSDs: 2-6 concurrent readers is the sweet spot.
     let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(hash_thread_count())
+        .num_threads(hash_thread_count(config))
         .thread_name(|i| format!("sfm-hash-{i}"))
         .build()
         .unwrap_or_else(|_| rayon::ThreadPoolBuilder::new().build().unwrap());
@@ -268,7 +307,17 @@ pub fn run_dedup(
         size_groups
             .into_par_iter()
             .filter(|_| !token.is_cancelled())
-            .map(|group| process_size_group(group, config, token, &cache_shared, &progress))
+            .map(|group| {
+                let outcome = process_size_group(group, config, token, &cache_shared, &progress);
+                if let Some(tx) = &live {
+                    if !outcome.dup_groups.is_empty() {
+                        // A closed receiver means the UI stopped listening. The scan still
+                        // finishes and returns its full result, so the send error is ignored.
+                        let _ = tx.send(outcome.dup_groups.clone());
+                    }
+                }
+                outcome
+            })
             .collect()
     });
 
@@ -285,7 +334,10 @@ pub fn run_dedup(
     }
 
     if let Some(cm) = &cache_shared {
-        let _ = cm.write().unwrap().save();
+        // A failed save only costs the next scan some re-hashing, so report it and continue.
+        if let Err(e) = cm.write().unwrap().save() {
+            eprintln!("hash cache save failed: {e}");
+        }
     }
 
     let cross = detect_cross_folder_conflicts(&duplicate_groups);

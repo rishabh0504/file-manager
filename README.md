@@ -11,11 +11,11 @@
    ```bash
    ./scripts/build-macos-app.sh --sign-adhoc
    ```
-3. Output: **`dist/Smart File Manager.app`**
-4. Install: drag **`Smart File Manager.app`** into **`/Applications`**.
+3. Output: **`dist/Sortwise.app`**
+4. Install: drag **`Sortwise.app`** into **`/Applications`**.
 5. First launch: if macOS says the app can’t be opened, **right‑click → Open** once, or allow in **System Settings → Privacy & Security**.
 
-**Universal binary (Intel + Apple Silicon):** build on each architecture and `lipo` the two `smart-file-manager` binaries, then replace `Contents/MacOS/smart-file-manager` before signing. Not automated in the default script.
+**Universal binary (Intel + Apple Silicon):** build on each architecture and `lipo` the two `sortwise` binaries, then replace `Contents/MacOS/sortwise` before signing. Not automated in the default script.
 
 **Distribution:** for public release, use Apple Developer ID signing + notarization (not covered here).
 
@@ -31,7 +31,7 @@ From PowerShell in the repo root (with Rust toolchain):
 .\scripts\build-windows.ps1
 ```
 
-Output: **`dist/SmartFileManager-Windows-v0.1.0/`** containing `smart-file-manager.exe` and `README.txt`. Copy that folder to e.g. `C:\Program Files\SmartFileManager\` and run the `.exe`.
+Output: **`dist/Sortwise-Windows-v0.1.0/`** containing `sortwise.exe` and `README.txt`. Copy that folder to e.g. `C:\Program Files\Sortwise\` and run the `.exe`.
 
 ### Installer (.exe setup)
 
@@ -42,9 +42,9 @@ Output: **`dist/SmartFileManager-Windows-v0.1.0/`** containing `smart-file-manag
    ```
    or manually:
    ```text
-   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=0.1.0 packaging\windows\SmartFileManager.iss
+   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=0.1.0 packaging\windows\Sortwise.iss
    ```
-3. Output: **`dist/SmartFileManager-Setup-<version>.exe`**
+3. Output: **`dist/Sortwise-Setup-<version>.exe`**
 
 SmartScreen may warn until the binary is **code-signed** with a commercial certificate.
 

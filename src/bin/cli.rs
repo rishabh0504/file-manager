@@ -1,16 +1,16 @@
-//! Headless duplicate scan (`cargo run --features cli --bin sfm-cli`).
-use smart_file_manager::cache::HashCache;
-use smart_file_manager::cancel::CancellationToken;
-use smart_file_manager::pipeline::run_dedup;
-use smart_file_manager::scanner::parallel_scan_roots;
-use smart_file_manager::types::{FolderConfig, ScanConfig};
+//! Headless duplicate scan (`cargo run --features cli --bin sortwise-cli`).
+use sortwise::cache::HashCache;
+use sortwise::cancel::CancellationToken;
+use sortwise::pipeline::run_dedup;
+use sortwise::scanner::parallel_scan_roots;
+use sortwise::types::{FolderConfig, ScanConfig};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.is_empty() {
-        eprintln!("Usage: sfm-cli <dir> [more dirs...]");
+        eprintln!("Usage: sortwise-cli <dir> [more dirs...]");
         eprintln!("Outputs JSON report to stdout.");
         std::process::exit(1);
     }
@@ -33,7 +33,7 @@ fn main() {
     };
 
     let token = CancellationToken::new();
-    let progress = Arc::new(Mutex::new(smart_file_manager::types::ScanProgress::default()));
+    let progress = Arc::new(Mutex::new(sortwise::types::ScanProgress::default()));
 
     let entries = parallel_scan_roots(&roots, &cfg, &token, |_, _| {});
     let cache = if cfg.use_hash_cache {

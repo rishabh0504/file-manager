@@ -16,31 +16,31 @@ if (-not $versionLine) { throw "Could not read version from Cargo.toml" }
 $Version = [regex]::Match($versionLine.Line, '"([^"]+)"').Groups[1].Value
 
 Write-Host "==> Building release (Windows)…" -ForegroundColor Cyan
-cargo build --release --bin smart-file-manager
+cargo build --release --bin sortwise
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$exe = Join-Path $Root "target\release\smart-file-manager.exe"
+$exe = Join-Path $Root "target\release\sortwise.exe"
 if (-not (Test-Path $exe)) { throw "Missing $exe" }
 
-$outDir = Join-Path $Root "dist\SmartFileManager-Windows-v$Version"
+$outDir = Join-Path $Root "dist\Sortwise-Windows-v$Version"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 Copy-Item -Force $exe $outDir
 
 $readme = @"
-Smart File Manager (Windows) v$Version
+Sortwise (Windows) v$Version
 =====================================
 
-Run: double-click smart-file-manager.exe
+Run: double-click sortwise.exe
 
 Suggested install:
-  1. Move this folder to e.g. C:\Program Files\SmartFileManager\
-  2. Pin or create a desktop shortcut to smart-file-manager.exe
+  1. Move this folder to e.g. C:\Program Files\Sortwise\
+  2. Pin or create a desktop shortcut to sortwise.exe
 
 If SmartScreen warns about an unknown publisher, click "More info" then "Run anyway"
 (for builds that are not code-signed).
 
 For an .exe installer, install Inno Setup from https://jrsoftware.org/isinfo.php
-and compile packaging\windows\SmartFileManager.iss (or run this script with -Installer).
+and compile packaging\windows\Sortwise.iss (or run this script with -Installer).
 "@
 Set-Content -Path (Join-Path $outDir "README.txt") -Value $readme -Encoding UTF8
 
@@ -58,7 +58,7 @@ if ($Installer) {
         exit 0
     }
 
-    $iss = Join-Path $Root "packaging\windows\SmartFileManager.iss"
+    $iss = Join-Path $Root "packaging\windows\Sortwise.iss"
     Write-Host "==> Compiling installer with Inno Setup…" -ForegroundColor Cyan
     & $iscc "/DMyAppVersion=$Version" $iss
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -1,6 +1,6 @@
 # Professional UI & Duplicate-Group Preview — Implementation Plan
 
-This document describes the **product UX**, **visual system**, and **technical implementation** for upgrading Smart File Manager to a polished desktop experience with **duplicate-group browsing** and **file preview**. It complements [Implementation.md](Implementation.md) (engine) and [Features.md](Features.md) (shipping scope).
+This document describes the **product UX**, **visual system**, and **technical implementation** for upgrading Sortwise to a polished desktop experience with **duplicate-group browsing** and **file preview**. It complements [Implementation.md](Implementation.md) (engine) and [Features.md](Features.md) (shipping scope).
 
 ---
 
@@ -190,3 +190,82 @@ This document describes the **product UX**, **visual system**, and **technical i
 | Async preview + virtualized group list | Planned (see §6, §10) |
 
 Tracked in [Features.md](Features.md) feature matrix. This plan is the **source of truth** for UX intent; adjust here first, then align code.
+
+---
+
+## 11. Review findings — all views (2026-10-31)
+
+**Scope:** Explorer (list/grid/folders, folder modal, queues, movable inbox, player), Duplicate Finder (scan → progress → results), A→B Compare, Empty Folders, Archive Files, Folder Intelligence (twins modal).
+**Basis:** code read of `src/app.rs`, `src/ui/*.rs`, `src/pipeline.rs`, `src/hasher.rs`, `src/cache.rs`, `src/scanner.rs`, plus a release-mode micro-benchmark of the per-frame clone (P-1). `cargo test`: 10 passed, 0 failed. No 5 TB run yet.
+
+**Verification status (2026-10-31, second pass):** rows tagged ⚠️ were corrected, ❓ are reasoned-only (not run), and untagged or ✅ rows were confirmed by code read (and the P-1 benchmark where noted). Corrections are applied inline.
+
+Legend: **P0** = data-safety / blocks 5 TB use · **P1** = needed for production · **P2** = polish.
+
+### 11.1 Product & UX
+
+| # | Pri | Finding | Where | Fix |
+|---|-----|---------|-------|-----|
+| U1 | P0 | ✅ **Apply actions has no confirmation.** Delete / hard-link mode touches every non-keep copy in all groups in one click. Per-group delete does confirm; global apply does not. | `results_panel.rs` `apply_all` (~1113) | Summary dialog: file count, bytes, sample paths, "Trash, recoverable". |
+| U2 | P0 | ✅ **"Delete All Copies" leaves zero copies** (keep candidate included; `results_panel.rs:336–357` passes all `g.files`). | `results_panel.rs` ~336 | Exclude `keep_index`, or drop action. |
+| U3 | P0 | ✅ **"Clean Same-Folder Duplicates" trashes in bulk, no confirm** (no `MessageDialog` in `clean_all_same_folder_duplicates`). | `results_panel.rs` ~620 → `clean_all_same_folder_duplicates` | Same summary dialog as U1. |
+| U4 | P1 | Mode switch is **icon-only**; Archives / Empty / A→B meaning is guessed. | `app.rs` `mode_switch` (~2162) | Labelled tabs or segmented control with text. |
+| U5 | P1 | **Hidden side effect:** clicking Duplicate Finder inside Explorer with no roots silently scans the Explorer folder. | `app.rs` `mode_switch` | Show roots picker; no implicit scan. |
+| U6 | P1 | **Min Size = 1 byte** default; DragValue shows raw bytes (`1 B`). Floods groups with tiny files. | `scan_panel.rs` `render_settings_panel` | Default ≥ 1 KB; unit dropdown (KB/MB/GB) or typed "10 MB". |
+| U7 | P0 | ⚠️ **I/O profile control does nothing.** `ScanConfig.io_profile` is never read outside config copying (`types.rs:84`, `app.rs:508`). Hasher and pipeline ignore it; `io_scheduler` is used only for `partial_jobs` (`hasher.rs:3`), its reader pool (`run_io_jobs`) has no callers. The "HDD Safe / SSD Fast" dropdown is a dead control that also hides under "Advanced Filters". | `scan_panel.rs`, `pipeline.rs`, `io_scheduler.rs` | Wire profile into thread count (P-8) or remove the control. Then surface it. |
+| U8 | P1 | **Jargon / overlapping concepts:** "A → B Target Comparison", "Smart Clean", "Folder Twins Analysis", Movable inbox + Folder Queues (two staging systems). | `app.rs`, `results_panel.rs`, `explorer_panel.rs` | Rename; merge staging into one "Staging" concept. |
+| U9 | P1 | Dry-run state not explained in results; user must return to Scan to change mode. | `results_panel.rs` `action_row` | Banner "Dry run — nothing changes" + "Switch to Delete" in results. |
+| U10 | P1 | **Keep choice not explained.** Keep marker shown, reason (newest / root priority / shortest path) not shown. | `results_panel.rs` | Show `keep_reason` next to keep badge. |
+| U11 | P1 | No **type filter** in group list (images / videos / archives) though product is media-focused. | `results_panel.rs` `results_dup_list_panel` | Type chips using existing `FileKind`-style classification. |
+| U12 | P1 | Progress shows **raw bytes** (`123456 / 9876543 bytes`), no ETA, throughput or elapsed time. Cancel does not say partial results are kept. | `progress_panel.rs` | Human units, MB/s, ETA, elapsed; cancel copy: "Keep results so far". |
+| U13 | P2 | ⚠️ Diagnostic text leaks to users: `"Diagnostic: Rust successfully read file …"`. Only compiled with `--features mpv` (not default); re-set each frame until `mpv_loaded_path` matches. | `explorer_panel.rs` 2789–2804 (`ensure_mpv`) | Remove or log via `tracing`. |
+| U14 | P2 | Icon-only glyphs (`← → ⟳ ✖ 🗑 📂`) depend on font coverage; render inconsistently across OS. | `icons.rs`, all panels | Verify on macOS + Windows; prefer egui icon font or SVG. |
+| U15 | P2 | Native `rfd` confirm dialogs block the egui loop and cannot match theme. | `results_panel.rs`, `folder_intelligence.rs`, `app.rs` | In-app modal component (one shared `confirm_dialog`). |
+| U16 | P2 | No settings persistence — scan config resets each launch. | `app.rs` (no settings file in `src/`) | Persist to app config dir (JSON, versioned). |
+
+### 11.2 Performance — 5 TB, duplicate images / video / archives
+
+| # | Pri | Finding | Where | Fix |
+|---|-----|---------|-------|-----|
+| P-1 | P0 | ✅ **Full `ScanResult` clone every frame.** `last_result.clone()` runs in both list (`results_panel.rs:25`) and main panel (`:179`), both called from `update` each frame. **Measured:** release build, 1M groups / 2M files → clone ≈ 100–120 ms per call; ×2 per frame ≈ 200+ ms/frame (≈ 4–5 fps ceiling). Debug builds are slower. | `results_panel.rs` L20-ish and L173-ish | Store `Arc<ScanResult>`; clone the `Arc` (cheap) or borrow. |
+| P-2 | P0 | ✅ **Dup group list not virtualized.** Every card rendered each frame; grep finds no `show_rows` in `results_panel.rs` (explorer uses it). Not timed. | `results_panel.rs` `results_dup_list_panel` (~line 100–170) | `ScrollArea::show_rows` with fixed row height. |
+| P-3 | P0 | **Per-frame recompute:** filter (`to_lowercase` per group), sort, `by_folder` BTreeMap rebuild, max-wasted scan. O(groups × files) each frame. | `results_panel.rs` `filtered_group_indices` (~734), `sort_visible_dup_groups` (~642) | Memoize keyed on (result epoch, filter, sort). |
+| P-4 | P1 | ⚠️ **Thumbnail reads whole file into RAM** then decodes full-resolution (`std::fs::read` + `load_from_memory`). Runs on a worker thread (`app.rs:325`), so cost is RAM and I/O spikes, not a UI stall. RAW / 4K JPEG = tens of MB per thumb. | `explorer_panel.rs` `load_image_thumb` (~3412) | Stream + `ImageReader` with embedded EXIF thumb first; JPEG DCT downscale; cap concurrent decodes. |
+| P-5 | P2 | ⚠️ **Per-frame disk I/O in UI, scoped:** `fs::metadata` per queue item (~2063) runs only while `movable_queue_window` is open (`movable_queue_open` gate, ~1850). `File::open` diagnostic (~2802) runs per frame only in `--features mpv` builds. | `explorer_panel.rs` | Use `ExplorerEntry.size` / cached size; remove diagnostic. |
+| P-6 | P1 | ✅ **Batch, not streaming.** `app.rs:551` collects all entries, then `app.rs:572` calls `run_dedup` on the full `Vec`. `parallel_scan_roots` collects all `FileEntry` into one `Vec` before hashing; no groups visible until enumeration + hashing finish. | `scanner.rs` (~128), `pipeline.rs` `run_dedup` | Stream size buckets as enumerated; emit partial groups. |
+| P-7 | P1 | ✅ **Hash cache = one blob.** Whole map loaded at start, rewritten whole at end; `fs::write` not atomic — crash mid-write loses cache. | `cache.rs` `load`/`save` | SQLite (WAL) keyed by `(dev, ino, size, mtime)`; or temp-file + rename as minimum. |
+| P-8 | P1 | ✅ **Thread policy ignores device type and the I/O profile.** `hash_thread_count` (`pipeline.rs:20`) = cores/2 clamped 2–6 for every drive; `IoProfile` is dead (see U7). Parallel random reads on a single 5 TB HDD likely thrash. Not measured on HDD. | `pipeline.rs` ~20 | Detect rotational vs SSD per volume; default 1–2 readers on HDD. |
+| P-9 | P2 | ⚠️ **Progress clone each 150 ms.** `progress_panel.rs` clones the whole `ScanProgress` (incl. folder vec) per tick. Workers lock once per size group (`pipeline.rs:189–202`), not per file, so contention is low. | `progress_panel.rs`, `pipeline.rs` | Snapshot only the fields shown; cheap fix. |
+| P-10 | P1 | ❓ **mmap for files > 4 MB.** `hasher.rs:79` skips mmap only for network paths and sparse files; removable drives still use mmap. Unplug mid-read → SIGBUS is standard mmap behavior, not reproduced here. | `hasher.rs` `full_hash` | Use buffered reads for removable volumes; extend `is_network_path`-style check. |
+| P-11 | P1 | ❓ **Memory per entry** (`PathBuf` + snapshot per file). Estimate only; the P-1 benchmark (2M files) did not measure RSS. | `types.rs` `FileEntry` / `FileEntrySnapshot` | Measure with synthetic set; intern dir paths. |
+| P-12 | P1 | ✅ **Exact-only detection misses real-world dupes:** resized / re-saved images, re-encoded videos. `similarity.rs` and `cdc.rs` are stubs. | `similarity.rs`, `cdc.rs` | Phase 3: pHash/dHash for images, keyframe signature for video, in a separate "Similar" section (never mixed with exact delete). |
+| P-13 | P2 | Min Size 1 B default (see U6) inflates hashing work. | `app.rs` default | Default ≥ 4 KB. |
+| P-14 | P2 | No benchmark for 5 TB profile. `benches/hash_bench.rs` covers hashing only. | `benches/` | Add synthetic-tree bench: 1 M files, mixed sizes, cold/warm cache, HDD vs SSD. |
+
+### 11.3 Usability → production-grade
+
+| # | Pri | Finding | Fix |
+|---|-----|---------|-----|
+| R1 | P0 | No **undo / operation history.** Trash is only recovery path, and results are gone after "New scan". | Auto-write action log (JSON per run, reuses manifest code); "Open Trash" link. |
+| R2 | P1 | ✅ **Low contrast:** `TEXT_TER` (95,100,125) on `SURFACE_1` (26,26,34) = **2.97:1** (computed, WCAG formula), below AA 4.5:1. `TEXT_SEC` on same surface = 6.53:1 (passes). Used for hints and paths. | Raise `TEXT_TER` to ≈ 4.6:1 minimum; re-check `TEXT_SEC`. |
+| R3 | P1 | ⚠️ **Keyboard coverage minimal:** arrows/J/K in results and Esc in explorer/folder modals exist (`explorer_panel.rs:1178,1835,2287`; `folder_explorer_panel.rs:317`). Missing: Delete key to trash, Cmd/Ctrl+A select-all (no `Key::Delete` or modifier-A found), documented shortcut map. | Document shortcut map; add Del (trash selected), Esc (close), Cmd/Ctrl+A. |
+| R4 | P1 | ⚠️ **macOS Full Disk Access guidance exists only in Explorer** (`explorer_panel.rs:845–856`). Duplicate scan protected paths go only to the error log (`files_skipped_error`) with no prompt, so 5 TB totals can look wrong. | Detect `EPERM` on protected paths; show banner with "Open Privacy settings". |
+| R5 | P1 | Errors shown as joined text blob (`apply_errors`). | Error table: path, reason, retry. |
+| R6 | P2 | Repo hygiene: `.DS_Store`, `mpv_log.txt` tracked in tree; `AGENTS.md` deleted in working tree. | Add to `.gitignore`; restore or remove `AGENTS.md` deliberately. |
+| R7 | P2 | Status table in §10 says "Done" for items that still carry the issues above. | Re-audit §10 against §11 each release. |
+
+### 11.4 Suggested order
+
+1. **Safety:** U1, U2, U3, R1 — confirm + undo before any wider release.
+2. **UI perf:** P-1, P-2, P-3 — single-session fix, largest win on large result sets.
+3. **Scan perf:** P-6, P-7, P-8, P-10.
+4. **UX clarity:** U4–U12, R2–R4.
+5. **Feature gap:** P-12 (similar media) after exact path is solid.
+
+Doc owner note: keep §11 IDs stable so commits and issues can reference them (e.g. "fix P-1").
+
+---
+
+## 12. Execution plan
+
+Phased implementation plan, tasks, acceptance criteria and open decisions now live in [Implementation-Plan.md](Implementation-Plan.md). Finding IDs in §11 map to phases there.

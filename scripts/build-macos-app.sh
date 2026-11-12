@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build a release binary and package it as Smart File Manager.app for /Applications.
+# Build a release binary and package it as Sortwise.app for /Applications.
 # Usage: ./scripts/build-macos-app.sh [--sign-adhoc]
 set -euo pipefail
 
@@ -24,24 +24,25 @@ if [[ -z "${VERSION}" ]]; then
 fi
 
 echo "==> Building release (macOS, embedded mpv player)…"
-cargo build --release --features mpv --bin smart-file-manager
+cargo build --release --features mpv --bin sortwise
 
-BIN="target/release/smart-file-manager"
+BIN="target/release/sortwise"
 if [[ ! -f "$BIN" ]]; then
   echo "Missing $BIN" >&2
   exit 1
 fi
 
-APP_NAME="Smart File Manager.app"
+APP_NAME="Sortwise.app"
 DIST="dist"
 DEST="${DIST}/${APP_NAME}"
 
 rm -rf "$DEST"
 mkdir -p "$DEST/Contents/MacOS"
 mkdir -p "$DEST/Contents/Resources"
+cp "$ROOT/packaging/macos/Sortwise.icns" "$DEST/Contents/Resources/Sortwise.icns"
 
-cp "$BIN" "$DEST/Contents/MacOS/smart-file-manager"
-chmod +x "$DEST/Contents/MacOS/smart-file-manager"
+cp "$BIN" "$DEST/Contents/MacOS/sortwise"
+chmod +x "$DEST/Contents/MacOS/sortwise"
 
 sed "s/__VERSION__/${VERSION}/g" packaging/macos/Info.plist.in > "$DEST/Contents/Info.plist"
 

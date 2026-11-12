@@ -1,8 +1,8 @@
-use smart_file_manager::cancel::CancellationToken;
-use smart_file_manager::hasher::compute_chunk_size;
-use smart_file_manager::pipeline::run_dedup;
-use smart_file_manager::scanner::parallel_scan_roots;
-use smart_file_manager::types::{FolderConfig, ScanConfig, ScanProgress};
+use sortwise::cancel::CancellationToken;
+use sortwise::hasher::compute_chunk_size;
+use sortwise::pipeline::run_dedup;
+use sortwise::scanner::parallel_scan_roots;
+use sortwise::types::{FolderConfig, ScanConfig, ScanProgress};
 use std::sync::{Arc, Mutex};
 
 #[test]
@@ -88,6 +88,7 @@ fn test_asymmetric_a_to_b_mode() {
         roots: roots.clone(),
         root_order: roots.clone(),
         asymmetric_split_index: Some(1), // index 0 is A, index 1 is B
+        min_file_size: 1, // fixtures are small; the engine default is 4 KB
         ..Default::default()
     };
 

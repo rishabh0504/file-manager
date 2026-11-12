@@ -1,4 +1,4 @@
-# Smart File Manager — Product features and implementation plan
+# Sortwise — Product features and implementation plan
 
 This document is the **shippable product plan** and delivery checklist. The engineering deep-dive lives in [Implementation.md](Implementation.md). **Desktop UX** (theme, results layout, duplicate-group preview) is specified in [UI-Implementation-Plan.md](UI-Implementation-Plan.md).
 
@@ -39,24 +39,34 @@ This document is the **shippable product plan** and delivery checklist. The engi
 | Byte verify O(N) vs canonical file | Implemented (`verifier`) |
 | Smart keep scoring + root order | Implemented (`resolver`, UI root reorder) |
 | Dry run / delete / hard link | Implemented |
-| Hash cache (incremental rescans) | Implemented (`cache`, `dirs` cache dir) |
+| Hash cache (incremental rescans) | Implemented: SQLite (WAL), incremental upserts, one-time migration from the legacy blob (`cache`) |
 | Glob excludes + subtree path excludes | Implemented |
 | Per-folder config types + summaries | Implemented (`FolderConfig`, `FolderSummary`) |
 | Cross-folder conflict listing | Implemented (results UI) |
-| Headless CLI | `sfm-cli` (`--features cli`) |
+| Headless CLI | `sortwise-cli` (`--features cli`) |
 | Near-duplicate (LSH) | Stub (`--features similarity`) |
 | CDC / Rabin | Stub (`--features cdc`) |
 | Professional dark UI + sectioned scan screen | Implemented (`ui/style`, `scan_panel`, `progress_panel`) |
 | Results: resizable group list + detail pane | Implemented (`SidePanel` + `results_*`) |
 | Per-group / per-file preview (text, hex, image thumb) | Implemented (`ui/preview`, `image` crate) |
 | Reveal in Finder / Explorer | Implemented (`preview::reveal_in_folder`) |
+| Bulk actions staged with a confirm dialog (count, bytes, samples) | Implemented (`action_plan`, `ui/confirm_dialog`) |
+| Action log (JSON per bulk action, incl. partial failures) | Implemented (`action_log`) |
+| Keep file never trashed (checkbox, folder, group, and preview paths) | Implemented (`action_plan`) |
+| Groups stream into the UI during hashing | Implemented (`run_dedup_streaming`, parity-tested) |
+| Drive-aware hashing (SSD vs HDD thread count, no mmap on removable) | Implemented on macOS (`platform::volume_info`); Windows reports unknown → safe HDD path |
+| Scan preferences persisted (no action mode, no folder list) | Implemented (`settings`) |
+| Keyboard: Delete, Ctrl/Cmd+A, `?` help in results | Implemented |
+| macOS Full Disk Access banner for blocked scan paths | Implemented (`preview::is_privacy_denied`) |
+| Copyable error table | Implemented |
+| Near-duplicate media (perceptual hash, video keyframes) | Not started (deferred, D4) |
 
 ## User stories
 
 - **Reclaim disk space:** scan Downloads + external drive; review groups; delete duplicates to Trash.
 - **Same file, many paths:** replace duplicates with hard links on one volume (atomic rename strategy).
 - **Photo / project folders:** add multiple roots, rank folders (top = preferred keep), resolve cross-folder conflicts in the results view.
-- **Automation / NAS:** run `sfm-cli` with `SFM_NO_CACHE=1` if desired; consume JSON on stdout.
+- **Automation / NAS:** run `sortwise-cli` with `SFM_NO_CACHE=1` if desired; consume JSON on stdout.
 
 ## Implementation phases (checklist)
 
@@ -123,13 +133,13 @@ This document is the **shippable product plan** and delivery checklist. The engi
 
 ```bash
 # GUI
-cargo run --bin smart-file-manager
+cargo run --bin sortwise
 
 # Headless JSON report
-cargo run --features cli --bin sfm-cli -- /path/to/folder
+cargo run --features cli --bin sortwise-cli -- /path/to/folder
 
 # Disable hash cache in CLI
-SFM_NO_CACHE=1 cargo run --features cli --bin sfm-cli -- /path
+SFM_NO_CACHE=1 cargo run --features cli --bin sortwise-cli -- /path
 
 # Optional feature stubs
 cargo build --features similarity

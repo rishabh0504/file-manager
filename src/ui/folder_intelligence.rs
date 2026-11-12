@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use eframe::egui::{self, Color32, RichText, ScrollArea};
-use crate::app::SmartFileManagerApp;
+use eframe::egui::{self, RichText, ScrollArea};
+use crate::app::SortwiseApp;
 use crate::ui::style::{self, folder_chip, overlap_heat_row, panel_card, secondary_button};
-use smart_file_manager::types::{DuplicateGroup, ScanResult};
+use sortwise::types::{DuplicateGroup, ScanResult};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FolderOverlapEntry {
@@ -95,7 +95,7 @@ pub fn compute_folder_overlap(
     overlap_map
 }
 
-pub fn folder_intel_section(ui: &mut egui::Ui, app: &SmartFileManagerApp, result: &ScanResult, group_idx: usize) {
+pub fn folder_intel_section(ui: &mut egui::Ui, app: &SortwiseApp, result: &ScanResult, group_idx: usize) {
     let Some(g) = result.duplicate_groups.get(group_idx) else { return; };
     let mut folders: Vec<PathBuf> = g.files.iter()
         .filter_map(|f| f.path.parent())
@@ -106,14 +106,14 @@ pub fn folder_intel_section(ui: &mut egui::Ui, app: &SmartFileManagerApp, result
 
     if folders.len() < 2 {
         ui.add_space(4.0);
-        ui.label(RichText::new("ℹ  All copies in this group are in the same folder. Safe to clean.").size(11.5).color(style::TEXT_SEC));
+        ui.label(RichText::new("ℹ  All copies in this group are in the same folder. Safe to clean.").size(11.5).color(crate::ui::style::pal().text_muted));
         return;
     }
 
     ui.add_space(4.0);
     ui.horizontal(|ui| {
-        ui.label(RichText::new("Folder Overlap Intelligence:").size(11.0).strong().color(style::TEXT_SEC));
-        ui.label(RichText::new(format!("Spans {} folders.", folders.len())).size(11.0).color(style::TEXT_TER));
+        ui.label(RichText::new("Folder Overlap Intelligence:").size(11.0).strong().color(crate::ui::style::pal().text_muted));
+        ui.label(RichText::new(format!("Spans {} folders.", folders.len())).size(11.0).color(crate::ui::style::pal().text_muted));
     });
     ui.add_space(2.0);
 
@@ -128,19 +128,19 @@ pub fn folder_intel_section(ui: &mut egui::Ui, app: &SmartFileManagerApp, result
     }
 }
 
-pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut SmartFileManagerApp, result: &ScanResult) {
+pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut SortwiseApp, result: &ScanResult) {
     if !app.dedupe_twins_modal_open {
         return;
     }
 
 
-    let mut open = app.dedupe_twins_modal_open;
     let mut close_clicked = false;
-    egui::Window::new("📁 Folder Twins Overlap Analysis")
-        .open(&mut open)
-        .default_size([850.0, 600.0])
-        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-        .show(ctx, |ui| {
+    let closed = crate::ui::modal::show(
+        ctx,
+        "folder_twins",
+        "Folder twins overlap",
+        crate::ui::modal::ModalSize::Wide,
+        |ui| {
             if let Some((folder_a, folder_b, selected_idx)) = app.twins_compare_pair.clone() {
                 let name_a = folder_a.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
                 let name_b = folder_b.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
@@ -150,8 +150,8 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                         app.twins_compare_pair = None;
                     }
                     ui.add_space(10.0);
-                    ui.label(RichText::new(format!("📁 A: {}  ↔  📁 B: {}", name_a, name_b))
-                        .strong().size(13.0).color(egui::Color32::from_rgb(236, 239, 252)));
+                    ui.label(RichText::new(format!("\u{E24A} A: {}  ↔  \u{E24A} B: {}", name_a, name_b))
+                        .strong().size(13.0).color(crate::ui::style::pal().text));
                 });
                 ui.add_space(6.0);
 
@@ -166,7 +166,7 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
 
                 if overlap_groups.is_empty() {
                     ui.centered_and_justified(|ui| {
-                        ui.label(RichText::new("No matching duplicates between these folders.").size(13.0).color(style::TEXT_SEC));
+                        ui.label(RichText::new("No matching duplicates between these folders.").size(13.0).color(crate::ui::style::pal().text_muted));
                     });
                     app.twins_compare_pair = None;
                 } else {
@@ -181,7 +181,7 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                         ui.allocate_ui(egui::vec2(220.0, panel_height), |ui| {
                             ui.vertical(|ui| {
                                 ui.label(RichText::new(format!("{} matched pairs", overlap_groups.len()))
-                                    .size(11.0).color(style::TEXT_SEC));
+                                    .size(11.0).color(crate::ui::style::pal().text_muted));
                                 ui.add_space(4.0);
                                 ScrollArea::vertical()
                                     .id_salt("compare_list")
@@ -215,11 +215,11 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
 
                                             // Paint background
                                             let bg = if is_selected {
-                                                egui::Color32::from_rgba_unmultiplied(70, 110, 210, 80)
+                                                crate::ui::style::pal().accent_soft
                                             } else if row_resp.hovered() {
-                                                egui::Color32::from_rgba_unmultiplied(255, 255, 255, 14)
+                                                crate::ui::style::pal().surface_raised
                                             } else {
-                                                egui::Color32::from_rgba_unmultiplied(255, 255, 255, 5)
+                                                egui::Color32::TRANSPARENT
                                             };
                                             ui.painter().rect_filled(row_rect, 6.0, bg);
 
@@ -229,7 +229,7 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                                                     row_rect.min,
                                                     egui::vec2(3.0, row_rect.height()),
                                                 );
-                                                ui.painter().rect_filled(bar, 2.0, egui::Color32::from_rgb(100, 150, 255));
+                                                ui.painter().rect_filled(bar, 2.0, crate::ui::style::pal().accent);
                                             }
 
                                             let inner = row_rect.shrink2(egui::vec2(10.0, 6.0));
@@ -248,7 +248,7 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                                                 egui::Align2::LEFT_TOP,
                                                 format!("A  {}", trunc(&fname_a, 22)),
                                                 font_a,
-                                                egui::Color32::from_rgb(120, 180, 255),
+                                                crate::ui::style::pal().accent_on_soft,
                                             );
                                             // Line 2: B filename (green)
                                             ui.painter().text(
@@ -256,7 +256,7 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                                                 egui::Align2::LEFT_TOP,
                                                 format!("B  {}", trunc(&fname_b, 22)),
                                                 font_b,
-                                                egui::Color32::from_rgb(130, 215, 140),
+                                                crate::ui::style::pal().success,
                                             );
                                             // Line 3: sizes (muted)
                                             ui.painter().text(
@@ -264,7 +264,7 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                                                 egui::Align2::LEFT_TOP,
                                                 format!("{}  ·  {}", size_a, size_b),
                                                 font_sz,
-                                                egui::Color32::from_rgba_unmultiplied(180, 190, 210, 160),
+                                                crate::ui::style::pal().text_muted,
                                             );
 
                                             ui.add_space(3.0);
@@ -310,21 +310,21 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                                         // Column A preview
                                         columns[0].vertical(|ui| {
                                             ui.horizontal(|ui| {
-                                                ui.label(RichText::new(format!("📁 A: {}", name_a))
-                                                    .strong().size(11.0).color(egui::Color32::from_rgb(130, 190, 255)));
+                                                ui.label(RichText::new(format!("\u{E24A} A: {}", name_a))
+                                                    .strong().size(11.0).color(crate::ui::style::pal().accent_on_soft));
                                             });
                                             ui.separator();
                                     if let Some(f_a) = file_a {
                                         let fname_a = f_a.path.file_name().unwrap_or_default().to_string_lossy();
                                         ui.horizontal(|ui| {
-                                            ui.label(RichText::new(fname_a.as_ref()).size(11.5).color(style::TEXT_PRI));
+                                            ui.label(RichText::new(fname_a.as_ref()).size(11.5).color(crate::ui::style::pal().text));
                                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                                if ui.small_button("🗑 Trash A").on_hover_text(f_a.path.display().to_string()).clicked() {
+                                                if ui.small_button("\u{E4A6} Trash A").on_hover_text(f_a.path.display().to_string()).clicked() {
                                                     trash_a = Some(f_a.path.clone());
                                                 }
                                             });
                                         });
-                                        ui.label(style::muted(format!("{}", crate::ui::preview::format_bytes(f_a.size))));
+                                        ui.label(style::muted(crate::ui::preview::format_bytes(f_a.size).to_string()));
                                         ui.add_space(6.0);
                                         ui.add_space(6.0);
                                         let is_video = crate::ui::preview::is_video_path(&f_a.path);
@@ -349,7 +349,7 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                                             if is_video && app.preview_path.as_deref() == Some(f_a.path.as_path()) && app.inline_video.is_none() {
                                                 if let Some(err) = &app.preview_scroll_text {
                                                     ui.add_space(4.0);
-                                                    ui.label(RichText::new(err).color(egui::Color32::from_rgb(255, 100, 100)).size(11.0));
+                                                    ui.label(RichText::new(err).color(crate::ui::style::pal().danger).size(11.0));
                                                 }
                                             }
                                         }
@@ -357,15 +357,13 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                                         ui.horizontal_wrapped(|ui| {
                                             if is_video {
                                                 if played_here {
-                                                    if style::secondary_button(ui, "⏹ Stop").clicked() {
+                                                    if style::secondary_button(ui, "\u{E46C} Stop").clicked() {
                                                         app.inline_video = None;
                                                         app.preview_path = None;
                                                     }
-                                                } else {
-                                                    if style::secondary_button(ui, "▶ Play").clicked() {
-                                                        app.preview_path = None;
-                                                        crate::ui::results_panel::update_preview(ctx, app, &f_a.path, 0);
-                                                    }
+                                                } else if style::secondary_button(ui, "\u{E3D0} Play").clicked() {
+                                                    app.preview_path = None;
+                                                    crate::ui::results_panel::update_preview(ctx, app, &f_a.path, 0);
                                                 }
                                             }
                                             if style::secondary_button(ui, "Reveal").clicked() {
@@ -383,21 +381,21 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                                 // Column B preview
                                 columns[1].vertical(|ui| {
                                     ui.horizontal(|ui| {
-                                        ui.label(RichText::new(format!("📁 B: {}", name_b))
-                                            .strong().size(11.0).color(egui::Color32::from_rgb(150, 230, 150)));
+                                        ui.label(RichText::new(format!("\u{E24A} B: {}", name_b))
+                                            .strong().size(11.0).color(crate::ui::style::pal().success_on_soft));
                                     });
                                     ui.separator();
                                     if let Some(f_b) = file_b {
                                         let fname_b = f_b.path.file_name().unwrap_or_default().to_string_lossy();
                                         ui.horizontal(|ui| {
-                                            ui.label(RichText::new(fname_b.as_ref()).size(11.5).color(style::TEXT_PRI));
+                                            ui.label(RichText::new(fname_b.as_ref()).size(11.5).color(crate::ui::style::pal().text));
                                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                                if ui.small_button("🗑 Trash B").on_hover_text(f_b.path.display().to_string()).clicked() {
+                                                if ui.small_button("\u{E4A6} Trash B").on_hover_text(f_b.path.display().to_string()).clicked() {
                                                     trash_b = Some(f_b.path.clone());
                                                 }
                                             });
                                         });
-                                        ui.label(style::muted(format!("{}", crate::ui::preview::format_bytes(f_b.size))));
+                                        ui.label(style::muted(crate::ui::preview::format_bytes(f_b.size).to_string()));
                                         ui.add_space(6.0);
                                         ui.add_space(6.0);
                                         let is_video = crate::ui::preview::is_video_path(&f_b.path);
@@ -422,7 +420,7 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                                             if is_video && app.preview_path.as_deref() == Some(f_b.path.as_path()) && app.inline_video.is_none() {
                                                 if let Some(err) = &app.preview_scroll_text {
                                                     ui.add_space(4.0);
-                                                    ui.label(RichText::new(err).color(egui::Color32::from_rgb(255, 100, 100)).size(11.0));
+                                                    ui.label(RichText::new(err).color(crate::ui::style::pal().danger).size(11.0));
                                                 }
                                             }
                                         }
@@ -430,15 +428,13 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                                         ui.horizontal_wrapped(|ui| {
                                             if is_video {
                                                 if played_here {
-                                                    if style::secondary_button(ui, "⏹ Stop").clicked() {
+                                                    if style::secondary_button(ui, "\u{E46C} Stop").clicked() {
                                                         app.inline_video = None;
                                                         app.preview_path = None;
                                                     }
-                                                } else {
-                                                    if style::secondary_button(ui, "▶ Play").clicked() {
-                                                        app.preview_path = None;
-                                                        crate::ui::results_panel::update_preview(ctx, app, &f_b.path, 0);
-                                                    }
+                                                } else if style::secondary_button(ui, "\u{E3D0} Play").clicked() {
+                                                    app.preview_path = None;
+                                                    crate::ui::results_panel::update_preview(ctx, app, &f_b.path, 0);
                                                 }
                                             }
                                             if style::secondary_button(ui, "Reveal").clicked() {
@@ -460,11 +456,11 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                                 let yes = rfd::MessageDialog::new()
                                     .set_level(rfd::MessageLevel::Warning)
                                     .set_title("Trash duplicate file")
-                                    .set_description(&format!("Move\n{}\nto Trash?", path.display()))
+                                    .set_description(format!("Move\n{}\nto Trash?", path.display()))
                                     .set_buttons(rfd::MessageButtons::YesNo)
                                     .show();
                                 if yes == rfd::MessageDialogResult::Yes {
-                                    if let Ok(()) = smart_file_manager::resolver::trash_single_path(&path) {
+                                    if let Ok(()) = sortwise::resolver::trash_single_path(&path) {
                                         let mut removed = std::collections::HashSet::new();
                                         removed.insert(path.clone());
                                         crate::ui::results_panel::prune_paths_from_results(app, &removed);
@@ -476,7 +472,7 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                     });
                 }
             } else {
-                ui.label(RichText::new("Pairs of folders containing duplicate files. Percentage shows shared duplicate groups relative to the smaller folder's duplicate set. Use the (duplicate/total files) stats to identify exact mirror folders.").size(11.5).color(style::TEXT_SEC));
+                ui.label(RichText::new("Pairs of folders containing duplicate files. Percentage shows shared duplicate groups relative to the smaller folder's duplicate set. Use the (duplicate/total files) stats to identify exact mirror folders.").size(11.5).color(crate::ui::style::pal().text_muted));
                 ui.add_space(8.0);
                 
                 let mut pairs: Vec<((PathBuf, PathBuf), FolderOverlapEntry)> = app.folder_overlap.iter()
@@ -509,7 +505,7 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         let selected_count = app.twins_trash_selections.values().filter(|(a, b)| *a || *b).count();
-                        let btn = egui::Button::new(RichText::new(format!("🗑 Delete Selected ({})", selected_count)).color(Color32::from_rgb(255, 100, 100)));
+                        let btn = egui::Button::new(RichText::new(format!("\u{E4A6} Delete Selected ({})", selected_count)).color(crate::ui::style::pal().danger));
                         if ui.add_enabled(selected_count > 0, btn).clicked() {
                             trash_selected_twins(app, result);
                         }
@@ -519,7 +515,7 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
 
                 if pairs.is_empty() {
                     ui.centered_and_justified(|ui| {
-                        ui.label(RichText::new("No overlapping folders found in duplicate groups.").size(13.0).color(style::TEXT_SEC));
+                        ui.label(RichText::new("No overlapping folders found in duplicate groups.").size(13.0).color(crate::ui::style::pal().text_muted));
                     });
                 } else {
                     ScrollArea::vertical()
@@ -539,33 +535,33 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                                             if folder_chip(ui, &chip_text_a).interact(egui::Sense::click()).on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text(folder_a.display().to_string()).clicked() {
                                                 crate::ui::preview::reveal_in_folder(&folder_a);
                                             }
-                                            ui.label(RichText::new("↔").strong().color(style::TEXT_TER));
+                                            ui.label(RichText::new("↔").strong().color(crate::ui::style::pal().text_muted));
                                             if folder_chip(ui, &chip_text_b).interact(egui::Sense::click()).on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text(folder_b.display().to_string()).clicked() {
                                                 crate::ui::preview::reveal_in_folder(&folder_b);
                                             }
                                             
                                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                                                 let bg = if entry.overlap_pct >= 80.0 {
-                                                    Color32::from_rgb(90, 30, 30)
+                                                    crate::ui::style::pal().danger_soft
                                                 } else if entry.overlap_pct >= 40.0 {
-                                                    Color32::from_rgb(85, 60, 20)
+                                                    crate::ui::style::pal().warning_soft
                                                 } else {
-                                                    Color32::from_rgb(30, 60, 40)
+                                                    crate::ui::style::pal().success_soft
                                                 };
                                                 let fg = if entry.overlap_pct >= 80.0 {
-                                                    Color32::from_rgb(255, 180, 180)
+                                                    crate::ui::style::pal().danger_on_soft
                                                 } else if entry.overlap_pct >= 40.0 {
-                                                    Color32::from_rgb(255, 220, 160)
+                                                    crate::ui::style::pal().warning_on_soft
                                                 } else {
-                                                    Color32::from_rgb(180, 255, 200)
+                                                    crate::ui::style::pal().success_on_soft
                                                 };
                                                 style::pill(ui, &format!("{:.1}% overlap", entry.overlap_pct), fg, bg);
                                             });
                                         });
                                         ui.add_space(4.0);
                                         
-                                        ui.label(RichText::new(format!("A: {}", folder_a.display())).size(10.5).color(style::TEXT_TER));
-                                        ui.label(RichText::new(format!("B: {}", folder_b.display())).size(10.5).color(style::TEXT_TER));
+                                        ui.label(RichText::new(format!("A: {}", folder_a.display())).size(10.5).color(crate::ui::style::pal().text_muted));
+                                        ui.label(RichText::new(format!("B: {}", folder_b.display())).size(10.5).color(crate::ui::style::pal().text_muted));
                                         ui.add_space(4.0);
 
                                         ui.horizontal(|ui| {
@@ -573,7 +569,7 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                                                 "Shared duplicates: {} groups · Wasted: {}",
                                                 entry.shared_groups,
                                                 crate::ui::preview::format_bytes(entry.shared_bytes)
-                                            )).size(11.5).color(style::TEXT_SEC));
+                                            )).size(11.5).color(crate::ui::style::pal().text_muted));
                                         });
                                         ui.add_space(4.0);
 
@@ -601,22 +597,21 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sma
                         });
                 }
 
-                ui.add_space(8.0);
-                ui.horizontal(|ui| {
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if secondary_button(ui, "Done").clicked() {
-                            close_clicked = true;
-                        }
-                    });
-                });
             }
-        });
+        },
+        // Footer runs right to left: Done (primary).
+        |ui| {
+            if crate::ui::style::primary_button(ui, "Done").clicked() {
+                close_clicked = true;
+            }
+        },
+    );
 
-    app.dedupe_twins_modal_open = open && !close_clicked;
+    app.dedupe_twins_modal_open = !(closed || close_clicked);
 }
 
 fn trash_selected_twins(
-    app: &mut SmartFileManagerApp,
+    app: &mut SortwiseApp,
     result: &ScanResult,
 ) {
     let mut to_trash = std::collections::HashSet::new();
@@ -648,12 +643,12 @@ fn trash_selected_twins(
     }
 
     use rfd::{MessageDialog, MessageLevel, MessageButtons, MessageDialogResult};
-    use smart_file_manager::resolver::trash_batch;
+    use sortwise::resolver::trash_batch;
 
     let yes = MessageDialog::new()
         .set_level(MessageLevel::Warning)
         .set_title("Delete Overlapping Duplicates")
-        .set_description(&format!("Move {} selected duplicate files to Trash?", to_trash.len()))
+        .set_description(format!("Move {} selected duplicate files to Trash?", to_trash.len()))
         .set_buttons(MessageButtons::YesNo)
         .show();
 

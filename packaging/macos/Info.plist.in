@@ -5,15 +5,17 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleExecutable</key>
-	<string>smart-file-manager</string>
+	<string>sortwise</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.smartfilemanager.desktop</string>
+	<string>com.sortwise.desktop</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Smart File Manager</string>
+	<string>Sortwise</string>
+	<key>CFBundleIconFile</key>
+	<string>Sortwise</string>
 	<key>CFBundleDisplayName</key>
-	<string>Smart File Manager</string>
+	<string>Sortwise</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -25,16 +27,16 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © Smart File Manager contributors</string>
+	<string>Copyright © Sortwise contributors</string>
 	<key>NSDocumentsFolderUsageDescription</key>
-	<string>Smart File Manager browses and de-duplicates files in your Documents folder.</string>
+	<string>Sortwise browses and de-duplicates files in your Documents folder.</string>
 	<key>NSDesktopFolderUsageDescription</key>
-	<string>Smart File Manager browses and de-duplicates files on your Desktop.</string>
+	<string>Sortwise browses and de-duplicates files on your Desktop.</string>
 	<key>NSDownloadsFolderUsageDescription</key>
-	<string>Smart File Manager browses and de-duplicates files in your Downloads folder.</string>
+	<string>Sortwise browses and de-duplicates files in your Downloads folder.</string>
 	<key>NSRemovableVolumesUsageDescription</key>
-	<string>Smart File Manager browses and de-duplicates files on connected drives.</string>
+	<string>Sortwise browses and de-duplicates files on connected drives.</string>
 	<key>NSNetworkVolumesUsageDescription</key>
-	<string>Smart File Manager browses and de-duplicates files on network volumes.</string>
+	<string>Sortwise browses and de-duplicates files on network volumes.</string>
 </dict>
 </plist>

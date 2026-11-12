@@ -1,6 +1,6 @@
-# Running Smart File Manager
+# Running Sortwise
 
-This guide provides instructions on how to run, test, and package the Smart File Manager application across different platforms and modes.
+This guide provides instructions on how to run, test, and package the Sortwise application across different platforms and modes.
 
 ## 📋 Prerequisites
 
@@ -24,7 +24,7 @@ cargo run
 The project includes a powerful command-line interface for headless operations. This requires the `cli` feature.
 
 ```bash
-cargo run --bin sfm-cli --features cli
+cargo run --bin sortwise-cli --features cli
 ```
 
 ---
@@ -44,7 +44,7 @@ To create a native macOS application bundle:
    ```
    *Note: Use `./scripts/build-macos-app.sh --sign-adhoc` if you encounter Gatekeeper issues.*
 
-3. **Output**: The application will be located at `dist/Smart File Manager.app`.
+3. **Output**: The application will be located at `dist/Sortwise.app`.
 
 ### 🪟 Windows Setup (.exe)
 From a PowerShell terminal:
@@ -78,3 +78,7 @@ cargo bench
 - **`src/lib.rs`**: Core logic and file management engine.
 - **`src/ui/`**: UI components and styling.
 - **`scripts/`**: Automation scripts for cross-platform builds.
+
+## Visual review (developer)
+
+`sortwise --snapshot <out.png> [screen]` renders one screen (`results`, `scan`, `explorer`, `staging`, `queues`) with demo data to a PNG and exits. It uses egui's own frame capture, so it needs no screen-recording permission.

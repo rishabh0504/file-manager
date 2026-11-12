@@ -43,3 +43,43 @@ pub fn classify(entry: &FileEntry, _skip_logs_and_locks: bool) -> FileDispositio
         _ => FileDisposition::SkipHeuristic,
     }
 }
+
+/// Coarse file kind used for result filters (U11).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MediaKind {
+    Image,
+    Video,
+    Audio,
+    Archive,
+    Other,
+}
+
+impl MediaKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            MediaKind::Image => "Images",
+            MediaKind::Video => "Videos",
+            MediaKind::Audio => "Audio",
+            MediaKind::Archive => "Archives",
+            MediaKind::Other => "Other",
+        }
+    }
+}
+
+/// Classify a path by extension (case-insensitive).
+pub fn media_kind(path: &std::path::Path) -> MediaKind {
+    let ext = match path.extension().and_then(|e| e.to_str()) {
+        Some(e) => e.to_ascii_lowercase(),
+        None => return MediaKind::Other,
+    };
+    match ext.as_str() {
+        "jpg" | "jpeg" | "png" | "gif" | "bmp" | "tiff" | "tif" | "webp" | "heic" | "heif" | "raw"
+        | "cr2" | "nef" | "arw" | "dng" | "svg" | "ico" | "psd" | "ai" => MediaKind::Image,
+        "mp4" | "mov" | "avi" | "mkv" | "wmv" | "flv" | "webm" | "m4v" | "mpg" | "mpeg" | "3gp"
+        | "ts" | "mts" | "m2ts" | "vob" | "rmvb" | "divx" => MediaKind::Video,
+        "mp3" | "flac" | "wav" | "aac" | "ogg" | "m4a" | "wma" | "aiff" | "alac" | "opus" => MediaKind::Audio,
+        "zip" | "rar" | "7z" | "tar" | "gz" | "bz2" | "xz" | "tgz" | "zst" | "lz4" | "cab" | "iso"
+        | "dmg" | "pkg" => MediaKind::Archive,
+        _ => MediaKind::Other,
+    }
+}

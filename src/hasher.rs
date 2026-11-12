@@ -1,6 +1,5 @@
 use crate::cancel::CancellationToken;
 use crate::errors::{FileError, FileResult};
-use crate::io_scheduler::partial_jobs;
 use crate::platform::{is_network_path, is_sparse_file};
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
@@ -29,29 +28,29 @@ pub fn partial_hash_from_reads(
         return Err(FileError::Cancelled);
     }
 
-    let mut jobs = partial_jobs(path.to_path_buf(), size, chunk_size);
-    jobs.sort_by_key(|j| j.offset);
+    let mut regions = partial_regions(size, chunk_size);
+    regions.sort_by_key(|&(offset, _)| offset);
 
     let mut file = File::open(path)?;
     let mut hasher = blake3::Hasher::new();
     let mut buf = Vec::new();
 
-    for job in &jobs {
+    for &(offset, length) in &regions {
         if token.is_cancelled() {
             return Err(FileError::Cancelled);
         }
-        if job.length == 0 {
+        if length == 0 {
             continue;
         }
-        if job.offset > 0 {
-            file.seek(SeekFrom::Start(job.offset))?;
+        if offset > 0 {
+            file.seek(SeekFrom::Start(offset))?;
         } else {
             file.rewind()?;
         }
         buf.clear();
-        buf.resize(job.length, 0);
+        buf.resize(length, 0);
         let mut read_total = 0usize;
-        while read_total < job.length {
+        while read_total < length {
             match file.read(&mut buf[read_total..]) {
                 Ok(0) => break,
                 Ok(n) => read_total += n,
@@ -62,6 +61,18 @@ pub fn partial_hash_from_reads(
     }
 
     Ok(*hasher.finalize().as_bytes())
+}
+
+/// `(offset, length)` of the three sampled regions: start, middle, end.
+/// A zero-size file yields one empty region so the hash is still well-defined.
+fn partial_regions(size: u64, chunk_size: usize) -> Vec<(u64, usize)> {
+    if size == 0 {
+        return vec![(0, 0)];
+    }
+    let chunk = chunk_size as u64;
+    let mid = (size / 2).saturating_sub(chunk / 2);
+    let end = size.saturating_sub(chunk);
+    vec![(0, chunk_size), (mid, chunk_size), (end, chunk_size)]
 }
 
 pub fn full_hash(
@@ -76,8 +87,11 @@ pub fn full_hash(
     // Use mmap for files above 4 MB — covers most photo/audio files (JPEG, HEIC, RAW,
     // MP3, FLAC etc.) and avoids the extra user-space copy in BufReader. Falls back to
     // buffered_hash automatically if mmap fails.
+    // Removable and network drives read through buffers: a mapped file can fault
+    // (SIGBUS) if the drive is pulled mid-read (P-10).
     let use_mmap = size > 4 * 1024 * 1024
         && !is_network_path(path)
+        && !crate::platform::is_removable(path)
         && !is_sparse_file(path, size);
 
     if use_mmap {

@@ -1,24 +1,31 @@
-use crate::app::{DupGroupSortOrder, SmartFileManagerApp};
+use crate::app::{DupGroupSortOrder, DupListCache, PendingAction, SortwiseApp};
 use crate::ui::preview::{
-    file_modified_label, format_bytes, is_video_path, load_preview, open_in_default_app,
-    reveal_in_folder, PreviewKind,
+    file_modified_label, format_bytes, is_privacy_denied, is_video_path, load_preview, open_in_default_app,
+    open_privacy_settings, reveal_in_folder, PreviewKind,
 };
 use crate::ui::video_inline::InlineVideoDecoder;
+use sortwise::heuristics::{media_kind, MediaKind};
 use crate::ui::style::{
     self, muted, panel_card, path_monospace, primary_button, secondary_button, section_title,
-    stat_chip, mode_pill, semantic_pill, PillVariant, icon_button, BORDER,
+    stat_chip, mode_pill, semantic_pill, PillVariant, icon_button,
 };
 use eframe::egui::{self, load::SizedTexture, RichText, ScrollArea, TextureOptions};
 use eframe::egui::scroll_area::ScrollBarVisibility;
-use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
-use smart_file_manager::resolver::{self, trash_single_path, trash_batch};
-use smart_file_manager::summarize_folders;
-use smart_file_manager::types::{self, ActionManifest, ActionMode, DuplicateGroup, ManifestAction, ScanResult};
+use sortwise::action_log::{self, ActionLogEntry};
+use sortwise::action_plan::{self, ActionPlan};
+use sortwise::resolver::{self, trash_batch};
+use sortwise::summarize_folders;
+use sortwise::types::{self, ActionManifest, ActionMode, DuplicateGroup, ManifestAction, ScanResult};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Height of one group card in the list, including the gap below it (P-2).
+/// Cards use a fixed content height so `show_rows` can position them without measuring.
+const DUP_ROW_H: f32 = 84.0;
+const DUP_CARD_CONTENT_H: f32 = 62.0;
+
 pub fn results_dup_list_panel(
-    app: &mut SmartFileManagerApp,
+    app: &mut SortwiseApp,
     ui: &mut egui::Ui,
     ctx: &egui::Context,
 ) {
@@ -44,12 +51,31 @@ pub fn results_dup_list_panel(
         ui.horizontal(|ui| {
             let name_a = fa.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "/".into());
             let name_b = fb.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "/".into());
-            ui.label(RichText::new(format!("Showing mutual duplicates: {} ↔ {}", name_a, name_b)).size(11.0).color(style::TEXT_SEC));
+            ui.label(RichText::new(format!("Showing mutual duplicates: {} ↔ {}", name_a, name_b)).size(11.0).color(crate::ui::style::pal().text_muted));
             if ui.small_button("Clear Filter").clicked() {
                 app.results_filter_folders = None;
             }
         });
     }
+    ui.add_space(4.0);
+    // Wraps so the chips never push the sidebar wider than its 300 px slot.
+    ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing.x = 4.0;
+        let kinds = [
+            None,
+            Some(MediaKind::Image),
+            Some(MediaKind::Video),
+            Some(MediaKind::Audio),
+            Some(MediaKind::Archive),
+        ];
+        for kind in kinds {
+            let label = kind.map_or("All", MediaKind::label);
+            let chip = RichText::new(label).size(11.5);
+            if ui.selectable_label(app.results_kind_filter == kind, chip).clicked() {
+                app.results_kind_filter = kind;
+            }
+        }
+    });
     ui.add_space(2.0);
     ui.label(muted("Up / Down or J / K to move between groups."));
 
@@ -57,7 +83,8 @@ pub fn results_dup_list_panel(
     ui.horizontal(|ui| {
         ui.label(muted("Sort:"));
         egui::ComboBox::new(egui::Id::new("dup_group_sort"), "")
-            .width(ui.available_width().min(260.0))
+            // Fixed width: available_width() here is the panel's max on the first frame and would widen it.
+            .width(200.0)
             .selected_text(match app.dup_group_sort {
                 DupGroupSortOrder::ScanOrder => "Scan order (#1, #2, …)",
                 DupGroupSortOrder::WastedBytesDesc => "Reclaimable — largest first",
@@ -67,110 +94,130 @@ pub fn results_dup_list_panel(
                 DupGroupSortOrder::HashAsc => "Hash (A–Z)",
             })
             .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut app.dup_group_sort,
-                    DupGroupSortOrder::ScanOrder,
-                    "Scan order (#1, #2, …)",
-                );
-                ui.selectable_value(
-                    &mut app.dup_group_sort,
-                    DupGroupSortOrder::WastedBytesDesc,
-                    "Reclaimable — largest first",
-                );
-                ui.selectable_value(
-                    &mut app.dup_group_sort,
-                    DupGroupSortOrder::WastedBytesAsc,
-                    "Reclaimable — smallest first",
-                );
-                ui.selectable_value(
-                    &mut app.dup_group_sort,
-                    DupGroupSortOrder::FileCountDesc,
-                    "Copy count — most first",
-                );
-                ui.selectable_value(
-                    &mut app.dup_group_sort,
-                    DupGroupSortOrder::FileCountAsc,
-                    "Copy count — fewest first",
-                );
+                ui.selectable_value(&mut app.dup_group_sort, DupGroupSortOrder::ScanOrder, "Scan order (#1, #2, …)");
+                ui.selectable_value(&mut app.dup_group_sort, DupGroupSortOrder::WastedBytesDesc, "Reclaimable — largest first");
+                ui.selectable_value(&mut app.dup_group_sort, DupGroupSortOrder::WastedBytesAsc, "Reclaimable — smallest first");
+                ui.selectable_value(&mut app.dup_group_sort, DupGroupSortOrder::FileCountDesc, "Copy count — most first");
+                ui.selectable_value(&mut app.dup_group_sort, DupGroupSortOrder::FileCountAsc, "Copy count — fewest first");
                 ui.selectable_value(&mut app.dup_group_sort, DupGroupSortOrder::HashAsc, "Hash (A–Z)");
             });
     });
 
-    let visible = sort_visible_dup_groups(
-        filtered_group_indices(&result, &app.results_filter),
-        &result,
+    // Memoized visible list (P-3). Taken out of `app` so the list can borrow it while
+    // the rest of `app` is mutated (selection sync, keyboard, scroll).
+    let mut cache = std::mem::take(&mut app.dup_list_cache);
+    refresh_dup_list_cache(
+        &mut cache,
+        app.results_epoch,
+        &app.results_filter,
         app.dup_group_sort,
+        app.results_kind_filter,
+        &result,
     );
-    sync_selection_with_filter(app, &visible, &result);
-    apply_dup_list_keyboard_navigation(ctx, app, &visible, &result);
+    sync_selection_with_filter(app, &cache.visible, &result);
+    apply_dup_list_keyboard_navigation(ctx, app, &cache.visible, &result);
 
     ui.add_space(8.0);
     ui.separator();
     ui.add_space(4.0);
 
-    // Find maximum wasted bytes in visible groups for gradient fill normalization
-    let max_wasted = visible.iter()
+    // Scroll requests (keyboard, selection) become an offset, since off-screen rows are not laid out.
+    let mut scroll = ScrollArea::vertical()
+        .id_salt("dup_group_list")
+        .auto_shrink([false, false])
+        .scroll_bar_visibility(ScrollBarVisibility::VisibleWhenNeeded);
+    if let Some(row) = app
+        .dup_list_scroll_to_group
+        .and_then(|gi| cache.visible.iter().position(|&v| v == gi))
+    {
+        scroll = scroll.vertical_scroll_offset(row as f32 * DUP_ROW_H);
+    }
+    app.dup_list_scroll_to_group = None;
+
+    if cache.visible.is_empty() {
+        ui.label(muted("No groups match filter."));
+    } else {
+        scroll.show_rows(ui, DUP_ROW_H, cache.visible.len(), |ui, rows| {
+            for row in rows {
+                draw_dup_group_card(app, ui, &result, cache.visible[row]);
+            }
+        });
+    }
+
+    app.dup_list_cache = cache;
+}
+
+/// Rebuild the visible group list only when the result, filter or sort changed.
+fn refresh_dup_list_cache(
+    cache: &mut DupListCache,
+    epoch: u64,
+    filter: &str,
+    sort: DupGroupSortOrder,
+    kind: Option<MediaKind>,
+    result: &ScanResult,
+) {
+    let fresh = cache
+        .key
+        .as_ref()
+        .is_some_and(|(e, f, s, k)| *e == epoch && f == filter && *s == sort && *k == kind);
+    if fresh {
+        return;
+    }
+    let visible = sort_visible_dup_groups(filtered_group_indices(result, filter, kind), result, sort);
+    cache.max_wasted = visible
+        .iter()
         .map(|&gi| result.duplicate_groups[gi].total_wasted_bytes)
         .max()
         .unwrap_or(1)
         .max(1);
-
-    ScrollArea::vertical()
-        .id_salt("dup_group_list")
-        .auto_shrink([false, false])
-        .scroll_bar_visibility(ScrollBarVisibility::AlwaysVisible)
-        .show(ui, |ui| {
-            if visible.is_empty() {
-                ui.label(muted("No groups match filter."));
-                return;
-            }
-            for &gi in &visible {
-                let g = &result.duplicate_groups[gi];
-                let selected = app.results_selected_group == Some(gi);
-                
-                let fill_pct = g.total_wasted_bytes as f32 / max_wasted as f32;
-
-                // Group card custom layout
-                let card_bg = if selected { style::SURFACE_2 } else { style::SURFACE_1 };
-                let stroke_color = if selected { style::ACCENT } else { egui::Color32::from_rgb(50, 50, 60) };
-
-                let response = egui::Frame::none()
-                    .fill(card_bg)
-                    .stroke(egui::Stroke::new(1.0, stroke_color))
-                    .rounding(egui::Rounding::same(8.0))
-                    .inner_margin(egui::Margin::symmetric(10.0, 8.0))
-                    .show(ui, |ui| {
-                        ui.vertical(|ui| {
-                            ui.horizontal(|ui| {
-                                ui.label(RichText::new(format!("Group #{}", gi + 1)).strong().size(13.0).color(style::TEXT_PRI));
-                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                    ui.label(muted(format!("{} files", g.files.len())));
-                                });
-                            });
-                            ui.add_space(4.0);
-                            style::gradient_badge(ui, "Reclaimable", &format_bytes(g.total_wasted_bytes), fill_pct);
-                        });
-                    })
-                    .response;
-
-                if app.dup_list_scroll_to_group == Some(gi) {
-                    response.scroll_to_me(Some(egui::Align::Center));
-                    app.dup_list_scroll_to_group = None;
-                }
-
-                let response = response.interact(egui::Sense::click());
-                if response.clicked() {
-                    app.dup_list_scroll_to_group = None;
-                    app.results_selected_group = Some(gi);
-                    app.results_selected_file_in_group = g.keep_index;
-                    app.clear_preview_cache();
-                }
-                ui.add_space(6.0);
-            }
-        });
+    cache.visible = visible;
+    cache.key = Some((epoch, filter.to_string(), sort, kind));
 }
 
-pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx: &egui::Context) {
+fn draw_dup_group_card(
+    app: &mut SortwiseApp,
+    ui: &mut egui::Ui,
+    result: &ScanResult,
+    gi: usize,
+) {
+    let g = &result.duplicate_groups[gi];
+    let selected = app.results_selected_group == Some(gi);
+
+    let card_bg = if selected { crate::ui::style::pal().surface_raised } else { crate::ui::style::pal().surface };
+    let stroke_color = if selected { crate::ui::style::pal().accent } else { crate::ui::style::pal().border };
+
+    let response = egui::Frame::none()
+        .fill(card_bg)
+        .stroke(egui::Stroke::new(1.0, stroke_color))
+        .rounding(egui::Rounding::same(8.0))
+        .inner_margin(egui::Margin::symmetric(10.0, 8.0))
+        .show(ui, |ui| {
+            ui.set_min_height(DUP_CARD_CONTENT_H);
+            ui.vertical(|ui| {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(format!("Group #{}", gi + 1)).strong().size(13.0).color(crate::ui::style::pal().text));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(muted(format!("{} files", g.files.len())));
+                    });
+                });
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    ui.label(crate::ui::style::muted("Reclaimable"));
+                    ui.label(egui::RichText::new(format_bytes(g.total_wasted_bytes)).strong());
+                });
+            });
+        })
+        .response;
+
+    if response.interact(egui::Sense::click()).clicked() {
+        app.results_selected_group = Some(gi);
+        app.results_selected_file_in_group = g.keep_index;
+        app.clear_preview_cache();
+    }
+    ui.add_space(6.0);
+}
+
+pub fn results_main_panel(app: &mut SortwiseApp, ui: &mut egui::Ui, ctx: &egui::Context) {
     if app.results_selected_group != app.results_last_selected_group {
         app.results_last_selected_group = app.results_selected_group;
         app.results_selected_files.clear();
@@ -184,11 +231,34 @@ pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx:
     action_row(app, ui, &result);
     ui.add_space(10.0);
 
+    let denied = result.error_log.iter().filter(|(_, e)| is_privacy_denied(e)).count();
+    if denied > 0 {
+        panel_card(ui, |ui| {
+            ui.colored_label(
+                crate::ui::style::pal().warning,
+                format!("\u{E4E0}  {denied} path(s) were blocked by macOS privacy settings, so duplicates there may be missed."),
+            );
+            if secondary_button(ui, "Open Privacy Settings").clicked() {
+                if let Err(e) = open_privacy_settings() {
+                    app.apply_errors = Some(format!("Could not open Privacy Settings: {e}"));
+                }
+            }
+        });
+        ui.add_space(10.0);
+    }
+
+    if app.result_rx.is_some() {
+        panel_card(ui, |ui| {
+            ui.colored_label(crate::ui::style::pal().accent, "Scan still running. Showing groups found so far; the full list appears when it finishes.");
+        });
+        ui.add_space(10.0);
+    }
+
     if result.stats.partial {
         panel_card(ui, |ui| {
             ui.colored_label(
-                style::WARNING,
-                "⚠  Partial results — scan was cancelled before completion.",
+                crate::ui::style::pal().warning,
+                "\u{E4E0}  Partial results — scan was cancelled before completion.",
             );
         });
         ui.add_space(10.0);
@@ -207,11 +277,16 @@ pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx:
         return;
     };
 
-    let body_h = (ui.available_height() - 4.0).max(220.0);
+    group_keyboard_shortcuts(app, ctx, gi, &result);
+    shortcuts_window(app, ctx);
+    let compare_mode = app.mode == crate::app::AppMode::CompareSourceDest;
+
+    // Room for the fixed bottom action bar (56 px + gap) below the scroll body.
+    let body_h = (ui.available_height() - 4.0 - GROUP_ACTION_BAR_H).max(220.0);
 
     ScrollArea::vertical()
         .max_height(body_h)
-        .scroll_bar_visibility(ScrollBarVisibility::AlwaysVisible)
+        .scroll_bar_visibility(ScrollBarVisibility::VisibleWhenNeeded)
         .auto_shrink([false, false])
         .id_salt("results_main_scroll")
         .show(ui, |ui| {
@@ -229,86 +304,10 @@ pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx:
                 }
 
                 ui.add_space(8.0);
-                ui.horizontal(|ui| {
-                    ui.label(section_title(&format!("Group #{} — Media Preview", gi + 1)));
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(section_title(&format!("Group #{}", gi + 1)));
                     
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        // Trash Selected Files in current group button
-                        let group_selected_files: Vec<PathBuf> = g.files
-                            .iter()
-                            .map(|f| f.path.clone())
-                            .filter(|p| app.results_selected_files.contains(p))
-                            .collect();
-
-                        if !group_selected_files.is_empty() {
-                            let n = group_selected_files.len();
-                            let btn = egui::Button::new(
-                                RichText::new(format!("🗑 Trash Selected ({})", n))
-                                    .strong()
-                                    .color(egui::Color32::WHITE),
-                            )
-                            .fill(style::DANGER);
-
-                            if ui.add(btn).on_hover_text("Move selected copies in this group to Trash").clicked() {
-                                let total_bytes: u64 = g.files
-                                    .iter()
-                                    .filter(|f| app.results_selected_files.contains(&f.path))
-                                    .map(|f| f.size)
-                                    .sum();
-
-                                let yes = MessageDialog::new()
-                                    .set_level(MessageLevel::Warning)
-                                    .set_title("Trash Selected Duplicates")
-                                    .set_description(format!(
-                                        "Move {} selected duplicate file(s) to Trash?\nReclaimable space: {}",
-                                        n,
-                                        format_bytes(total_bytes)
-                                    ))
-                                    .set_buttons(MessageButtons::YesNo)
-                                    .show();
-
-                                if yes == MessageDialogResult::Yes {
-                                    match trash_batch(&group_selected_files) {
-                                        Ok(trashed) => {
-                                            let trashed_set: std::collections::HashSet<PathBuf> =
-                                                trashed.into_iter().collect();
-                                            for p in &trashed_set {
-                                                app.results_selected_files.remove(p);
-                                            }
-                                            prune_paths_from_results(app, &trashed_set);
-                                            app.clear_preview_cache();
-                                            app.apply_message = Some(format!(
-                                                "Moved {} selected file(s) to Trash.",
-                                                trashed_set.len()
-                                            ));
-                                            app.apply_errors = None;
-                                        }
-                                        Err(e) => {
-                                            app.apply_errors = Some(format!("Error trashing selected: {}", e));
-                                        }
-                                    }
-                                }
-                            }
-                            ui.add_space(4.0);
-                        }
-
-                        if g.files.len() >= 2 {
-                            let best_file = &g.files[g.keep_index];
-                            let tooltip = format!("Select duplicate copies (keep: {}, score: {})", 
-                                best_file.path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
-                                best_file.score);
-                                
-                            if primary_button(ui, "✨ Accept Suggestion").on_hover_text(tooltip).clicked() {
-                                for (idx, f) in g.files.iter().enumerate() {
-                                    if idx != g.keep_index {
-                                        app.results_selected_files.insert(f.path.clone());
-                                    } else {
-                                        app.results_selected_files.remove(&f.path);
-                                    }
-                                }
-                            }
-                        }
-                        
                         ui.add_space(8.0);
                         stat_chip(ui, "Reclaimable", &format_bytes(g.total_wasted_bytes));
                         ui.add_space(4.0);
@@ -329,40 +328,22 @@ pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx:
             // Folder-grouped File Rows
             ui.add_space(12.0);
             ui.add_space(12.0);
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label(section_title("Copies in Group"));
+                if !g.keep_reason.is_empty() {
+                    ui.label(muted(format!("Keep: {}", g.keep_reason)));
+                }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let btn = egui::Button::new(
-                        RichText::new("🗑 Delete All Copies")
-                            .strong()
-                            .color(egui::Color32::WHITE),
-                    )
-                    .fill(style::DANGER);
-                    
-                    if ui.add(btn).on_hover_text("Delete EVERY copy in this group to Trash").clicked() {
-                        let total_bytes: u64 = g.files.iter().map(|f| f.size).sum();
-                        
-                        let yes = MessageDialog::new()
-                            .set_level(MessageLevel::Warning)
-                            .set_title("Delete ALL copies")
-                            .set_description(&format!("Move ALL {} copies in this group to trash? This leaves zero copies.\n\nReclaimable space: {}", g.files.len(), format_bytes(total_bytes)))
-                            .set_buttons(MessageButtons::YesNo)
-                            .show();
-
-                        if yes == MessageDialogResult::Yes {
-                            let paths_vec: Vec<PathBuf> = g.files.iter().map(|f| f.path.clone()).collect();
-                            match trash_batch(&paths_vec) {
-                                Ok(trashed) => {
-                                    let trashed_set: std::collections::HashSet<PathBuf> = trashed.into_iter().collect();
-                                    prune_paths_from_results(app, &trashed_set);
-                                    app.clear_preview_cache();
-                                    app.apply_message = Some(format!("Removed {} file(s) from group.", trashed_set.len()));
-                                    app.apply_errors = None;
-                                }
-                                Err(e) => {
-                                    app.apply_errors = Some(format!("Batch trash error: {}", e));
-                                }
-                            }
+                    if secondary_button(ui, "Trash all copies except keep").on_hover_text("Move every non-keep copy in this group to Trash. The keep file stays.").clicked() {
+                        let plan = action_plan::for_group(gi, g);
+                        if plan.is_empty() {
+                            app.apply_message = Some("No other copies to delete.".into());
+                        } else {
+                            app.pending_action = Some(PendingAction::Trash {
+                                title: "Delete duplicates in group".into(),
+                                action: "delete_group",
+                                plan,
+                            });
                         }
                     }
                 });
@@ -384,32 +365,19 @@ pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx:
                 // Folder header row
                 ui.horizontal(|ui: &mut egui::Ui| {
                     style::folder_chip(ui, &display_name);
-                    ui.label(RichText::new(format!("({})", files_count)).size(11.5).color(style::TEXT_TER));
+                    ui.label(RichText::new(format!("({})", files_count)).size(11.5).color(crate::ui::style::pal().text_muted));
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui: &mut egui::Ui| {
-                        if ui.small_button("Delete all here").clicked() {
-                            let yes = MessageDialog::new()
-                                .set_level(MessageLevel::Warning)
-                                .set_title("Delete folder copies")
-                                .set_description(&format!("Move all duplicate copies in {} to trash?", folder_path.display()))
-                                .set_buttons(MessageButtons::YesNo)
-                                .show();
-
-                            if yes == MessageDialogResult::Yes {
-                                let paths_vec: Vec<PathBuf> = files.iter().map(|(_, f)| f.path.clone()).collect();
-
-                                match trash_batch(&paths_vec) {
-                                    Ok(trashed) => {
-                                        let trashed_set: std::collections::HashSet<PathBuf> = trashed.into_iter().collect();
-                                        prune_paths_from_results(app, &trashed_set);
-                                        app.clear_preview_cache();
-                                        app.apply_message = Some(format!("Removed {} file(s) from folder.", trashed_set.len()));
-                                        app.apply_errors = None;
-                                    }
-                                    Err(e) => {
-                                        app.apply_errors = Some(format!("Batch delete error: {}", e));
-                                    }
-                                }
+                        if ui.small_button("Delete all here").on_hover_text("Move non-keep copies in this folder to Trash").clicked() {
+                            let plan = action_plan::for_folder(gi, g, &folder_path);
+                            if plan.is_empty() {
+                                app.apply_message = Some("No other copies in this folder.".into());
+                            } else {
+                                app.pending_action = Some(PendingAction::Trash {
+                                    title: format!("Delete copies in {}", folder_path.display()),
+                                    action: "delete_folder",
+                                    plan,
+                                });
                             }
                         }
                     });
@@ -419,13 +387,13 @@ pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx:
                 // File rows for this folder
                 for (fi, f) in files {
                     let sel = app.results_selected_file_in_group == fi;
-                    let row_bg = if sel { style::SURFACE_2 } else { egui::Color32::from_rgb(20, 20, 24) };
+                    let row_bg = if sel { crate::ui::style::pal().surface_raised } else { crate::ui::style::pal().canvas };
 
                     let mut file_to_trash_now: Option<PathBuf> = None;
 
                     let clicked = egui::Frame::none()
                         .fill(row_bg)
-                        .stroke(egui::Stroke::new(1.0, BORDER))
+                        .stroke(egui::Stroke::new(1.0, crate::ui::style::pal().border))
                         .rounding(egui::Rounding::same(6.0))
                         .inner_margin(egui::Margin::symmetric(8.0, 4.0))
                         .show(ui, |ui: &mut egui::Ui| {
@@ -446,16 +414,23 @@ pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx:
                                 }
 
                                 let name = f.path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
-                                let path_clicked = ui.selectable_label(sel, RichText::new(name).size(12.0).color(style::TEXT_PRI))
+                                let path_clicked = ui.selectable_label(sel, RichText::new(name).size(12.0).color(crate::ui::style::pal().text))
                                     .on_hover_text(f.path.display().to_string())
                                     .clicked();
 
+                                // Compare: every B copy names the A reference it matches (the keep file).
+                                if compare_mode && !f.is_keep {
+                                    let reference = &g.files[g.keep_index].path;
+                                    let reference_name = reference.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+                                    ui.label(muted(format!("In A: {reference_name}")))
+                                        .on_hover_text(reference.display().to_string());
+                                }
+
                                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui: &mut egui::Ui| {
-                                    if !f.is_keep {
-                                        if ui.small_button("🗑").on_hover_text("Move this file to Trash").clicked() {
+                                    if !f.is_keep
+                                        && ui.small_button("\u{E4A6}").on_hover_text("Move this file to Trash").clicked() {
                                             file_to_trash_now = Some(f.path.clone());
                                         }
-                                    }
                                     if ui.small_button("Reveal").clicked() {
                                         reveal_in_folder(&f.path);
                                     }
@@ -469,26 +444,13 @@ pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx:
                         .inner;
 
                     if let Some(target) = file_to_trash_now {
-                        let yes = MessageDialog::new()
-                            .set_level(MessageLevel::Warning)
-                            .set_title("Move File to Trash")
-                            .set_description(format!("Move this file to Trash?\n\n{}", target.display()))
-                            .set_buttons(MessageButtons::YesNo)
-                            .show();
-                        if yes == MessageDialogResult::Yes {
-                            match trash_single_path(&target) {
-                                Ok(()) => {
-                                    prune_path_from_results(app, &target);
-                                    app.results_selected_files.remove(&target);
-                                    app.clear_preview_cache();
-                                    app.apply_message = Some("File moved to Trash.".into());
-                                    app.apply_errors = None;
-                                }
-                                Err(e) => {
-                                    app.apply_errors = Some(format!("Trash error: {}", e));
-                                }
-                            }
-                        }
+                        // Single file goes through the same confirm dialog as bulk actions (U15).
+                        let plan = action_plan::for_selected(gi, g, &std::collections::HashSet::from([target]));
+                        app.pending_action = Some(PendingAction::Trash {
+                            title: "Move file to Trash".into(),
+                            action: "trash_file",
+                            plan,
+                        });
                     }
 
                     if clicked {
@@ -504,23 +466,59 @@ pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx:
             crate::ui::folder_intelligence::folder_intel_section(ui, app, &result, gi);
         });
 
+    group_action_bar(app, ui, gi, &result);
+
     // Modal view triggers
     crate::ui::folder_intelligence::folder_twins_modal(ui, ctx, app, &result);
 
     if app.show_error_log {
-        egui::Window::new("Error log")
-            .open(&mut app.show_error_log)
-            .default_size([560.0, 400.0])
-            .show(ctx, |ui| {
+        let mut close_clicked = false;
+        let closed = crate::ui::modal::show(
+            ctx,
+            "error_log",
+            "Error log",
+            crate::ui::modal::ModalSize::Standard,
+            |ui| {
+                ui.label(muted(format!("{} error(s)", result.error_log.len())));
+                ui.add_space(6.0);
                 ScrollArea::both()
-                    .scroll_bar_visibility(ScrollBarVisibility::AlwaysVisible)
+                    .scroll_bar_visibility(ScrollBarVisibility::VisibleWhenNeeded)
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
-                        for (p, e) in &result.error_log {
-                            ui.monospace(format!("{} — {}", p.display(), e));
-                        }
+                        egui::Grid::new("error_log_grid").striped(true).num_columns(3).show(ui, |ui| {
+                            ui.label(RichText::new("Path").strong());
+                            ui.label(RichText::new("Reason").strong());
+                            ui.label("");
+                            ui.end_row();
+                            for (p, e) in &result.error_log {
+                                ui.label(RichText::new(p.display().to_string()).monospace().size(11.0));
+                                ui.label(RichText::new(e).size(11.0));
+                                if small_copy(ui) {
+                                    ui.output_mut(|o| o.copied_text = p.display().to_string());
+                                }
+                                ui.end_row();
+                            }
+                        });
                     });
-            });
+            },
+            // Footer runs right to left: Close (primary) first, then Copy all on its left.
+            |ui| {
+                if primary_button(ui, "Close").clicked() {
+                    close_clicked = true;
+                }
+                if secondary_button(ui, "Copy all").clicked() {
+                    let all: String = result
+                        .error_log
+                        .iter()
+                        .map(|(p, e)| format!("{}\t{}\n", p.display(), e))
+                        .collect();
+                    ui.output_mut(|o| o.copied_text = all);
+                }
+            },
+        );
+        if closed || close_clicked {
+            app.show_error_log = false;
+        }
     }
 
     if app.apply_message.is_some() || app.apply_errors.is_some() {
@@ -530,17 +528,17 @@ pub fn results_main_panel(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, ctx:
                 ui.label(m);
             }
             if let Some(ref e) = app.apply_errors {
-                ui.colored_label(style::DANGER, e);
+                ui.colored_label(crate::ui::style::pal().danger, e);
             }
         });
     }
 }
 
-fn video_controls_bar(ui: &mut egui::Ui, app: &mut SmartFileManagerApp, path: &Path, _ctx: &egui::Context) {
+fn video_controls_bar(ui: &mut egui::Ui, app: &mut SortwiseApp, path: &Path, _ctx: &egui::Context) {
     ui.horizontal(|ui| {
         // Play / Pause
         let is_playing = app.inline_video.as_ref().map(|v| !v.is_paused()).unwrap_or(false);
-        let icon = if is_playing { "⏸" } else { "▶" };
+        let icon = if is_playing { "\u{E39E}" } else { "\u{E3D0}" };
         if icon_button(ui, icon, is_playing).clicked() {
             if let Some(ref v) = app.inline_video {
                 v.toggle_pause();
@@ -570,71 +568,133 @@ fn video_controls_bar(ui: &mut egui::Ui, app: &mut SmartFileManagerApp, path: &P
             let sec = (s % 60.0) as u32;
             format!("{m:02}:{sec:02}")
         };
-        ui.label(RichText::new(format!("{} / {}", fmt_secs(pos), fmt_secs(dur))).size(11.0).color(style::TEXT_SEC));
+        ui.label(RichText::new(format!("{} / {}", fmt_secs(pos), fmt_secs(dur))).size(11.0).color(crate::ui::style::pal().text_muted));
 
         // Volume control trigger (persisted state value)
-        let vol_icon = if app.video_volume == 0.0 { "🔇" } else { "🔊" };
+        let vol_icon = if app.video_volume == 0.0 { "\u{E45C}" } else { "\u{E44A}" };
         if icon_button(ui, vol_icon, app.video_volume > 0.0).clicked() {
             app.video_volume = if app.video_volume == 0.0 { 100.0 } else { 0.0 };
         }
 
         // Fullscreen Modal trigger
-        if icon_button(ui, "⤢", false).clicked() {
+        if icon_button(ui, "↗", false).clicked() {
             app.explorer_open_preview(path.to_path_buf());
         }
     });
 }
 
-fn action_row(app: &mut SmartFileManagerApp, ui: &mut egui::Ui, result: &ScanResult) {
-    ui.horizontal(|ui| {
-        if primary_button(ui, "＋ New scan").clicked() {
-            app.view = crate::app::AppView::Scan;
-            app.last_result = None;
-            app.results_selected_group = None;
-            app.clear_preview_cache();
-        }
-        if app.action_mode != ActionMode::DryRun
-            && primary_button(ui, "Apply actions").clicked()
-        {
-            apply_all(app, result);
-        }
-        
-        if secondary_button(ui, "Refresh findings").clicked() {
-            app.start_refresh_findings();
-        }
+fn action_row(app: &mut SortwiseApp, ui: &mut egui::Ui, result: &ScanResult) {
+    // One toolbar card: everyday actions on the left, mode and the primary action on the right.
+    egui::Frame::none()
+        .fill(crate::ui::style::pal().surface)
+        .stroke(egui::Stroke::new(1.0, crate::ui::style::pal().border))
+        .rounding(egui::Rounding::same(10.0))
+        .inner_margin(egui::Margin::symmetric(10.0, 8.0))
+        .show(ui, |ui| {
+            // Wraps onto a second line when the right column is narrow (640 px window).
+            ui.horizontal_wrapped(|ui| {
+                if secondary_button(ui, "+ New scan").clicked() {
+                    app.view = crate::app::AppView::Scan;
+                    app.set_last_result(None);
+                    app.results_selected_group = None;
+                    app.clear_preview_cache();
+                }
+                if secondary_button(ui, "Refresh findings").clicked() {
+                    app.start_refresh_findings();
+                }
 
-        // Export Dropdown
-        egui::menu::menu_button(ui, "📤 Export ▾", |ui| {
-            if ui.button("Export JSON").clicked() {
-                export_json(result);
-                ui.close_menu();
-            }
-            if ui.button("Export manifest").clicked() {
-                export_manifest(app, result);
-                ui.close_menu();
-            }
+                egui::menu::menu_button(ui, "Export ▾", |ui| {
+                    if ui.button("Export JSON").clicked() {
+                        export_json(result);
+                        ui.close_menu();
+                    }
+                    if ui.button("Export manifest").clicked() {
+                        export_manifest(app, result);
+                        ui.close_menu();
+                    }
+                });
+
+                egui::menu::menu_button(ui, "Clean up ▾", |ui| {
+                    if ui.button("Clean same-folder duplicates").clicked() {
+                        clean_all_same_folder_duplicates(app, result);
+                        ui.close_menu();
+                    }
+                    if ui.button("Folder twins…").clicked() {
+                        app.dedupe_twins_modal_open = true;
+                        ui.close_menu();
+                    }
+                });
+
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if app.action_mode != ActionMode::DryRun {
+                        if primary_button(ui, "Apply actions").clicked() {
+                            apply_all(app, result);
+                        }
+                        mode_pill(ui, app.action_mode);
+                    }
+                });
+            });
         });
 
-        // Smart Clean Dropdown
-        egui::menu::menu_button(ui, "🗑 Smart Clean ▾", |ui| {
-            if ui.button("Clean Same-Folder Duplicates").clicked() {
-                clean_all_same_folder_duplicates(app, result);
-                ui.close_menu();
-            }
-            if ui.button("Folder Twins Analysis…").clicked() {
-                app.dedupe_twins_modal_open = true;
-                ui.close_menu();
+    // Report-only state. The error count lives in the status bar.
+    if app.action_mode == ActionMode::DryRun {
+        ui.add_space(6.0);
+        ui.horizontal_wrapped(|ui| {
+            // U9: say plainly that nothing is changing, and offer the way to change it.
+            ui.colored_label(crate::ui::style::pal().warning, "Report only");
+            ui.label(muted("Nothing is moved or deleted."));
+            if secondary_button(ui, "Switch to Trash mode").clicked() {
+                app.action_mode = ActionMode::Delete;
+                app.apply_message = Some("Mode set to Trash. Apply actions still asks before it runs.".into());
             }
         });
+    }
+}
 
-        if !result.error_log.is_empty()
-            && secondary_button(ui, &format!("Errors ({})", result.error_log.len())).clicked()
-        {
-            app.show_error_log = !app.show_error_log;
-        }
+/// Height of the fixed action bar under the selected group (plan §6.4).
+const GROUP_ACTION_BAR_H: f32 = 56.0;
 
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            mode_pill(ui, app.action_mode);
+/// Bottom bar for the selected group: Trash the checked copies, or uncheck them all.
+/// Trash goes through the same `PendingAction::Trash` confirm as every other trash action.
+fn group_action_bar(app: &mut SortwiseApp, ui: &mut egui::Ui, gi: usize, result: &ScanResult) {
+    let Some(g) = result.duplicate_groups.get(gi) else {
+        return;
+    };
+    let n = g.files.iter().filter(|f| app.results_selected_files.contains(&f.path)).count();
+    let trash_label = if app.mode == crate::app::AppMode::CompareSourceDest {
+        format!("\u{E4A6} Trash {n} copies in B")
+    } else {
+        format!("\u{E4A6} Trash {n} selected")
+    };
+
+    ui.add_space(6.0);
+    panel_card(ui, |ui| {
+        ui.set_min_width(ui.available_width());
+        ui.horizontal(|ui| {
+            let trash = egui::Button::new(
+                RichText::new(trash_label)
+                    .strong()
+                    .color(crate::ui::style::pal().on_accent),
+            )
+            .fill(crate::ui::style::pal().danger);
+            let hover = "Move the checked copies in this group to Trash. The keep file is never trashed.";
+            if ui.add_enabled(n > 0, trash).on_hover_text(hover).clicked() {
+                let plan = action_plan::for_selected(gi, g, &app.results_selected_files);
+                if plan.is_empty() {
+                    app.apply_message = Some("Nothing to trash: the keep file is never trashed.".into());
+                } else {
+                    app.pending_action = Some(PendingAction::Trash {
+                        title: "Trash selected duplicates".into(),
+                        action: "trash_selected",
+                        plan,
+                    });
+                }
+            }
+            if secondary_button(ui, "Keep all").on_hover_text("Uncheck every copy in this group.").clicked() {
+                for f in &g.files {
+                    app.results_selected_files.remove(&f.path);
+                }
+            }
         });
     });
 }
@@ -696,7 +756,7 @@ fn sort_visible_dup_groups(
 
 fn apply_dup_list_keyboard_navigation(
     ctx: &egui::Context,
-    app: &mut SmartFileManagerApp,
+    app: &mut SortwiseApp,
     visible: &[usize],
     result: &ScanResult,
 ) {
@@ -731,16 +791,17 @@ fn apply_dup_list_keyboard_navigation(
     app.clear_preview_cache();
 }
 
-fn filtered_group_indices(result: &ScanResult, filter: &str) -> Vec<usize> {
+fn filtered_group_indices(result: &ScanResult, filter: &str, kind: Option<MediaKind>) -> Vec<usize> {
     let t = filter.trim().to_lowercase();
-    if t.is_empty() {
-        return (0..result.duplicate_groups.len()).collect();
-    }
     result
         .duplicate_groups
         .iter()
         .enumerate()
+        .filter(|(_, g)| kind.is_none_or(|k| g.files.iter().any(|f| media_kind(&f.path) == k)))
         .filter_map(|(i, g)| {
+            if t.is_empty() {
+                return Some(i);
+            }
             if g.hash.to_lowercase().starts_with(&t) || g.hash.to_lowercase().contains(&t) {
                 return Some(i);
             }
@@ -757,7 +818,7 @@ fn filtered_group_indices(result: &ScanResult, filter: &str) -> Vec<usize> {
 }
 
 fn sync_selection_with_filter(
-    app: &mut SmartFileManagerApp,
+    app: &mut SortwiseApp,
     visible: &[usize],
     result: &ScanResult,
 ) {
@@ -777,7 +838,7 @@ fn sync_selection_with_filter(
     }
 }
 
-pub(crate) fn update_preview(ctx: &egui::Context, app: &mut SmartFileManagerApp, path: &Path, rotation: i32) {
+pub(crate) fn update_preview(ctx: &egui::Context, app: &mut SortwiseApp, path: &Path, rotation: i32) {
     if app.preview_path.as_deref() == Some(path) && app.preview_rotation == rotation {
         return;
     }
@@ -807,9 +868,7 @@ pub(crate) fn update_preview(ctx: &egui::Context, app: &mut SmartFileManagerApp,
         PreviewKind::Image(ci) => {
             let id = format!("sfm_preview_{}", path.display());
             app.preview_texture = Some(ctx.load_texture(id, ci, TextureOptions::LINEAR));
-            app.preview_subtitle = Some(
-                "Image preview (scroll if larger than the viewport).".into(),
-            );
+            app.preview_subtitle = None;
         }
         PreviewKind::VideoPlaceholder => {
             app.preview_subtitle = Some("Starting inline video (ffmpeg, muted)…".into());
@@ -844,7 +903,7 @@ pub(crate) fn update_preview(ctx: &egui::Context, app: &mut SmartFileManagerApp,
 
 pub(crate) fn preview_body_ui(
     ui: &mut egui::Ui,
-    app: &mut SmartFileManagerApp,
+    app: &mut SortwiseApp,
     path: &Path,
     size: u64,
     ctx: &egui::Context,
@@ -855,7 +914,7 @@ pub(crate) fn preview_body_ui(
         ScrollArea::horizontal()
             .max_width(path_w)
             .min_scrolled_height(22.0)
-            .scroll_bar_visibility(ScrollBarVisibility::AlwaysVisible)
+            .scroll_bar_visibility(ScrollBarVisibility::VisibleWhenNeeded)
             .id_salt("preview_path_bar")
             .show(ui, |ui| {
                 ui.label(path_monospace(path));
@@ -882,34 +941,27 @@ pub(crate) fn preview_body_ui(
                 }
             }
             if secondary_button(ui, "Move to Trash…").clicked() {
-                let path_owned = path.to_path_buf();
-                let yes = MessageDialog::new()
-                    .set_level(MessageLevel::Warning)
-                    .set_title("Move to Trash")
-                    .set_description(format!(
-                        "Move this file to Trash?\n\n{}",
-                        path.display()
-                    ))
-                    .set_buttons(MessageButtons::YesNo)
-                    .show();
-                if yes == MessageDialogResult::Yes {
-                    match trash_single_path(&path_owned) {
-                        Ok(()) => {
-                            prune_path_from_results(app, &path_owned);
-                            app.clear_preview_cache();
-                            app.apply_message =
-                                Some("Selected file moved to Trash. Duplicate list updated.".into());
-                            app.apply_errors = None;
-                        }
-                        Err(e) => {
-                            app.apply_errors = Some(e.to_string());
+                let target = path.to_path_buf();
+                match app.last_result.clone().zip(app.results_selected_group) {
+                    Some((res, gi)) if gi < res.duplicate_groups.len() => {
+                        let selected = std::collections::HashSet::from([target]);
+                        let plan = action_plan::for_selected(gi, &res.duplicate_groups[gi], &selected);
+                        if plan.is_empty() {
+                            app.apply_message = Some("The keep file is never trashed. Pick another copy.".into());
+                        } else {
+                            app.pending_action = Some(PendingAction::Trash {
+                                title: "Move file to Trash".into(),
+                                action: "trash_preview_file",
+                                plan,
+                            });
                         }
                     }
+                    _ => app.apply_errors = Some("Select a duplicate group first.".into()),
                 }
             }
         });
         ui.add_space(4.0);
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             stat_chip(ui, "Size", &format_bytes(size));
             ui.add_space(8.0);
             stat_chip(ui, "Modified", &file_modified_label(path));
@@ -940,7 +992,8 @@ pub(crate) fn preview_body_ui(
                 ctx.request_repaint_after(std::time::Duration::from_millis(32));
             }
             if let Some(tex) = app.preview_texture.clone() {
-                let avail_w = (ui.available_width() - 4.0).max(120.0);
+                // Leave room for the 6 px frame margin on each side, or the frame runs past the card.
+                let avail_w = (ui.available_width() - 4.0 - 12.0).max(120.0);
                 let [tw, th] = tex.size();
                 let (tw, th) = (tw as f32, th as f32);
                 let scale = (avail_w / tw)
@@ -948,7 +1001,7 @@ pub(crate) fn preview_body_ui(
                     .min(1.5);
                 let size = egui::vec2(tw * scale, th * scale);
                 egui::Frame::none()
-                    .fill(egui::Color32::from_rgb(12, 12, 16))
+                    .fill(crate::ui::style::pal().canvas)
                     .rounding(egui::Rounding::same(8.0))
                     .inner_margin(egui::Margin::same(6.0))
                     .show(ui, |ui| {
@@ -957,7 +1010,7 @@ pub(crate) fn preview_body_ui(
                                 .fit_to_exact_size(size)
                                 .sense(egui::Sense::click());
                             let img_resp = ui.add(img_widget);
-                            if img_resp.on_hover_text("🔍 Click to open in full-screen player modal").clicked() {
+                            if img_resp.on_hover_text("\u{E30C} Click to open in full-screen player modal").clicked() {
                                 app.explorer_open_preview(path.to_path_buf());
                             }
                         });
@@ -970,7 +1023,7 @@ pub(crate) fn preview_body_ui(
             ScrollArea::both()
                 .max_height(220.0)
                 .max_width(ui.available_width())
-                .scroll_bar_visibility(ScrollBarVisibility::AlwaysVisible)
+                .scroll_bar_visibility(ScrollBarVisibility::VisibleWhenNeeded)
                 .auto_shrink([false, false])
                 .id_salt("preview_text_scroll")
                 .show(ui, |ui| {
@@ -985,17 +1038,12 @@ pub(crate) fn preview_body_ui(
     });
 }
 
-fn prune_path_from_results(app: &mut SmartFileManagerApp, removed: &Path) {
-    let mut removed_paths = std::collections::HashSet::new();
-    removed_paths.insert(removed.to_path_buf());
-    prune_paths_from_results(app, &removed_paths);
-}
-
 pub(crate) fn prune_paths_from_results(
-    app: &mut SmartFileManagerApp, removed_paths: &std::collections::HashSet<std::path::PathBuf>) {
-    let Some(res) = app.last_result.as_mut() else {
+    app: &mut SortwiseApp, removed_paths: &std::collections::HashSet<std::path::PathBuf>) {
+    let Some(res) = app.last_result.as_mut().map(std::sync::Arc::make_mut) else {
         return;
     };
+    app.results_epoch = app.results_epoch.wrapping_add(1);
 
     let pointed_at_removed = app
         .results_selected_group
@@ -1081,7 +1129,7 @@ fn export_json(result: &ScanResult) {
     }
 }
 
-fn export_manifest(app: &SmartFileManagerApp, result: &ScanResult) {
+fn export_manifest(app: &SortwiseApp, result: &ScanResult) {
     if let Some(path) = rfd::FileDialog::new().save_file() {
         let mut actions = Vec::new();
         for g in &result.duplicate_groups {
@@ -1110,105 +1158,294 @@ fn export_manifest(app: &SmartFileManagerApp, result: &ScanResult) {
     }
 }
 
-fn apply_all(app: &mut SmartFileManagerApp, result: &ScanResult) {
+/// Stage the global Apply action. Nothing changes until the confirm dialog runs it (U1).
+fn apply_all(app: &mut SortwiseApp, result: &ScanResult) {
     app.apply_message = None;
     app.apply_errors = None;
-    let mut errs = Vec::new();
-    let mut ok = 0usize;
-    match app.action_mode {
-        ActionMode::DryRun => {
-            app.apply_message = Some("Dry run: no changes applied.".into());
-            return;
-        }
-        ActionMode::Delete => {
-            let mut all_paths = Vec::new();
-            for g in &result.duplicate_groups {
-                for (i, f) in g.files.iter().enumerate() {
-                    if i != g.keep_index {
-                        all_paths.push(f.path.clone());
-                    }
-                }
-            }
-            if !all_paths.is_empty() {
-                match trash_batch(&all_paths) {
-                    Ok(trashed) => {
-                        ok = trashed.len();
-                        let trashed_set: std::collections::HashSet<PathBuf> = trashed.into_iter().collect();
-                        prune_paths_from_results(app, &trashed_set);
-                        app.clear_preview_cache();
-                    }
-                    Err(e) => {
-                        errs.push(e);
-                    }
-                }
-            }
-        }
-        ActionMode::HardLink => {
-            for g in &result.duplicate_groups {
-                for r in resolver::apply_hardlink_group(g, ActionMode::HardLink) {
-                    match r {
-                        Ok(()) => ok += 1,
-                        Err(e) => errs.push(e.to_string()),
-                    }
-                }
-            }
-        }
+    let mode = app.action_mode;
+    if mode == ActionMode::DryRun {
+        app.apply_message = Some("Dry run: no changes applied.".into());
+        return;
     }
-    app.apply_message = Some(format!("Applied {ok} operations."));
-    if !errs.is_empty() {
-        app.apply_errors = Some(errs.join("\n"));
+    let plan = action_plan::for_apply(result, mode);
+    if plan.is_empty() {
+        app.apply_message = Some("Nothing to apply: no duplicate copies.".into());
+        return;
+    }
+    app.pending_action = Some(PendingAction::Apply { mode, plan });
+}
+
+/// Stage "Clean same-folder duplicates" for confirmation (U3).
+fn clean_all_same_folder_duplicates(app: &mut SortwiseApp, result: &ScanResult) {
+    app.apply_message = None;
+    app.apply_errors = None;
+    let plan = action_plan::for_same_folder(result);
+    if plan.is_empty() {
+        app.apply_message = Some("No same-folder duplicates found.".into());
+        return;
+    }
+    app.pending_action = Some(PendingAction::Trash {
+        title: "Clean same-folder duplicates".into(),
+        action: "clean_same_folder",
+        plan,
+    });
+}
+
+/// Run a bulk action the user confirmed. Only the confirm dialog calls this.
+pub(crate) fn execute_pending_action(app: &mut SortwiseApp, pending: PendingAction) {
+    app.apply_message = None;
+    app.apply_errors = None;
+    match pending {
+        PendingAction::Trash { action, plan, .. } => {
+            trash_plan(app, action, &plan);
+            if action == "explorer_trash" {
+                crate::ui::explorer_panel::explorer_after_trash(app);
+            }
+            if action == "extracted_archive" {
+                app.extract_banner = None;
+                app.explorer_status = Some(match app.apply_errors.clone() {
+                    Some(e) => e,
+                    None => "Moved the archive to Trash.".to_string(),
+                });
+                app.explorer_reload();
+            }
+            if action == "empty_folders" {
+                // Folders that were trashed drop off the list; any that failed stay listed.
+                app.empty_folders_results.retain(|p| p.exists());
+                app.empty_folders_selected.clear();
+            }
+        }
+        PendingAction::Apply { mode: ActionMode::Delete, plan } => {
+            trash_plan(app, "apply_delete", &plan);
+        }
+        PendingAction::Apply { mode: ActionMode::HardLink, plan } => {
+            apply_hardlinks(app, &plan);
+        }
+        PendingAction::Apply { mode: ActionMode::DryRun, .. } => {}
     }
 }
 
-fn clean_all_same_folder_duplicates(app: &mut SmartFileManagerApp, result: &ScanResult) {
-    let mut files_to_trash = Vec::new();
-
-    // First pass: identify exactly which files will be trashed
-    for g in &result.duplicate_groups {
-        let mut by_folder: std::collections::HashMap<std::path::PathBuf, Vec<&smart_file_manager::types::FileEntrySnapshot>> = std::collections::HashMap::new();
-        for f in &g.files {
-            if let Some(parent) = f.path.parent() {
-                by_folder.entry(parent.to_path_buf()).or_default().push(f);
-            }
-        }
-
-        for (_, mut files_in_folder) in by_folder {
-            if files_in_folder.len() > 1 {
-                files_in_folder.sort_by_key(|f| {
-                    let is_keep_score = if f.is_keep { 0 } else { 1 };
-                    let name_len = f.path.file_name().map(|n| n.len()).unwrap_or(usize::MAX);
-                    (is_keep_score, name_len)
-                });
-
-                for f in files_in_folder.into_iter().skip(1) {
-                    files_to_trash.push(f.clone());
-                }
-            }
-        }
-    }
-
-    if files_to_trash.is_empty() {
-        app.apply_message = Some("No same-folder duplicates found.".to_string());
-        return;
-    }
-
-    let total_freed_bytes: u64 = files_to_trash.iter().map(|f| f.size).sum();
-    let paths_vec: Vec<PathBuf> = files_to_trash.iter().map(|f| f.path.clone()).collect();
-
-    match trash_batch(&paths_vec) {
+/// Move a plan to Trash, prune the results, and write the action log.
+fn trash_plan(app: &mut SortwiseApp, action: &str, plan: &ActionPlan) {
+    match trash_batch(&plan.paths) {
         Ok(trashed) => {
-            let trashed_set: std::collections::HashSet<PathBuf> = trashed.into_iter().collect();
-            prune_paths_from_results(app, &trashed_set);
+            let done: std::collections::HashSet<PathBuf> = trashed.into_iter().collect();
+            let completed: Vec<PathBuf> = plan.paths.iter().filter(|p| done.contains(*p)).cloned().collect();
+            for p in &completed {
+                app.results_selected_files.remove(p);
+            }
+            prune_paths_from_results(app, &done);
             app.clear_preview_cache();
+            let log = record_action(action, &plan.paths, &completed, None);
             app.apply_message = Some(format!(
-                "Successfully moved {} same-folder duplicate(s) to Trash, freeing {}.",
-                trashed_set.len(),
-                format_bytes(total_freed_bytes)
+                "Moved {} file(s) to Trash, freeing {}. {}",
+                completed.len(),
+                format_bytes(plan.total_bytes),
+                log.message
             ));
-            app.apply_errors = None;
+            app.apply_errors = log.error;
         }
         Err(e) => {
-            app.apply_errors = Some(format!("Batch trash error: {}", e));
+            let log = record_action(action, &plan.paths, &[], Some(&e));
+            app.apply_errors = Some(format!("Trash failed: {e}. {}", log.message));
         }
+    }
+}
+
+/// Replace every duplicate in the plan with a hard link to its group's keep file.
+fn apply_hardlinks(app: &mut SortwiseApp, plan: &ActionPlan) {
+    let Some(result) = app.last_result.clone() else {
+        return;
+    };
+    let mut ok = 0usize;
+    let mut errs = Vec::new();
+    for g in &result.duplicate_groups {
+        for r in resolver::apply_hardlink_group(g, ActionMode::HardLink) {
+            match r {
+                Ok(()) => ok += 1,
+                Err(e) => errs.push(e.to_string()),
+            }
+        }
+    }
+    let note = format!("replaced {ok} of {} planned; {} error(s)", plan.paths.len(), errs.len());
+    let log = record_action("apply_hardlink", &plan.paths, &[], Some(&note));
+    app.apply_message = Some(format!("Replaced {ok} copies with hard links. {}", log.message));
+    if !errs.is_empty() {
+        app.apply_errors = Some(errs.join("\n"));
+    } else {
+        app.apply_errors = log.error;
+    }
+}
+
+/// Outcome of writing an action log entry, shown to the user after the action.
+struct LogOutcome {
+    message: String,
+    error: Option<String>,
+}
+
+fn record_action(action: &str, planned: &[PathBuf], completed: &[PathBuf], note: Option<&str>) -> LogOutcome {
+    let entry = ActionLogEntry::new(action, planned, completed, note);
+    match action_log::write(&entry) {
+        Ok(path) => LogOutcome {
+            message: format!("Log: {}", path.display()),
+            error: None,
+        },
+        Err(e) => LogOutcome {
+            message: String::new(),
+            error: Some(format!("Action log not written: {e}")),
+        },
+    }
+}
+
+/// R3 keyboard actions for the selected group. Typing in a text field disables them.
+/// Delete trashes checked copies (through the confirm dialog), Ctrl/Cmd+A checks every
+/// non-keep copy, and the question mark key opens the shortcut list.
+fn group_keyboard_shortcuts(app: &mut SortwiseApp, ctx: &egui::Context, gi: usize, result: &ScanResult) {
+    if ctx.wants_keyboard_input() {
+        return;
+    }
+    let (delete, select_all, help) = ctx.input(|i| {
+        let help = i.events.iter().any(|e| matches!(e, egui::Event::Text(t) if t == "?"));
+        (
+            i.key_pressed(egui::Key::Delete) || i.key_pressed(egui::Key::Backspace),
+            i.modifiers.command && i.key_pressed(egui::Key::A),
+            help,
+        )
+    });
+    if help {
+        app.shortcuts_open = !app.shortcuts_open;
+    }
+    let g = &result.duplicate_groups[gi];
+    if select_all {
+        for (i, f) in g.files.iter().enumerate() {
+            if i != g.keep_index {
+                app.results_selected_files.insert(f.path.clone());
+            }
+        }
+    }
+    if delete {
+        let plan = action_plan::for_selected(gi, g, &app.results_selected_files);
+        if plan.is_empty() {
+            app.apply_message = Some("Check copies first (the checkboxes). The keep file is never trashed.".into());
+        } else {
+            app.pending_action = Some(PendingAction::Trash {
+                title: "Trash selected duplicates".into(),
+                action: "trash_selected_key",
+                plan,
+            });
+        }
+    }
+}
+
+fn shortcuts_window(app: &mut SortwiseApp, ctx: &egui::Context) {
+    if !app.shortcuts_open {
+        return;
+    }
+    let mut close_clicked = false;
+    let closed = crate::ui::modal::show(
+        ctx,
+        "shortcuts",
+        "Keyboard shortcuts",
+        crate::ui::modal::ModalSize::Standard,
+        |ui| {
+            let rows = [
+                ("Up / Down or J / K", "Move between duplicate groups"),
+                ("Delete / Backspace", "Trash checked copies (asks first)"),
+                ("Ctrl / Cmd + A", "Check every non-keep copy in this group"),
+                ("?", "Show or hide this list"),
+            ];
+            for (keys, what) in rows {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(keys).monospace().strong());
+                    ui.label(muted(what));
+                });
+            }
+        },
+        |ui| {
+            if primary_button(ui, "Close").clicked() {
+                close_clicked = true;
+            }
+        },
+    );
+    if closed || close_clicked {
+        app.shortcuts_open = false;
+    }
+}
+
+/// Small "Copy" button for one table row.
+fn small_copy(ui: &mut egui::Ui) -> bool {
+    ui.small_button("Copy").clicked()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sortwise::types::{FileEntrySnapshot, ScanStats};
+
+    fn group(hash: &str, path: &str) -> DuplicateGroup {
+        DuplicateGroup {
+            hash: hash.into(),
+            files: vec![FileEntrySnapshot {
+                path: PathBuf::from(path),
+                size: 10,
+                score: 0,
+                is_keep: true,
+                root_index: 0,
+            }],
+            total_wasted_bytes: 10,
+            keep_index: 0,
+            keep_reason: String::new(),
+        }
+    }
+
+    fn result() -> ScanResult {
+        ScanResult {
+            duplicate_groups: vec![group("aa", "/x/a.jpg"), group("bb", "/x/b.mp4")],
+            hard_link_groups: vec![],
+            stats: ScanStats {
+                files_scanned: 2,
+                files_skipped_error: 0,
+                duplicate_groups: 2,
+                total_wasted_bytes: 20,
+                partial: false,
+                hard_link_groups: 0,
+            },
+            error_log: vec![],
+            folder_summaries: vec![],
+            cross_folder_conflicts: vec![],
+        }
+    }
+
+    #[test]
+    fn group_list_memo_rebuilds_only_on_key_change() {
+        let r = result();
+        let mut cache = DupListCache::default();
+        refresh_dup_list_cache(&mut cache, 1, "", DupGroupSortOrder::ScanOrder, None, &r);
+        assert_eq!(cache.visible, vec![0, 1]);
+
+        // Same key: the cached list is kept even if its contents were replaced.
+        cache.visible = vec![42];
+        refresh_dup_list_cache(&mut cache, 1, "", DupGroupSortOrder::ScanOrder, None, &r);
+        assert_eq!(cache.visible, vec![42]);
+
+        // New epoch (result changed): rebuilt.
+        refresh_dup_list_cache(&mut cache, 2, "", DupGroupSortOrder::ScanOrder, None, &r);
+        assert_eq!(cache.visible, vec![0, 1]);
+    }
+
+    #[test]
+    fn group_list_memo_rebuilds_on_filter_sort_and_kind() {
+        let r = result();
+        let mut cache = DupListCache::default();
+        refresh_dup_list_cache(&mut cache, 1, "", DupGroupSortOrder::ScanOrder, None, &r);
+
+        refresh_dup_list_cache(&mut cache, 1, "mp4", DupGroupSortOrder::ScanOrder, None, &r);
+        assert_eq!(cache.visible, vec![1]);
+
+        refresh_dup_list_cache(&mut cache, 1, "", DupGroupSortOrder::ScanOrder, Some(MediaKind::Image), &r);
+        assert_eq!(cache.visible, vec![0]);
+
+        refresh_dup_list_cache(&mut cache, 1, "", DupGroupSortOrder::HashAsc, Some(MediaKind::Image), &r);
+        assert_eq!(cache.visible, vec![0]);
     }
 }

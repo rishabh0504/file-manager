@@ -2,11 +2,11 @@ use crate::ui::{
     progress_panel, results_dup_list_panel, results_main_panel, scan_panel,
 };
 use eframe::egui::{self, TextureHandle};
-use smart_file_manager::cache::HashCache;
-use smart_file_manager::cancel::CancellationToken;
-use smart_file_manager::pipeline::{refresh_duplicates_from_result, run_dedup};
-use smart_file_manager::scanner::parallel_scan_roots;
-use smart_file_manager::types::{
+use sortwise::cache::HashCache;
+use sortwise::cancel::CancellationToken;
+use sortwise::pipeline::{refresh_duplicates_from_result, run_dedup_streaming};
+use sortwise::scanner::parallel_scan_roots;
+use sortwise::types::{
     ActionMode, FolderConfig, FolderProgress, FolderStatus, IoProfile, ScanConfig,
     ScanProgress, ScanResult,
 };
@@ -58,6 +58,18 @@ pub enum ExplorerViewMode {
     #[default]
     List,
     Grid,
+    Folders,
+    /// Flat recursive list of every file under the current folder.
+    Files,
+}
+
+/// Sort key for the Explorer "Files" view. Default: size, descending.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ExplorerFilesSort {
+    #[default]
+    Size,
+    Name,
+    Modified,
 }
 
 /// Header type filter for the Explorer listing (All / Folders / Images / Videos / Zips).
@@ -98,6 +110,13 @@ pub struct FileQueue {
     pub items: Vec<PathBuf>,
 }
 
+/// A staged item in the movable queue awaiting destination assignment and move.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MovableItem {
+    pub path: PathBuf,
+    pub target_queue: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ScanWorkKind {
     #[default]
@@ -122,7 +141,65 @@ pub enum DupGroupSortOrder {
     HashAsc,
 }
 
-pub struct SmartFileManagerApp {
+#[derive(Debug, Clone)]
+pub struct ThumbnailRequest {
+    pub path: PathBuf,
+    pub is_video: bool,
+    pub epoch: usize,
+}
+
+/// Development aid: `--snapshot <png> <screen>` renders one screen and exits.
+#[derive(Debug, Clone)]
+pub struct SnapshotPlan {
+    pub path: PathBuf,
+    pub frames: u32,
+    pub requested: bool,
+}
+
+pub struct ThumbnailResponse {
+    pub path: PathBuf,
+    pub epoch: usize,
+    pub image: Option<eframe::egui::ColorImage>,
+}
+
+/// A bulk action that the confirm dialog must approve before it runs (Phase 1).
+#[derive(Debug, Clone)]
+pub enum PendingAction {
+    /// Move the planned paths to Trash. `action` names the action in the log.
+    Trash {
+        title: String,
+        action: &'static str,
+        plan: sortwise::action_plan::ActionPlan,
+    },
+    /// Run the global Apply action (Delete or HardLink) across all groups.
+    Apply {
+        mode: ActionMode,
+        plan: sortwise::action_plan::ActionPlan,
+    },
+}
+
+/// Inline banner after an archive was extracted (UI plan §6.2). Dismissed on navigation.
+#[derive(Debug, Clone)]
+pub struct ExtractBanner {
+    /// The archive that was extracted.
+    pub zip: PathBuf,
+    /// Folder the contents were extracted into.
+    pub dest: PathBuf,
+    /// Folder that was open when the banner appeared. Navigating elsewhere dismisses it.
+    pub dir: PathBuf,
+}
+
+/// Memoized visible-group list for the results sidebar (P-3).
+#[derive(Debug, Clone, Default)]
+pub struct DupListCache {
+    /// `(results_epoch, filter, sort)` the cached list was built for.
+    pub key: Option<(u64, String, DupGroupSortOrder, Option<sortwise::heuristics::MediaKind>)>,
+    pub visible: Vec<usize>,
+    /// Largest `total_wasted_bytes` among `visible`, for gradient normalization.
+    pub max_wasted: u64,
+}
+
+pub struct SortwiseApp {
     pub mode: AppMode,
     // ---- Explorer state ----
     pub explorer_dir: PathBuf,
@@ -131,6 +208,10 @@ pub struct SmartFileManagerApp {
     pub explorer_back: Vec<PathBuf>,
     pub explorer_fwd: Vec<PathBuf>,
     pub explorer_selected: Option<usize>,
+    /// Ctrl/Cmd-click multi-selection in the Explorer (paths; cleared on navigation).
+    pub explorer_multi: std::collections::HashSet<PathBuf>,
+    /// Entry index where the last plain or Ctrl click landed; the Shift-click range starts here.
+    pub explorer_anchor: Option<usize>,
     pub explorer_error: Option<String>,
     pub explorer_show_hidden: bool,
     pub explorer_sort_key: ExplorerSortKey,
@@ -144,7 +225,9 @@ pub struct SmartFileManagerApp {
     pub explorer_preview_path: Option<PathBuf>,
     pub explorer_preview_rotation: i32,
     /// After extracting an archive, ask whether to send it to the Trash.
-    pub explorer_pending_delete_zip: Option<PathBuf>,
+    pub extract_banner: Option<ExtractBanner>,
+    /// Sortwise mark for the top bar, decoded once on first frame.
+    pub brand_logo: Option<eframe::egui::TextureHandle>,
     pub explorer_status: Option<String>,
     // ---- Recursive search state ----
     pub explorer_search_rx: Option<Receiver<Vec<ExplorerEntry>>>,
@@ -159,6 +242,23 @@ pub struct SmartFileManagerApp {
     pub explorer_search_pending: bool,
     /// Checked paths among collapsed recursive-search results (Select All / per-row).
     pub explorer_search_checked: HashSet<PathBuf>,
+    // ---- Files view (recursive flat list) state ----
+    /// Folder the current `explorer_files` listing belongs to.
+    pub explorer_files_root: Option<PathBuf>,
+    /// Unfiltered recursive listing for `explorer_files_root`, sorted by size desc.
+    pub explorer_files: Vec<sortwise::recursive_files::RecursiveFile>,
+    pub explorer_files_loading: bool,
+    pub explorer_files_truncated: bool,
+    pub explorer_files_rx: Option<Receiver<sortwise::recursive_files::Listing>>,
+    pub explorer_files_cancel: Option<Arc<std::sync::atomic::AtomicBool>>,
+    pub explorer_files_checked: HashSet<PathBuf>,
+    pub explorer_files_sort: ExplorerFilesSort,
+    pub explorer_files_sort_asc: bool,
+    /// Indices into `explorer_files` after filter + sort. Rebuilt when `explorer_files_view_key` changes.
+    pub explorer_files_view: Vec<usize>,
+    pub explorer_files_view_key: Option<(String, ExplorerTypeFilter, ExplorerFilesSort, bool, u64)>,
+    /// Bumped whenever `explorer_files` changes; invalidates `explorer_files_view`.
+    pub explorer_files_gen: u64,
     #[cfg(feature = "mpv")]
     pub mpv: Option<crate::ui::mpv_player::MpvPlayer>,
     pub mpv_loaded_path: Option<PathBuf>,
@@ -169,6 +269,15 @@ pub struct SmartFileManagerApp {
     pub explorer_queue_view_open: bool,
     /// Which queue's contents the detail modal is showing.
     pub explorer_active_queue: Option<usize>,
+    /// Movable queue: separate runtime staging list independent of existing folder queues.
+    pub movable_items: Vec<MovableItem>,
+    /// Toggle visibility of the Movable Queue review modal.
+    pub movable_queue_open: bool,
+    /// Whether movable queue window is expanded/maximized to fullscreen
+    /// Currently playing path in movable queue (for inline player preview)
+    pub movable_playing_path: Option<PathBuf>,
+    /// Last chosen queue name in movable queue view to auto-fill subsequent items.
+    pub movable_last_chosen_queue: Option<String>,
     /// Queue index currently chosen in the preview-modal dropdown.
     pub explorer_preview_queue_pick: Option<usize>,
     /// True while a Submit move is running in the background.
@@ -178,6 +287,13 @@ pub struct SmartFileManagerApp {
     pub explorer_queue_submit_progress: std::sync::Arc<std::sync::Mutex<(usize, usize, String)>>,
     /// Queue index being submitted (so we can clear its moved items on completion).
     pub explorer_queue_submitting_idx: Option<usize>,
+    // ---- Folder Modal state ----
+    pub folder_modal_open: bool,
+    pub folder_modal_path: Option<PathBuf>,
+    pub folder_modal_entries: Vec<ExplorerEntry>,
+    pub folder_modal_loaded_path: Option<PathBuf>,
+    pub folder_modal_filter: String,
+    pub folder_modal_selected: Option<usize>,
     // ---- Dedupe workflow state ----
     pub view: AppView,
     pub roots: Vec<PathBuf>,
@@ -200,7 +316,29 @@ pub struct SmartFileManagerApp {
     pub progress: Arc<Mutex<ScanProgress>>,
     pub result_rx: Option<Receiver<ScanResult>>,
     pub scan_work: ScanWorkKind,
-    pub last_result: Option<ScanResult>,
+    /// Shared so panels can hold a cheap handle per frame (P-1). Mutate via `make_mut` (copy-on-write).
+    pub last_result: Option<Arc<ScanResult>>,
+    /// Bumped whenever `last_result` changes; keys the group-list cache (P-3).
+    pub results_epoch: u64,
+    /// Bulk action waiting for confirmation (Phase 1, U1–U3).
+    pub pending_action: Option<PendingAction>,
+    /// Memoized filter + sort result for the group list (P-3).
+    pub dup_list_cache: DupListCache,
+    /// Group-list kind filter; `None` shows every kind (U11).
+    pub results_kind_filter: Option<sortwise::heuristics::MediaKind>,
+    /// Duplicate groups streamed from a running scan (P-6), newest batches appended.
+    pub live_groups: Vec<sortwise::types::DuplicateGroup>,
+    pub live_rx: Option<Receiver<Vec<sortwise::types::DuplicateGroup>>>,
+    /// When the current scan started, for elapsed and ETA in the progress view (U12).
+    pub scan_started_at: Option<Instant>,
+    /// Sizes for movable-queue rows, so the window does not stat files every frame (P-5).
+    pub movable_size_cache: std::collections::HashMap<PathBuf, u64>,
+    /// Last settings written to disk; compared each frame to decide whether to save (U16).
+    pub saved_settings: sortwise::settings::Settings,
+    /// Shortcut list in the results view (R3).
+    pub shortcuts_open: bool,
+    /// Set by `--snapshot`; see `SnapshotPlan`.
+    pub snapshot: Option<SnapshotPlan>,
     pub show_error_log: bool,
     pub apply_message: Option<String>,
     pub apply_errors: Option<String>,
@@ -228,8 +366,10 @@ pub struct SmartFileManagerApp {
     pub dup_list_scroll_to_group: Option<usize>,
     pub thumbnail_cache: std::collections::HashMap<PathBuf, TextureHandle>,
     pub thumbnail_loading: std::collections::HashSet<PathBuf>,
-    pub thumbnail_tx: crossbeam_channel::Sender<(PathBuf, eframe::egui::ColorImage)>,
-    pub thumbnail_rx: crossbeam_channel::Receiver<(PathBuf, eframe::egui::ColorImage)>,
+    pub thumbnail_failed: std::collections::HashSet<PathBuf>,
+    pub navigation_epoch: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    pub thumbnail_worker_tx: crossbeam_channel::Sender<ThumbnailRequest>,
+    pub thumbnail_response_rx: crossbeam_channel::Receiver<ThumbnailResponse>,
     // ---- Folder twins overlap fields ----
     pub folder_overlap: std::collections::HashMap<(PathBuf, PathBuf), crate::ui::folder_intelligence::FolderOverlapEntry>,
     pub dedupe_twins_modal_open: bool,
@@ -260,10 +400,39 @@ pub struct SmartFileManagerApp {
     pub archive_files_move_progress: std::sync::Arc<std::sync::Mutex<(usize, usize, String)>>,
 }
 
-impl Default for SmartFileManagerApp {
+impl Default for SortwiseApp {
     fn default() -> Self {
         let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"));
-        let (thumbnail_tx, thumbnail_rx) = crossbeam_channel::unbounded();
+        let (thumbnail_worker_tx, worker_rx) = crossbeam_channel::bounded::<ThumbnailRequest>(64);
+        let (response_tx, thumbnail_response_rx) = crossbeam_channel::unbounded::<ThumbnailResponse>();
+        let navigation_epoch = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(1));
+
+        let num_workers = std::cmp::max(2, num_cpus::get().min(4));
+        for _ in 0..num_workers {
+            let rx = worker_rx.clone();
+            let tx = response_tx.clone();
+            let epoch_atomic = navigation_epoch.clone();
+            std::thread::Builder::new()
+                .name("thumb-worker".into())
+                .spawn(move || {
+                    while let Ok(req) = rx.recv() {
+                        if req.epoch != epoch_atomic.load(std::sync::atomic::Ordering::Relaxed) {
+                            continue;
+                        }
+                        let res = if req.is_video {
+                            crate::ui::explorer_panel::load_video_thumb(&req.path)
+                        } else {
+                            crate::ui::explorer_panel::load_image_thumb(&req.path)
+                        };
+                        let _ = tx.send(ThumbnailResponse {
+                            path: req.path,
+                            epoch: req.epoch,
+                            image: res.ok(),
+                        });
+                    }
+                })
+                .ok();
+        }
         Self {
             mode: AppMode::default(),
             explorer_dir: home,
@@ -272,6 +441,8 @@ impl Default for SmartFileManagerApp {
             explorer_back: Vec::new(),
             explorer_fwd: Vec::new(),
             explorer_selected: None,
+            explorer_multi: std::collections::HashSet::new(),
+            explorer_anchor: None,
             explorer_error: None,
             explorer_show_hidden: true,
             explorer_sort_key: ExplorerSortKey::default(),
@@ -284,7 +455,8 @@ impl Default for SmartFileManagerApp {
             explorer_preview_open: false,
             explorer_preview_path: None,
             explorer_preview_rotation: 0,
-            explorer_pending_delete_zip: None,
+            extract_banner: None,
+            brand_logo: None,
             explorer_status: None,
             explorer_search_rx: None,
             explorer_search_token: None,
@@ -293,17 +465,39 @@ impl Default for SmartFileManagerApp {
             explorer_search_typed_at: None,
             explorer_search_pending: false,
             explorer_search_checked: HashSet::new(),
+            explorer_files_root: None,
+            explorer_files: Vec::new(),
+            explorer_files_loading: false,
+            explorer_files_truncated: false,
+            explorer_files_rx: None,
+            explorer_files_cancel: None,
+            explorer_files_checked: HashSet::new(),
+            explorer_files_sort: ExplorerFilesSort::Size,
+            explorer_files_sort_asc: false,
+            explorer_files_view: Vec::new(),
+            explorer_files_view_key: None,
+            explorer_files_gen: 0,
             #[cfg(feature = "mpv")]
             mpv: None,
             mpv_loaded_path: None,
             explorer_queues: Vec::new(),
             explorer_queue_view_open: false,
             explorer_active_queue: None,
+            movable_items: Vec::new(),
+            movable_queue_open: false,
+            movable_playing_path: None,
+            movable_last_chosen_queue: None,
             explorer_preview_queue_pick: None,
             explorer_queue_submitting: false,
             explorer_queue_submit_rx: None,
             explorer_queue_submit_progress: std::sync::Arc::new(std::sync::Mutex::new((0, 0, String::new()))),
             explorer_queue_submitting_idx: None,
+            folder_modal_open: false,
+            folder_modal_path: None,
+            folder_modal_entries: Vec::new(),
+            folder_modal_loaded_path: None,
+            folder_modal_filter: String::new(),
+            folder_modal_selected: None,
             view: AppView::Scan,
             roots: Vec::new(),
             source_roots: Vec::new(),
@@ -313,7 +507,7 @@ impl Default for SmartFileManagerApp {
             excluded_subdirs_text: String::new(),
             skip_hidden: false,
             skip_system_dirs: true,
-            min_file_size: 1,
+            min_file_size: 4 * 1024,
             action_mode: ActionMode::DryRun,
             use_hash_cache: true,
             skip_logs_and_locks: false,
@@ -323,6 +517,17 @@ impl Default for SmartFileManagerApp {
             result_rx: None,
             scan_work: ScanWorkKind::default(),
             last_result: None,
+            results_epoch: 0,
+            pending_action: None,
+            dup_list_cache: DupListCache::default(),
+            shortcuts_open: false,
+            snapshot: None,
+            results_kind_filter: None,
+            scan_started_at: None,
+            live_groups: Vec::new(),
+            live_rx: None,
+            movable_size_cache: std::collections::HashMap::new(),
+            saved_settings: sortwise::settings::Settings::default(),
             show_error_log: false,
             apply_message: None,
             apply_errors: None,
@@ -341,8 +546,10 @@ impl Default for SmartFileManagerApp {
             dup_list_scroll_to_group: None,
             thumbnail_cache: std::collections::HashMap::new(),
             thumbnail_loading: std::collections::HashSet::new(),
-            thumbnail_tx,
-            thumbnail_rx,
+            thumbnail_failed: std::collections::HashSet::new(),
+            navigation_epoch,
+            thumbnail_worker_tx,
+            thumbnail_response_rx,
             folder_overlap: std::collections::HashMap::new(),
             dedupe_twins_modal_open: false,
             twins_trash_selections: std::collections::HashMap::new(),
@@ -370,7 +577,7 @@ impl Default for SmartFileManagerApp {
     }
 }
 
-impl SmartFileManagerApp {
+impl SortwiseApp {
     fn build_scan_config(&self) -> ScanConfig {
         let preferred: Vec<PathBuf> = self
             .preferred_dirs_text
@@ -435,7 +642,8 @@ impl SmartFileManagerApp {
         self.results_selected_group = None;
         self.results_filter.clear();
         self.view = AppView::Scanning;
-        self.last_result = None;
+        self.scan_started_at = Some(Instant::now());
+        self.set_last_result(None);
         self.scan_work = ScanWorkKind::FullScan;
         self.token = CancellationToken::new();
 
@@ -460,6 +668,9 @@ impl SmartFileManagerApp {
 
         let (tx, rx) = std::sync::mpsc::channel();
         self.result_rx = Some(rx);
+        let (live_tx, live_rx) = std::sync::mpsc::channel();
+        self.live_rx = Some(live_rx);
+        self.live_groups.clear();
 
         let token = self.token.clone_token();
         let progress = Arc::clone(&self.progress);
@@ -468,7 +679,7 @@ impl SmartFileManagerApp {
             let progress_scan = Arc::clone(&progress);
             let entries = parallel_scan_roots(&roots, &cfg, &token, move |n, path| {
                 let mut g = progress_scan.lock().unwrap();
-                g.phase = smart_file_manager::types::ProgressPhase::Enumerating {
+                g.phase = sortwise::types::ProgressPhase::Enumerating {
                     files_found: n,
                     current_path: path,
                 };
@@ -487,12 +698,13 @@ impl SmartFileManagerApp {
                 None
             };
 
-            let res = run_dedup(
+            let res = run_dedup_streaming(
                 entries,
                 &cfg,
                 &token,
                 Arc::clone(&progress),
                 cache,
+                live_tx,
             );
 
             {
@@ -522,7 +734,7 @@ impl SmartFileManagerApp {
         {
             let mut p = self.progress.lock().unwrap();
             *p = ScanProgress::default();
-            p.phase = smart_file_manager::types::ProgressPhase::Processing {
+            p.phase = sortwise::types::ProgressPhase::Processing {
                 stage_label: "Preparing refresh".into(),
                 stage: 0,
                 stages_total: 4,
@@ -549,6 +761,29 @@ impl SmartFileManagerApp {
         });
     }
 
+    /// Move streamed groups into `live_groups`. Called while a scan runs.
+    fn poll_live_groups(&mut self) {
+        if let Some(rx) = &self.live_rx {
+            while let Ok(batch) = rx.try_recv() {
+                self.live_groups.extend(batch);
+            }
+        }
+    }
+
+    /// Show the groups found so far while the scan keeps running (P-6).
+    pub fn show_live_results(&mut self) {
+        let groups = self.live_groups.clone();
+        let mut partial = ScanResult::empty_partial();
+        partial.stats.duplicate_groups = groups.len() as u64;
+        partial.stats.total_wasted_bytes = groups.iter().map(|g| g.total_wasted_bytes).sum();
+        partial.duplicate_groups = groups;
+        let has_groups = !partial.duplicate_groups.is_empty();
+        self.set_last_result(Some(partial));
+        self.results_selected_group = has_groups.then_some(0);
+        self.results_selected_file_in_group = 0;
+        self.view = AppView::Results;
+    }
+
     fn poll_result(&mut self) {
         if let Some(rx) = &self.result_rx {
             if let Ok(res) = rx.try_recv() {
@@ -561,11 +796,13 @@ impl SmartFileManagerApp {
                         .map(|f| f.path.clone())
                 });
 
-                self.last_result = Some(res);
+                self.set_last_result(Some(res));
                 if let Some(ref r) = self.last_result {
                     self.folder_overlap = crate::ui::folder_intelligence::compute_folder_overlap(r);
                 }
                 self.result_rx = None;
+                self.live_rx = None;
+                self.live_groups.clear();
                 self.view = AppView::Results;
                 self.scan_work = ScanWorkKind::FullScan;
 
@@ -627,7 +864,7 @@ impl SmartFileManagerApp {
         }
 
         std::thread::spawn(move || {
-            let res = smart_file_manager::scanner::find_empty_folders(&roots, &token, |count, path| {
+            let res = sortwise::scanner::find_empty_folders(&roots, &token, |count, path| {
                 if let Ok(mut c) = progress_count.lock() {
                     *c = count;
                 }
@@ -651,30 +888,6 @@ impl SmartFileManagerApp {
         }
     }
 
-    pub fn delete_selected_empty_folders(&mut self) {
-        let to_delete = self.empty_folders_results.clone();
-        for p in to_delete {
-            if self.empty_folders_selected.contains(&p) && p.is_dir() {
-                // Try to remove system files like .DS_Store first so remove_dir succeeds
-                if let Ok(entries) = std::fs::read_dir(&p) {
-                    for entry in entries {
-                        if let Ok(entry) = entry {
-                            let fname = entry.file_name();
-                            let fname_str = fname.to_string_lossy();
-                            if fname_str.starts_with('.') || fname_str == "Thumbs.db" {
-                                let _ = std::fs::remove_file(entry.path());
-                            }
-                        }
-                    }
-                }
-                let _ = std::fs::remove_dir(&p);
-            }
-        }
-        self.empty_folders_results.clear();
-        self.empty_folders_selected.clear();
-        self.view = AppView::Scan;
-    }
-
     pub fn start_archive_files_scan(&mut self) {
         self.archive_files_results.clear();
         self.archive_files_selected.clear();
@@ -696,7 +909,7 @@ impl SmartFileManagerApp {
         }
 
         std::thread::spawn(move || {
-            let res = smart_file_manager::scanner::find_archive_files(&roots, &token, |count, path| {
+            let res = sortwise::scanner::find_archive_files(&roots, &token, |count, path| {
                 if let Ok(mut c) = progress_count.lock() {
                     *c = count;
                 }
@@ -800,42 +1013,8 @@ impl SmartFileManagerApp {
                     continue;
                 }
 
-                let file_name = match p.file_name() {
-                    Some(n) => n,
-                    None => { fail_count += 1; continue; }
-                };
-
-                // Resolve a free destination name (never overwrite)
-                let stem = p.file_stem().and_then(|s| s.to_str()).unwrap_or("file").to_string();
-                let ext  = p.extension().and_then(|e| e.to_str()).unwrap_or("").to_string();
-                let mut dest = target_dir.join(file_name);
-                let mut counter = 1u32;
-                // Keep incrementing until we find a name that doesn't exist
-                while dest.exists() {
-                    let new_name = if ext.is_empty() {
-                        format!("{}_{}", stem, counter)
-                    } else {
-                        format!("{}_{}.{}", stem, counter, ext)
-                    };
-                    dest = target_dir.join(&new_name);
-                    counter += 1;
-                }
-
-                // fast_move: rename → APFS clone → buffered stream
-                // If it still fails (race condition), retry once with a fresh counter slot
-                let moved = if fast_move(&p, &dest).is_ok() {
-                    true
-                } else {
-                    // Last-resort retry with a new unique name
-                    let fallback_name = if ext.is_empty() {
-                        format!("{}_{}", stem, counter)
-                    } else {
-                        format!("{}_{}.{}", stem, counter, ext)
-                    };
-                    let fallback = target_dir.join(&fallback_name);
-                    fast_move(&p, &fallback).is_ok()
-                };
-
+                let dest = unique_file_dest(&target_dir, p);
+                let moved = fast_move(p, &dest).is_ok();
                 if moved { success_count += 1; } else { fail_count += 1; }
             }
 
@@ -852,20 +1031,36 @@ impl SmartFileManagerApp {
     // Queue (staged move) operations
     // -----------------------------------------------------------------------
 
-    /// Prompt for a destination folder and create a new queue named after it.
+    /// Prompt for one or more destination folders and create new queues named after them.
     pub fn explorer_new_queue(&mut self) {
-        if let Some(dir) = rfd::FileDialog::new().pick_folder() {
-            let name = dir
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .filter(|s| !s.is_empty())
-                .unwrap_or_else(|| "Queue".to_string());
-            self.explorer_queues.push(FileQueue {
-                name: name.clone(),
-                target: dir,
-                items: Vec::new(),
-            });
-            self.explorer_status = Some(format!("Created queue “{name}”."));
+        if let Some(folders) = rfd::FileDialog::new().pick_folders() {
+            if folders.is_empty() {
+                return;
+            }
+            let mut created_count = 0;
+            let mut last_name = String::new();
+            for dir in folders {
+                let name = dir
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| "Queue".to_string());
+                self.explorer_queues.push(FileQueue {
+                    name: name.clone(),
+                    target: dir,
+                    items: Vec::new(),
+                });
+                last_name = name;
+                created_count += 1;
+            }
+            if created_count == 1 {
+                self.explorer_status = Some(format!("Created queue “{last_name}”."));
+            } else if created_count > 1 {
+                self.explorer_status = Some(format!("Created {created_count} queues."));
+            }
+            if !self.explorer_queues.is_empty() {
+                self.explorer_preview_queue_pick = Some(self.explorer_queues.len() - 1);
+            }
         }
     }
 
@@ -884,6 +1079,37 @@ impl SmartFileManagerApp {
         }
     }
 
+    /// Check if a path is currently staged in queue[idx].
+    pub fn explorer_is_in_queue(&self, idx: usize, path: &Path) -> bool {
+        self.explorer_queues
+            .get(idx)
+            .map(|q| q.items.iter().any(|p| p == path))
+            .unwrap_or(false)
+    }
+
+    /// Find the index of the first queue containing the given path, if any.
+    pub fn explorer_find_queue_for_path(&self, path: &Path) -> Option<usize> {
+        self.explorer_queues
+            .iter()
+            .position(|q| q.items.iter().any(|p| p == path))
+    }
+
+    /// Toggle queue staging for a file or folder (stages or removes).
+    pub fn explorer_toggle_queue(&mut self, idx: usize, path: PathBuf) {
+        let is_in = self.explorer_is_in_queue(idx, &path);
+        let fname = path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        if is_in {
+            let qname = self.explorer_queues.get(idx).map(|q| q.name.clone()).unwrap_or_default();
+            self.explorer_remove_from_queue(idx, path);
+            self.explorer_status = Some(format!("Removed “{fname}” from “{qname}”."));
+        } else {
+            self.explorer_add_to_queue(idx, path);
+        }
+    }
+
     /// Remove a staged file from queue[idx] (does not touch the real file).
     pub fn explorer_remove_from_queue(&mut self, idx: usize, path: PathBuf) {
         if let Some(q) = self.explorer_queues.get_mut(idx) {
@@ -896,14 +1122,195 @@ impl SmartFileManagerApp {
         if idx < self.explorer_queues.len() {
             let name = self.explorer_queues[idx].name.clone();
             self.explorer_queues.remove(idx);
-            if self.explorer_active_queue == Some(idx) {
+            if self.explorer_queues.is_empty() {
                 self.explorer_active_queue = None;
-                self.explorer_queue_view_open = false;
+            } else {
+                match self.explorer_active_queue {
+                    Some(active) if active == idx => {
+                        self.explorer_active_queue = Some(idx.min(self.explorer_queues.len() - 1));
+                    }
+                    Some(active) if active > idx => {
+                        self.explorer_active_queue = Some(active - 1);
+                    }
+                    _ => {}
+                }
             }
             // Keep the dropdown pick valid.
             self.explorer_preview_queue_pick = None;
             self.explorer_status = Some(format!("Deleted queue “{name}”."));
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Movable Queue logic (independent runtime triage & individual item moves)
+    // -------------------------------------------------------------------------
+
+    pub fn current_settings(&self) -> sortwise::settings::Settings {
+        sortwise::settings::Settings {
+            version: sortwise::settings::CURRENT_VERSION,
+            skip_system_dirs: self.skip_system_dirs,
+            skip_hidden: self.skip_hidden,
+            min_file_size: self.min_file_size,
+            use_hash_cache: self.use_hash_cache,
+            skip_logs_and_locks: self.skip_logs_and_locks,
+            io_profile: self.io_profile,
+        }
+    }
+
+    /// Apply loaded settings. The action mode is never restored (see settings.rs).
+    pub fn apply_settings(&mut self, s: &sortwise::settings::Settings) {
+        self.skip_system_dirs = s.skip_system_dirs;
+        self.skip_hidden = s.skip_hidden;
+        self.min_file_size = s.min_file_size;
+        self.use_hash_cache = s.use_hash_cache;
+        self.skip_logs_and_locks = s.skip_logs_and_locks;
+        self.io_profile = s.io_profile;
+    }
+
+    /// Size of a movable-queue item, read once and cached (P-5).
+    pub fn movable_size(&mut self, path: &Path) -> Option<u64> {
+        if let Some(&size) = self.movable_size_cache.get(path) {
+            return Some(size);
+        }
+        let size = std::fs::metadata(path).ok()?.len();
+        self.movable_size_cache.insert(path.to_path_buf(), size);
+        Some(size)
+    }
+
+    pub fn is_in_movable(&self, path: &Path) -> bool {
+        self.movable_items.iter().any(|item| item.path == path)
+    }
+
+    /// Stage every given file that is not staged yet. Already-staged paths are left alone.
+    pub fn stage_paths(&mut self, paths: &[PathBuf]) -> usize {
+        let default_q = self.movable_last_chosen_queue.clone();
+        let mut added = 0;
+        for path in paths {
+            if self.movable_items.iter().any(|item| &item.path == path) {
+                continue;
+            }
+            self.movable_items.push(MovableItem {
+                path: path.clone(),
+                target_queue: default_q.clone(),
+            });
+            added += 1;
+        }
+        added
+    }
+
+    pub fn toggle_movable(&mut self, path: PathBuf) {
+        if let Some(pos) = self.movable_items.iter().position(|item| item.path == path) {
+            self.movable_items.remove(pos);
+            self.explorer_status = Some("Removed from movable queue.".to_string());
+        } else {
+            let default_q = self.movable_last_chosen_queue.clone();
+            self.movable_items.push(MovableItem {
+                path,
+                target_queue: default_q,
+            });
+            self.explorer_status = Some("Added to movable queue.".to_string());
+        }
+    }
+
+    pub fn remove_from_movable(&mut self, idx: usize) {
+        if idx < self.movable_items.len() {
+            self.movable_items.remove(idx);
+        }
+    }
+
+    pub fn clear_movable_items(&mut self) {
+        self.movable_items.clear();
+    }
+
+    /// Move a single item from the movable queue to its assigned target queue folder.
+    /// Preserves existing files: uses unique_file_dest and unique_dir_dest to increment
+    /// filename if destination file already exists.
+    pub fn move_single_movable_item(&mut self, idx: usize) -> bool {
+        if idx >= self.movable_items.len() {
+            return false;
+        }
+        let (p, q_name) = {
+            let item = &self.movable_items[idx];
+            let Some(ref q) = item.target_queue else {
+                self.explorer_status = Some("Select a queue first.".to_string());
+                return false;
+            };
+            (item.path.clone(), q.clone())
+        };
+
+        let target_dir = match self.explorer_queues.iter().find(|q| q.name == q_name) {
+            Some(q) => q.target.clone(),
+            None => {
+                self.explorer_status = Some(format!("Queue “{q_name}” not found."));
+                return false;
+            }
+        };
+
+        if !target_dir.is_dir() {
+            let _ = std::fs::create_dir_all(&target_dir);
+        }
+
+        let fname = p
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        let moved = if p.is_dir() {
+            let dest = unique_dir_dest(&target_dir, &fname);
+            fast_move_dir(&p, &dest).is_ok()
+        } else if p.is_file() {
+            let dest = unique_file_dest(&target_dir, &p);
+            fast_move(&p, &dest).is_ok()
+        } else {
+            false
+        };
+
+        if moved {
+            self.movable_items.remove(idx);
+            self.explorer_status = Some(format!("Moved “{fname}” → “{q_name}”."));
+            // Clean up caches & entries if it was currently in this directory
+            self.explorer_entries.retain(|e| e.path != p);
+            if self.folder_modal_open {
+                self.folder_modal_entries.retain(|e| e.path != p);
+            }
+            self.thumbnail_cache.remove(&p);
+            self.thumbnail_loading.remove(&p);
+            if self.explorer_preview_path.as_ref() == Some(&p) {
+                self.close_explorer_preview();
+            }
+            true
+        } else {
+            self.explorer_status = Some(format!("Failed to move “{fname}”."));
+            false
+        }
+    }
+
+    /// Move all items in the movable queue that have a valid target queue assigned.
+    pub fn move_all_movable_items(&mut self) -> (usize, usize) {
+        if self.movable_items.is_empty() {
+            return (0, 0);
+        }
+
+        let mut success_count = 0;
+        let mut fail_count = 0;
+        let mut i = 0;
+
+        while i < self.movable_items.len() {
+            if self.movable_items[i].target_queue.is_none() {
+                i += 1;
+                continue;
+            }
+            if self.move_single_movable_item(i) {
+                success_count += 1;
+                // do not increment i since remove shifts elements
+            } else {
+                fail_count += 1;
+                i += 1;
+            }
+        }
+
+        self.explorer_reload();
+        (success_count, fail_count)
     }
 
     /// Re-pick the destination folder for queue[idx].
@@ -916,130 +1323,6 @@ impl SmartFileManagerApp {
         }
     }
 
-    /// Move all staged items in queue[idx] into its target folder. Files use
-    /// `name_N.ext`; directories move as a unit with `Name_2` collision names.
-    pub fn submit_queue(&mut self, idx: usize) {
-        let Some(q) = self.explorer_queues.get(idx) else { return };
-        let target_dir = q.target.clone();
-        if !target_dir.is_dir() {
-            self.explorer_error = Some(format!(
-                "Queue folder no longer exists: {}",
-                target_dir.display()
-            ));
-            return;
-        }
-        let to_move: Vec<PathBuf> = q.items.clone();
-        let total = to_move.len();
-        if total == 0 {
-            self.explorer_status = Some("Queue is empty — nothing to move.".to_string());
-            return;
-        }
-
-        let confirm = rfd::MessageDialog::new()
-            .set_level(rfd::MessageLevel::Info)
-            .set_title("Submit Queue")
-            .set_description(format!(
-                "Move {} item(s) to:\n{}",
-                total,
-                target_dir.display()
-            ))
-            .set_buttons(rfd::MessageButtons::YesNo)
-            .show();
-        if confirm != rfd::MessageDialogResult::Yes {
-            return;
-        }
-
-        self.explorer_queue_submitting = true;
-        self.explorer_queue_submitting_idx = Some(idx);
-        if let Ok(mut p) = self.explorer_queue_submit_progress.lock() {
-            *p = (0, total, String::new());
-        }
-
-        let (tx, rx) = std::sync::mpsc::channel();
-        self.explorer_queue_submit_rx = Some(rx);
-        let progress = std::sync::Arc::clone(&self.explorer_queue_submit_progress);
-
-        std::thread::spawn(move || {
-            let mut success_count = 0;
-            let mut fail_count = 0;
-
-            for (i, p) in to_move.iter().enumerate() {
-                let fname = p
-                    .file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_default();
-                if let Ok(mut prog) = progress.lock() {
-                    *prog = (i, total, fname.clone());
-                }
-
-                let moved = if p.is_dir() {
-                    let dest = unique_dir_dest(&target_dir, &fname);
-                    if fast_move_dir(p, &dest).is_ok() {
-                        true
-                    } else {
-                        let fallback = unique_dir_dest(&target_dir, &fname);
-                        fast_move_dir(p, &fallback).is_ok()
-                    }
-                } else if p.is_file() {
-                    let file_name = match p.file_name() {
-                        Some(n) => n,
-                        None => {
-                            fail_count += 1;
-                            continue;
-                        }
-                    };
-
-                    // Resolve a free destination name (never overwrite).
-                    let stem = p
-                        .file_stem()
-                        .and_then(|s| s.to_str())
-                        .unwrap_or("file")
-                        .to_string();
-                    let ext = p
-                        .extension()
-                        .and_then(|e| e.to_str())
-                        .unwrap_or("")
-                        .to_string();
-                    let mut dest = target_dir.join(file_name);
-                    let mut counter = 1u32;
-                    while dest.exists() {
-                        let new_name = if ext.is_empty() {
-                            format!("{}_{}", stem, counter)
-                        } else {
-                            format!("{}_{}.{}", stem, counter, ext)
-                        };
-                        dest = target_dir.join(&new_name);
-                        counter += 1;
-                    }
-
-                    if fast_move(p, &dest).is_ok() {
-                        true
-                    } else {
-                        let fallback_name = if ext.is_empty() {
-                            format!("{}_{}", stem, counter)
-                        } else {
-                            format!("{}_{}.{}", stem, counter, ext)
-                        };
-                        let fallback = target_dir.join(&fallback_name);
-                        fast_move(p, &fallback).is_ok()
-                    }
-                } else {
-                    false
-                };
-
-                if moved {
-                    success_count += 1;
-                } else {
-                    fail_count += 1;
-                }
-            }
-
-            if let Ok(mut prog) = progress.lock() {
-                *prog = (total, total, String::new());
-            }
-            let _ = tx.send((success_count, fail_count));
-        });
-    }
 
     /// Move all staged items across ALL queues into their respective target folders in one batch.
     pub fn submit_all_queues(&mut self) {
@@ -1101,54 +1384,10 @@ impl SmartFileManagerApp {
 
                     let moved = if p.is_dir() {
                         let dest = unique_dir_dest(&target_dir, &fname);
-                        if fast_move_dir(&p, &dest).is_ok() {
-                            true
-                        } else {
-                            let fallback = unique_dir_dest(&target_dir, &fname);
-                            fast_move_dir(&p, &fallback).is_ok()
-                        }
+                        fast_move_dir(&p, &dest).is_ok()
                     } else if p.is_file() {
-                        let file_name = match p.file_name() {
-                            Some(n) => n,
-                            None => {
-                                fail_count += 1;
-                                continue;
-                            }
-                        };
-
-                        let stem = p
-                            .file_stem()
-                            .and_then(|s| s.to_str())
-                            .unwrap_or("file")
-                            .to_string();
-                        let ext = p
-                            .extension()
-                            .and_then(|e| e.to_str())
-                            .unwrap_or("")
-                            .to_string();
-                        let mut dest = target_dir.join(file_name);
-                        let mut counter = 1u32;
-                        while dest.exists() {
-                            let new_name = if ext.is_empty() {
-                                format!("{}_{}", stem, counter)
-                            } else {
-                                format!("{}_{}.{}", stem, counter, ext)
-                            };
-                            dest = target_dir.join(&new_name);
-                            counter += 1;
-                        }
-
-                        if fast_move(&p, &dest).is_ok() {
-                            true
-                        } else {
-                            let fallback_name = if ext.is_empty() {
-                                format!("{}_{}", stem, counter)
-                            } else {
-                                format!("{}_{}.{}", stem, counter, ext)
-                            };
-                            let fallback = target_dir.join(&fallback_name);
-                            fast_move(&p, &fallback).is_ok()
-                        }
+                        let dest = unique_file_dest(&target_dir, &p);
+                        fast_move(&p, &dest).is_ok()
                     } else {
                         false
                     };
@@ -1208,6 +1447,8 @@ impl SmartFileManagerApp {
         self.explorer_fwd.clear();
         self.explorer_dir = path;
         self.explorer_selected = None;
+        self.explorer_multi.clear();
+        self.explorer_anchor = None;
         self.explorer_filter.clear();
         self.explorer_last_filter.clear();
         self.explorer_loaded_dir = None;
@@ -1220,6 +1461,8 @@ impl SmartFileManagerApp {
             self.explorer_fwd.push(self.explorer_dir.clone());
             self.explorer_dir = prev;
             self.explorer_selected = None;
+        self.explorer_multi.clear();
+        self.explorer_anchor = None;
             self.explorer_filter.clear();
             self.explorer_last_filter.clear();
             self.explorer_loaded_dir = None;
@@ -1233,6 +1476,8 @@ impl SmartFileManagerApp {
             self.explorer_back.push(self.explorer_dir.clone());
             self.explorer_dir = next;
             self.explorer_selected = None;
+        self.explorer_multi.clear();
+        self.explorer_anchor = None;
             self.explorer_filter.clear();
             self.explorer_last_filter.clear();
             self.explorer_loaded_dir = None;
@@ -1554,6 +1799,80 @@ impl SmartFileManagerApp {
     }
 
     /// Re-read the current directory if it changed (cheap no-op otherwise).
+    /// Files view: start a background recursive listing when the folder changes, and
+    /// collect a finished listing. Call once per frame while the Files view is shown.
+    pub fn explorer_files_ensure(&mut self) {
+        use std::sync::mpsc::TryRecvError;
+        if let Some(rx) = &self.explorer_files_rx {
+            match rx.try_recv() {
+                Ok(listing) => {
+                    self.explorer_files = listing.files;
+                    self.explorer_files_truncated = listing.truncated;
+                    self.explorer_files_loading = false;
+                    self.explorer_files_rx = None;
+                    self.explorer_files_gen += 1;
+                }
+                Err(TryRecvError::Empty) => {}
+                Err(TryRecvError::Disconnected) => {
+                    self.explorer_files_loading = false;
+                    self.explorer_files_rx = None;
+                }
+            }
+        }
+        if self.explorer_files_root.as_ref() == Some(&self.explorer_dir) {
+            return;
+        }
+        if let Some(old) = self.explorer_files_cancel.take() {
+            old.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+        let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let worker_cancel = Arc::clone(&cancel);
+        let root = self.explorer_dir.clone();
+        let skip_system = self.skip_system_dirs;
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut listing = sortwise::recursive_files::list_files(
+                &root,
+                skip_system,
+                sortwise::recursive_files::DEFAULT_CAP,
+                &worker_cancel,
+            );
+            sortwise::recursive_files::sort_by_size_desc(&mut listing.files);
+            let _ = tx.send(listing);
+        });
+        self.explorer_files_root = Some(self.explorer_dir.clone());
+        self.explorer_files_cancel = Some(cancel);
+        self.explorer_files_rx = Some(rx);
+        self.explorer_files_loading = true;
+        self.explorer_files.clear();
+        self.explorer_files_truncated = false;
+        self.explorer_files_checked.clear();
+        self.explorer_files_gen += 1;
+    }
+
+    /// Files view: put files into the Movable Queue with `queue` as destination.
+    /// Already-staged files only have their destination changed. Moves nothing on disk.
+    pub fn explorer_files_stage(&mut self, paths: &[PathBuf], queue: Option<String>) -> usize {
+        let mut added = 0;
+        for path in paths {
+            if let Some(item) = self.movable_items.iter_mut().find(|i| &i.path == path) {
+                item.target_queue = queue.clone();
+            } else {
+                self.movable_items.push(MovableItem {
+                    path: path.clone(),
+                    target_queue: queue.clone(),
+                });
+                added += 1;
+            }
+        }
+        if queue.is_some() {
+            self.movable_last_chosen_queue = queue.clone();
+        }
+        let dest = queue.map(|q| format!(" to “{q}”")).unwrap_or_default();
+        self.explorer_status = Some(format!("Queued {} file(s){dest}.", paths.len()));
+        added
+    }
+
     pub fn explorer_ensure_loaded(&mut self) {
         if self.explorer_loaded_dir.as_ref() == Some(&self.explorer_dir) {
             return;
@@ -1562,7 +1881,7 @@ impl SmartFileManagerApp {
     }
 
     pub fn explorer_reload(&mut self) {
-        self.thumbnail_cache.clear();
+        self.navigation_epoch.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         self.thumbnail_loading.clear();
         self.explorer_error = None;
         let mut entries = Vec::new();
@@ -1576,7 +1895,8 @@ impl SmartFileManagerApp {
                     if is_system_entry(&name, is_dir) {
                         continue;
                     }
-                    if !self.explorer_show_hidden && name.starts_with('.') {
+                    // In Folders mode, always include hidden child folders; in other modes respect explorer_show_hidden.
+                    if !self.explorer_show_hidden && self.explorer_view_mode != ExplorerViewMode::Folders && name.starts_with('.') {
                         continue;
                     }
                     let size = meta.as_ref().map(|m| m.len()).unwrap_or(0);
@@ -1608,13 +1928,13 @@ impl SmartFileManagerApp {
                 return b.is_dir.cmp(&a.is_dir);
             }
             let ord = match key {
-                ExplorerSortKey::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+                ExplorerSortKey::Name => a.name.chars().map(|c| c.to_ascii_lowercase()).cmp(b.name.chars().map(|c| c.to_ascii_lowercase())),
                 ExplorerSortKey::Size => a.size.cmp(&b.size),
                 ExplorerSortKey::Modified => a.modified.cmp(&b.modified),
                 ExplorerSortKey::Kind => {
                     let ea = a.path.extension().and_then(|e| e.to_str()).unwrap_or("");
                     let eb = b.path.extension().and_then(|e| e.to_str()).unwrap_or("");
-                    ea.to_lowercase().cmp(&eb.to_lowercase())
+                    ea.chars().map(|c| c.to_ascii_lowercase()).cmp(eb.chars().map(|c| c.to_ascii_lowercase()))
                 }
             };
             if asc {
@@ -1697,8 +2017,12 @@ impl SmartFileManagerApp {
 
         match status {
             Ok(s) if s.success() => {
-                self.explorer_status = Some(format!("Extracted to “{stem}”."));
-                self.explorer_pending_delete_zip = Some(zip.to_path_buf());
+                self.explorer_status = None;
+                self.extract_banner = Some(ExtractBanner {
+                    zip: zip.to_path_buf(),
+                    dest: dest.clone(),
+                    dir: self.explorer_dir.clone(),
+                });
                 self.explorer_reload();
             }
             Ok(s) => {
@@ -1712,19 +2036,108 @@ impl SmartFileManagerApp {
 
     pub fn explorer_open_preview(&mut self, path: PathBuf) {
         self.clear_preview_cache();
+        if let Some(q_idx) = self.explorer_find_queue_for_path(&path) {
+            self.explorer_preview_queue_pick = Some(q_idx);
+        }
         self.explorer_preview_path = Some(path);
         self.explorer_preview_open = true;
         self.explorer_preview_rotation = 0;
     }
 
-    /// Send the current Explorer folder into the dedupe workflow.
-    pub fn scan_explorer_dir(&mut self) {
-        self.roots = vec![self.explorer_dir.clone()];
-        self.mode = AppMode::Dedupe;
-        self.view = AppView::Scan;
-        self.last_result = None;
-        self.results_selected_group = None;
+    pub fn folder_modal_open_dir(&mut self, folder: PathBuf) {
+        self.folder_modal_path = Some(folder);
+        self.folder_modal_open = true;
+        self.folder_modal_filter.clear();
+        self.folder_modal_selected = None;
+        self.folder_modal_reload();
+    }
+
+    pub fn folder_modal_close(&mut self) {
+        self.folder_modal_open = false;
+        self.folder_modal_path = None;
+        self.folder_modal_entries.clear();
+        self.folder_modal_loaded_path = None;
+        self.folder_modal_filter.clear();
+        self.folder_modal_selected = None;
         self.close_explorer_preview();
+    }
+
+    pub fn folder_modal_reload(&mut self) {
+        let Some(path) = self.folder_modal_path.clone() else { return };
+        let mut entries = Vec::new();
+        if let Ok(rd) = std::fs::read_dir(&path) {
+            for e in rd.flatten() {
+                let name = e.file_name().to_string_lossy().to_string();
+                let meta = e.metadata().ok();
+                let is_dir = meta.as_ref().map(|m| m.is_dir()).unwrap_or(false);
+                if is_system_entry(&name, is_dir) {
+                    continue;
+                }
+                let size = meta.as_ref().map(|m| m.len()).unwrap_or(0);
+                let modified = meta.as_ref().and_then(|m| m.modified().ok());
+                entries.push(ExplorerEntry {
+                    name,
+                    path: e.path(),
+                    is_dir,
+                    size,
+                    modified,
+                });
+            }
+        }
+        entries.sort_by(|a, b| {
+            if a.is_dir != b.is_dir {
+                b.is_dir.cmp(&a.is_dir)
+            } else {
+                a.name.to_lowercase().cmp(&b.name.to_lowercase())
+            }
+        });
+        self.folder_modal_entries = entries;
+        self.folder_modal_loaded_path = Some(path);
+    }
+
+    pub fn folder_modal_prev(&mut self) {
+        let Some(cur_path) = self.folder_modal_path.clone() else { return };
+        let folders: Vec<PathBuf> = self
+            .explorer_entries
+            .iter()
+            .filter(|e| e.is_dir)
+            .map(|e| e.path.clone())
+            .collect();
+        if let Some(pos) = folders.iter().position(|p| p == &cur_path) {
+            if pos > 0 {
+                self.folder_modal_open_dir(folders[pos - 1].clone());
+            }
+        }
+    }
+
+    pub fn folder_modal_next(&mut self) {
+        let Some(cur_path) = self.folder_modal_path.clone() else { return };
+        let folders: Vec<PathBuf> = self
+            .explorer_entries
+            .iter()
+            .filter(|e| e.is_dir)
+            .map(|e| e.path.clone())
+            .collect();
+        if let Some(pos) = folders.iter().position(|p| p == &cur_path) {
+            if pos + 1 < folders.len() {
+                self.folder_modal_open_dir(folders[pos + 1].clone());
+            }
+        }
+    }
+
+    pub fn folder_modal_open_in_grid(&mut self) {
+        if let Some(path) = self.folder_modal_path.clone() {
+            self.folder_modal_close();
+            self.explorer_navigate(path);
+        }
+    }
+
+    /// Replace the scan result. Bumps the results epoch and drops any pending
+    /// bulk action, since its plan was computed against the old result.
+    pub fn set_last_result(&mut self, result: Option<ScanResult>) {
+        self.last_result = result.map(Arc::new);
+        self.results_epoch = self.results_epoch.wrapping_add(1);
+        self.pending_action = None;
     }
 
     pub fn clear_preview_cache(&mut self) {
@@ -1754,15 +2167,73 @@ impl SmartFileManagerApp {
 }
 
 
-impl eframe::App for SmartFileManagerApp {
+impl eframe::App for SortwiseApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Poll background thumbnails
+        if let Some(plan) = self.snapshot.as_mut() {
+            // Let layout and fonts settle, then ask egui for its own rendered frame.
+            plan.frames += 1;
+            if plan.frames >= 40 && !plan.requested {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot);
+                plan.requested = true;
+            }
+            let shot = ctx.input(|i| {
+                i.events.iter().find_map(|e| match e {
+                    egui::Event::Screenshot { image, .. } => Some(image.clone()),
+                    _ => None,
+                })
+            });
+            if let Some(image) = shot {
+                let bytes: Vec<u8> = image.pixels.iter().flat_map(|c| c.to_array()).collect();
+                let [w, h] = image.size;
+                match image::save_buffer(&plan.path, &bytes, w as u32, h as u32, image::ColorType::Rgba8) {
+                    Ok(()) => eprintln!("snapshot written: {}", plan.path.display()),
+                    Err(e) => eprintln!("snapshot failed: {e}"),
+                }
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            }
+            ctx.request_repaint();
+        }
+        // Persist scan preferences when they change (U16). A failed write is reported once,
+        // and the attempt is not repeated every frame.
+        let current = self.current_settings();
+        if current != self.saved_settings {
+            if let Some(path) = sortwise::settings::settings_path() {
+                if let Err(e) = sortwise::settings::save_to(&path, &current) {
+                    self.apply_errors = Some(format!("Could not save settings: {e}"));
+                }
+            }
+            self.saved_settings = current;
+        }
+
+        // Poll background thumbnails (batched to max 16 per frame)
+        let mut upload_count = 0;
         let mut got_any = false;
-        while let Ok((path, img)) = self.thumbnail_rx.try_recv() {
-            let id = format!("sfm_thumb_{}", path.display());
-            let handle = ctx.load_texture(id, img, egui::TextureOptions::LINEAR);
-            self.thumbnail_cache.insert(path, handle);
-            got_any = true;
+        let cur_epoch = self.navigation_epoch.load(std::sync::atomic::Ordering::Relaxed);
+        while upload_count < 16 {
+            if let Ok(resp) = self.thumbnail_response_rx.try_recv() {
+                self.thumbnail_loading.remove(&resp.path);
+                if resp.epoch == cur_epoch {
+                    if let Some(img) = resp.image {
+                        let id = format!("sfm_thumb_{}", resp.path.display());
+                        let handle = ctx.load_texture(id, img, egui::TextureOptions::LINEAR);
+                        // In-memory LRU cap: keep max 1,000 textures
+                        if self.thumbnail_cache.len() >= 1000 {
+                            let keys_to_remove: Vec<PathBuf> =
+                                self.thumbnail_cache.keys().take(100).cloned().collect();
+                            for k in keys_to_remove {
+                                self.thumbnail_cache.remove(&k);
+                            }
+                        }
+                        self.thumbnail_cache.insert(resp.path, handle);
+                        upload_count += 1;
+                        got_any = true;
+                    } else {
+                        self.thumbnail_failed.insert(resp.path);
+                    }
+                }
+            } else {
+                break;
+            }
         }
         if got_any {
             ctx.request_repaint();
@@ -1776,8 +2247,13 @@ impl eframe::App for SmartFileManagerApp {
             ctx.request_repaint_after(std::time::Duration::from_millis(100));
         }
 
-        if self.view == AppView::Scanning {
+        // Poll the duplicate scan whenever it runs, even if the user has opened the
+        // partial results view (P-6), so the final result is never missed.
+        self.poll_live_groups();
+        if self.result_rx.is_some() {
             self.poll_result();
+        }
+        if self.view == AppView::Scanning {
             self.poll_empty_folders_result();
             self.poll_archive_files_result();
         }
@@ -1809,7 +2285,8 @@ impl eframe::App for SmartFileManagerApp {
         if self.mode == AppMode::Explorer {
             let filter_changed = self.explorer_filter != self.explorer_last_filter;
             self.explorer_last_filter = self.explorer_filter.clone();
-            if filter_changed {
+            // Files view filters in memory; it must not start a disk-wide recursive search.
+            if filter_changed && self.explorer_view_mode != ExplorerViewMode::Files {
                 if self.explorer_filter.trim().is_empty() {
                     self.explorer_cancel_search();
                     self.explorer_reload();
@@ -1843,44 +2320,91 @@ impl eframe::App for SmartFileManagerApp {
             .exact_height(52.0)
             .frame(
                 egui::Frame::none()
-                    .fill(egui::Color32::from_rgb(28, 28, 36))
+                    .fill(crate::ui::style::pal().surface)
                     .inner_margin(egui::Margin::symmetric(18.0, 0.0))
-                    .stroke(egui::Stroke::new(1.0, crate::ui::style::BORDER)),
+                    .stroke(egui::Stroke::new(1.0, crate::ui::style::pal().border)),
             )
             .show(ctx, |ui| {
                 ui.horizontal_centered(|ui| {
-                    ui.label(egui::RichText::new("🗂").size(20.0));
+                    if self.brand_logo.is_none() {
+                        self.brand_logo = crate::ui::brand::load_logo(ui.ctx());
+                    }
+                    match self.brand_logo.as_ref() {
+                        Some(logo) => {
+                            ui.add(egui::Image::new(logo).fit_to_exact_size(egui::vec2(24.0, 24.0)));
+                        }
+                        None => {
+                            ui.label(egui::RichText::new(crate::ui::icons::Icons::FOLDER_OPEN).size(20.0));
+                        }
+                    }
                     ui.add_space(8.0);
                     ui.label(
-                        egui::RichText::new("Smart File Manager")
+                        egui::RichText::new("Sortwise")
                             .strong()
                             .size(16.0)
-                            .color(egui::Color32::from_rgb(236, 239, 252)),
+                            .color(crate::ui::style::pal().text),
                     );
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         mode_switch(self, ui);
                         if mode == AppMode::Explorer {
                             ui.add_space(10.0);
-                            let staged: usize =
-                                self.explorer_queues.iter().map(|q| q.items.len()).sum();
-                            let label = if staged > 0 {
-                                format!("🗂 Queue ({staged})")
+                            // One entry point for everything set aside (U8): loose items and folder queues.
+                            let movable_count = self.movable_items.len();
+                            let staged_folder: usize = self.explorer_queues.iter().map(|q| q.items.len()).sum();
+                            let staged_total = movable_count + staged_folder;
+                            let open = self.movable_queue_open || self.explorer_queue_view_open;
+                            let label = if staged_total > 0 {
+                                format!("{}  Staging · {staged_total}", crate::ui::icons::Icons::INBOX)
                             } else {
-                                "🗂 Queue".to_string()
+                                format!("{}  Staging", crate::ui::icons::Icons::INBOX)
                             };
-                            if ui.button(label).clicked() {
-                                self.explorer_queue_view_open = !self.explorer_queue_view_open;
-                                if self.explorer_queue_view_open
-                                    && self.explorer_active_queue.is_none()
-                                    && !self.explorer_queues.is_empty()
-                                {
-                                    self.explorer_active_queue = Some(0);
+                            let fill = if open {
+                                crate::ui::style::pal().accent
+                            } else if staged_total > 0 {
+                                crate::ui::style::pal().success_soft
+                            } else {
+                                crate::ui::style::pal().surface_raised
+                            };
+                            let text_color = if open {
+                                crate::ui::style::pal().on_accent
+                            } else if staged_total > 0 {
+                                crate::ui::style::pal().success_on_soft
+                            } else {
+                                crate::ui::style::pal().text
+                            };
+                            let btn = egui::Button::new(
+                                egui::RichText::new(label).strong().size(13.5).color(text_color),
+                            )
+                            .fill(fill)
+                            .min_size(egui::vec2(0.0, 32.0));
+                            if ui
+                                .add(btn)
+                                .on_hover_text("Files set aside before moving: loose items and folder queues")
+                                .clicked()
+                            {
+                                if open {
+                                    self.movable_queue_open = false;
+                                    self.explorer_queue_view_open = false;
+                                } else {
+                                    // Opens on Folder queues, the first tab.
+                                    self.explorer_queue_view_open = true;
                                 }
                             }
                         }
                     });
                 });
             });
+
+        // Status bar (26 px). Added before the side and central panels, as egui requires.
+        egui::TopBottomPanel::bottom("status")
+            .exact_height(26.0)
+            .frame(
+                egui::Frame::none()
+                    .fill(crate::ui::style::pal().surface)
+                    .inner_margin(egui::Margin::symmetric(12.0, 0.0))
+                    .stroke(egui::Stroke::new(1.0, crate::ui::style::pal().border)),
+            )
+            .show(ctx, |ui| crate::ui::status_bar::status_bar(self, ui));
 
         let results_ready =
             (mode == AppMode::Dedupe || mode == AppMode::CompareSourceDest)
@@ -1895,16 +2419,27 @@ impl eframe::App for SmartFileManagerApp {
         };
 
         if show_sidebar {
-            egui::SidePanel::left("sidebar")
-                .resizable(true)
-                .default_width(if results_ready { 300.0 } else { 220.0 })
-                .min_width(if results_ready { 236.0 } else { 180.0 })
-                .max_width(560.0)
+            // Explorer: 200 px places panel, icons only in narrow windows (< 760 px).
+            // The sidebar also collapses while the staging panel is open, so the toolbar keeps its room.
+            let staging_open = self.movable_queue_open || self.explorer_queue_view_open;
+            let explorer_narrow =
+                mode == AppMode::Explorer && (ctx.screen_rect().width() < 760.0 || staging_open);
+            let sidebar = egui::SidePanel::left("sidebar");
+            let sidebar = if explorer_narrow {
+                sidebar.resizable(false).exact_width(56.0)
+            } else {
+                sidebar
+                    .resizable(true)
+                    .default_width(if results_ready { 300.0 } else if mode == AppMode::Explorer { 200.0 } else { 220.0 })
+                    .min_width(if results_ready { 236.0 } else if mode == AppMode::Explorer { 160.0 } else { 180.0 })
+                    .max_width(560.0)
+            };
+            sidebar
                 .frame(
                     egui::Frame::none()
-                        .fill(crate::ui::style::NAV_FILL)
+                        .fill(crate::ui::style::pal().canvas)
                         .inner_margin(egui::Margin::same(if results_ready { 14.0 } else { 10.0 }))
-                        .stroke(egui::Stroke::new(1.0, crate::ui::style::BORDER)),
+                        .stroke(egui::Stroke::new(1.0, crate::ui::style::pal().border)),
                 )
                 .show(ctx, |ui| {
                     match mode {
@@ -1917,6 +2452,9 @@ impl eframe::App for SmartFileManagerApp {
                 });
         }
 
+        // Staging panel: a right side panel, so it must be added before the central panel.
+        crate::ui::staging_panel(self, ctx);
+
         let central_margin = if mode == AppMode::Explorer {
             egui::Margin::symmetric(12.0, 10.0)
         } else {
@@ -1925,12 +2463,12 @@ impl eframe::App for SmartFileManagerApp {
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::none()
-                    .fill(crate::ui::style::CANVAS_FILL)
+                    .fill(crate::ui::style::pal().canvas)
                     .inner_margin(central_margin),
             )
             .show(ctx, |ui| {
                 match mode {
-                    AppMode::Explorer => crate::ui::explorer_main_panel(self, ui, ctx),
+                    AppMode::Explorer => crate::ui::explorer_main_panel(self, ui),
                     AppMode::Dedupe | AppMode::CompareSourceDest => match self.view {
                         AppView::Scan => scan_panel(self, ui),
                         AppView::Scanning => progress_panel(self, ui, ctx),
@@ -1948,74 +2486,60 @@ impl eframe::App for SmartFileManagerApp {
                     },
                 }
                 // Render global player modal globally so it functions in all modes/views
+                crate::ui::folder_contents_modal(self, ctx);
                 crate::ui::player_window(self, ctx);
-                crate::ui::queue_window(self, ctx);
+                crate::ui::confirm_pending_action(self, ctx);
             });
     }
 }
 
-fn mode_switch(app: &mut SmartFileManagerApp, ui: &mut egui::Ui) {
-    let seg = |ui: &mut egui::Ui, label: &str, active: bool| -> bool {
-        let (fg, bg) = if active {
-            (
-                egui::Color32::from_rgb(248, 250, 255),
-                crate::ui::style::ACCENT,
-            )
-        } else {
-            (
-                egui::Color32::from_rgb(196, 202, 222),
-                egui::Color32::from_rgb(38, 40, 50),
-            )
-        };
-        ui.add(
-            egui::Button::new(egui::RichText::new(label).strong().color(fg))
+fn mode_switch(app: &mut SortwiseApp, ui: &mut egui::Ui) {
+    // Labelled tabs (U4): icon + text. The active tab gets a tinted fill and an accent underline.
+    let narrow = ui.ctx().screen_rect().width() < 900.0;
+    let seg = |ui: &mut egui::Ui, icon: &str, label: &str, active: bool, tooltip: &str| -> bool {
+        let p = crate::ui::style::pal();
+        let fg = if active { p.accent_on_soft } else { p.text_muted };
+        let bg = if active { p.accent_soft } else { egui::Color32::TRANSPARENT };
+        // Below 900 px the tabs show icons only; the tooltip still names them.
+        let text = if narrow { format!("{icon}") } else { format!("{icon}  {label}") };
+        let resp = ui
+            .add(
+                egui::Button::new(
+                    egui::RichText::new(text).size(13.0).strong().color(fg),
+                )
                 .fill(bg)
-                .min_size(egui::vec2(0.0, 34.0)),
-        )
-        .clicked()
+                .stroke(egui::Stroke::NONE)
+                .min_size(egui::vec2(if narrow { 36.0 } else { 0.0 }, 36.0)),
+            )
+            .on_hover_text(tooltip);
+        if active {
+            let r = resp.rect;
+            let underline = egui::Rect::from_min_max(egui::pos2(r.left(), r.bottom() - 2.0), r.right_bottom());
+            ui.painter().rect_filled(underline, 0.0, p.accent);
+        }
+        resp.clicked()
     };
-    ui.spacing_mut().item_spacing.x = 8.0;
-    
-    let w = 88.0;
-    let w_wide = 118.0;
-    ui.allocate_ui(egui::vec2(w, 32.0), |ui| {
-        ui.set_width(w);
-        if seg(ui, "📦 Archives", app.mode == AppMode::ArchiveFiles) {
-            app.mode = AppMode::ArchiveFiles;
-            app.view = AppView::Scan;
-        }
-    });
-    ui.allocate_ui(egui::vec2(w, 32.0), |ui| {
-        ui.set_width(w);
-        if seg(ui, "📁 Empty", app.mode == AppMode::EmptyFolders) {
-            app.mode = AppMode::EmptyFolders;
-            app.view = AppView::Scan;
-        }
-    });
-    ui.allocate_ui(egui::vec2(w_wide, 32.0), |ui| {
-        ui.set_width(w_wide);
-        if seg(ui, "⚡ A -> B Compare", app.mode == AppMode::CompareSourceDest) {
-            app.mode = AppMode::CompareSourceDest;
-            app.view = AppView::Scan;
-        }
-    });
-    ui.allocate_ui(egui::vec2(w, 32.0), |ui| {
-        ui.set_width(w);
-        if seg(ui, "🔍 Dedupe", app.mode == AppMode::Dedupe) {
-            // Preserve “scan current Explorer folder” without a duplicate Explorer CTA.
-            if app.mode == AppMode::Explorer && app.roots.is_empty() {
-                app.scan_explorer_dir();
-            } else {
-                app.mode = AppMode::Dedupe;
-            }
-        }
-    });
-    ui.allocate_ui(egui::vec2(w, 32.0), |ui| {
-        ui.set_width(w);
-        if seg(ui, "🗂 Explorer", app.mode == AppMode::Explorer) {
-            app.mode = AppMode::Explorer;
-        }
-    });
+    ui.spacing_mut().item_spacing.x = 6.0;
+
+    if seg(ui, crate::ui::icons::Icons::PACKAGE, "Archives", app.mode == AppMode::ArchiveFiles, "Find archive files (zip, rar, 7z…)") {
+        app.mode = AppMode::ArchiveFiles;
+        app.view = AppView::Scan;
+    }
+    if seg(ui, crate::ui::icons::Icons::FOLDER, "Empty folders", app.mode == AppMode::EmptyFolders, "Find empty folders") {
+        app.mode = AppMode::EmptyFolders;
+        app.view = AppView::Scan;
+    }
+    if seg(ui, crate::ui::icons::Icons::COMPARE, "Compare A→B", app.mode == AppMode::CompareSourceDest, "Find copies in B that also exist in A") {
+        app.mode = AppMode::CompareSourceDest;
+        app.view = AppView::Scan;
+    }
+    // U5: switching to Duplicates never starts a scan. The user picks folders first.
+    if seg(ui, crate::ui::icons::Icons::SEARCH, "Duplicates", app.mode == AppMode::Dedupe, "Find duplicate files") {
+        app.mode = AppMode::Dedupe;
+    }
+    if seg(ui, crate::ui::icons::Icons::FOLDER_OPEN, "Explorer", app.mode == AppMode::Explorer, "Browse files") {
+        app.mode = AppMode::Explorer;
+    }
 }
 
 /// Move a file as fast as possible:
@@ -2023,6 +2547,14 @@ fn mode_switch(app: &mut SmartFileManagerApp, ui: &mut egui::Ui) {
 /// 2. `cp -c` — APFS copy-on-write clone (macOS), instant regardless of file size.
 /// 3. `cp`    — regular copy for non-APFS volumes, then delete source.
 fn fast_move(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    // Safety guard: NEVER overwrite an existing destination file, directory, or symlink!
+    if dst.exists() || dst.symlink_metadata().is_ok() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            format!("Destination already exists: {}", dst.display()),
+        ));
+    }
+
     // Fastest path: atomic rename (same volume)
     if std::fs::rename(src, dst).is_ok() {
         return Ok(());
@@ -2062,6 +2594,14 @@ fn fast_move(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()
 
 /// Move a directory as a unit: rename when possible, else recursive copy + delete.
 fn fast_move_dir(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    // Safety guard: NEVER overwrite an existing destination directory, file, or symlink!
+    if dst.exists() || dst.symlink_metadata().is_ok() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            format!("Destination directory already exists: {}", dst.display()),
+        ));
+    }
+
     if std::fs::rename(src, dst).is_ok() {
         return Ok(());
     }
@@ -2111,11 +2651,42 @@ fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::
 }
 
 /// Unique destination for a directory: `Name`, then `Name_2`, `Name_3`, …
-fn unique_dir_dest(target_dir: &std::path::Path, folder_name: &str) -> PathBuf {
+/// Never overwrites an existing directory, file, or symlink.
+pub fn unique_dir_dest(target_dir: &std::path::Path, folder_name: &str) -> PathBuf {
     let mut dest = target_dir.join(folder_name);
     let mut counter = 2u32;
-    while dest.exists() {
+    while dest.exists() || dest.symlink_metadata().is_ok() {
         dest = target_dir.join(format!("{folder_name}_{counter}"));
+        counter += 1;
+    }
+    dest
+}
+
+/// Unique non-colliding destination path for a file: `Name.ext`, then `Name_1.ext`, `Name_2.ext`, …
+/// Never overwrites an existing file, directory, or symlink.
+pub fn unique_file_dest(target_dir: &std::path::Path, file_path: &std::path::Path) -> PathBuf {
+    let stem = file_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("file");
+    let ext = file_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("");
+    let original_name = file_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("file");
+
+    let mut dest = target_dir.join(original_name);
+    let mut counter = 1u32;
+    while dest.exists() || dest.symlink_metadata().is_ok() {
+        let new_name = if ext.is_empty() {
+            format!("{stem}_{counter}")
+        } else {
+            format!("{stem}_{counter}.{ext}")
+        };
+        dest = target_dir.join(&new_name);
         counter += 1;
     }
     dest
@@ -2225,3 +2796,358 @@ fn collect_media_files_under(root: &Path, show_hidden: bool) -> Vec<PathBuf> {
     }
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_system_entry_exclusions() {
+        assert!(is_system_entry(".git", true));
+        assert!(is_system_entry("node_modules", true));
+        assert!(is_system_entry("__pycache__", true));
+        assert!(is_system_entry("$recycle.bin", true));
+        assert!(is_system_entry(".DS_Store", false));
+        assert!(is_system_entry(".ds_store", false));
+        assert!(is_system_entry("._photo.jpg", false));
+        assert!(is_system_entry("thumbs.db", false));
+
+        // Normal and custom hidden folders should NOT be considered system junk
+        assert!(!is_system_entry("Documents", true));
+        assert!(!is_system_entry(".config", true));
+        assert!(!is_system_entry(".secret_archive", true));
+        assert!(!is_system_entry(".hidden_photos", true));
+        assert!(!is_system_entry("vacation_2024", true));
+        assert!(!is_system_entry("photo.jpg", false));
+    }
+
+    #[test]
+    fn test_folder_explorer_listing_and_system_filtering() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "sfm_folder_test_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+
+        // Create normal folders, hidden folders, and system junk folders
+        let normal_dir1 = temp_dir.join("Albums");
+        let normal_dir2 = temp_dir.join("Invoices");
+        let hidden_dir = temp_dir.join(".custom_hidden_folder");
+        let sys_git = temp_dir.join(".git");
+        let sys_node = temp_dir.join("node_modules");
+
+        std::fs::create_dir_all(&normal_dir1).unwrap();
+        std::fs::create_dir_all(&normal_dir2).unwrap();
+        std::fs::create_dir_all(&hidden_dir).unwrap();
+        std::fs::create_dir_all(&sys_git).unwrap();
+        std::fs::create_dir_all(&sys_node).unwrap();
+
+        // Add dummy files
+        std::fs::write(temp_dir.join(".DS_Store"), b"junk").unwrap();
+        std::fs::write(temp_dir.join("root_note.txt"), b"hello").unwrap();
+
+        let mut app = SortwiseApp::default();
+        app.explorer_dir = temp_dir.clone();
+        app.explorer_view_mode = ExplorerViewMode::Folders;
+        app.explorer_show_hidden = true;
+        app.explorer_reload();
+
+        let dir_names: Vec<String> = app
+            .explorer_entries
+            .iter()
+            .filter(|e| e.is_dir)
+            .map(|e| e.name.clone())
+            .collect();
+
+        // Must include normal and hidden folders
+        assert!(dir_names.contains(&"Albums".to_string()));
+        assert!(dir_names.contains(&"Invoices".to_string()));
+        assert!(dir_names.contains(&".custom_hidden_folder".to_string()));
+
+        // Must NOT include system junk folders or system files
+        assert!(!dir_names.contains(&".git".to_string()));
+        assert!(!dir_names.contains(&"node_modules".to_string()));
+        assert!(!dir_names.contains(&".DS_Store".to_string()));
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_folder_modal_and_carousel_navigation() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "sfm_carousel_test_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+
+        let f1 = temp_dir.join("Folder_A");
+        let f2 = temp_dir.join("Folder_B");
+        let f3 = temp_dir.join("Folder_C");
+        std::fs::create_dir_all(&f1).unwrap();
+        std::fs::create_dir_all(&f2).unwrap();
+        std::fs::create_dir_all(&f3).unwrap();
+
+        // Put files in Folder_A
+        std::fs::write(f1.join("image1.png"), b"img").unwrap();
+        std::fs::write(f1.join("doc1.pdf"), b"pdf").unwrap();
+
+        let mut app = SortwiseApp::default();
+        app.explorer_dir = temp_dir.clone();
+        app.explorer_reload();
+
+        // 1. Open Folder_A in modal
+        app.folder_modal_open_dir(f1.clone());
+        assert!(app.folder_modal_open);
+        assert_eq!(app.folder_modal_path, Some(f1.clone()));
+        assert_eq!(app.folder_modal_entries.len(), 2);
+
+        // 2. Navigate Next -> Folder_B
+        app.folder_modal_next();
+        assert_eq!(app.folder_modal_path, Some(f2.clone()));
+
+        // 3. Navigate Next -> Folder_C
+        app.folder_modal_next();
+        assert_eq!(app.folder_modal_path, Some(f3.clone()));
+
+        // 4. Navigate Prev -> Folder_B
+        app.folder_modal_prev();
+        assert_eq!(app.folder_modal_path, Some(f2.clone()));
+
+        // 5. Open in Grid -> updates explorer_dir and closes modal
+        app.folder_modal_open_in_grid();
+        assert!(!app.folder_modal_open);
+        assert_eq!(app.explorer_dir, f2);
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_queue_and_dequeue_features() {
+        let mut app = SortwiseApp::default();
+        let target_dir = std::env::temp_dir().join("sfm_queue_target");
+        app.explorer_queues.push(FileQueue {
+            name: "Sorted Photos".to_string(),
+            target: target_dir,
+            items: Vec::new(),
+        });
+
+        let test_folder = PathBuf::from("/Users/test/UnmanagedFolder");
+        let test_file = PathBuf::from("/Users/test/UnmanagedFolder/photo.jpg");
+
+        // 1. Test staging folder
+        assert!(!app.explorer_is_in_queue(0, &test_folder));
+        app.explorer_toggle_queue(0, test_folder.clone());
+        assert!(app.explorer_is_in_queue(0, &test_folder));
+        assert_eq!(app.explorer_queues[0].items.len(), 1);
+
+        // 2. Test dequeuing folder
+        app.explorer_toggle_queue(0, test_folder.clone());
+        assert!(!app.explorer_is_in_queue(0, &test_folder));
+        assert_eq!(app.explorer_queues[0].items.len(), 0);
+
+        // 3. Test staging file
+        assert!(!app.explorer_is_in_queue(0, &test_file));
+        app.explorer_toggle_queue(0, test_file.clone());
+        assert!(app.explorer_is_in_queue(0, &test_file));
+        assert_eq!(app.explorer_queues[0].items.len(), 1);
+
+        // 3b. Test finding queue for path & auto-selection in preview
+        assert_eq!(app.explorer_find_queue_for_path(&test_file), Some(0));
+        assert_eq!(app.explorer_find_queue_for_path(&PathBuf::from("/non/existent")), None);
+        app.explorer_preview_queue_pick = None;
+        app.explorer_open_preview(test_file.clone());
+        assert_eq!(app.explorer_preview_queue_pick, Some(0));
+
+        // 4. Test explicit remove
+        app.explorer_remove_from_queue(0, test_file.clone());
+        assert!(!app.explorer_is_in_queue(0, &test_file));
+        assert_eq!(app.explorer_queues[0].items.len(), 0);
+    }
+
+    #[test]
+    fn test_explorer_performance_and_epoch_invariants() {
+        let mut app = SortwiseApp::default();
+        let initial_epoch = app.navigation_epoch.load(std::sync::atomic::Ordering::SeqCst);
+        assert!(initial_epoch >= 1);
+
+        // Reload bumps epoch
+        app.explorer_reload();
+        let new_epoch = app.navigation_epoch.load(std::sync::atomic::Ordering::SeqCst);
+        assert_eq!(new_epoch, initial_epoch + 1);
+
+        // Sorting is case-insensitive and zero-alloc
+        app.explorer_entries = vec![
+            ExplorerEntry {
+                name: "b_file.txt".to_string(),
+                path: PathBuf::from("/test/b_file.txt"),
+                is_dir: false,
+                size: 10,
+                modified: None,
+            },
+            ExplorerEntry {
+                name: "A_folder".to_string(),
+                path: PathBuf::from("/test/A_folder"),
+                is_dir: true,
+                size: 0,
+                modified: None,
+            },
+            ExplorerEntry {
+                name: "a_file.txt".to_string(),
+                path: PathBuf::from("/test/a_file.txt"),
+                is_dir: false,
+                size: 20,
+                modified: None,
+            },
+        ];
+        app.explorer_sort_key = ExplorerSortKey::Name;
+        app.explorer_sort_asc = true;
+        app.explorer_sort_entries();
+
+        // Folders first:
+        assert!(app.explorer_entries[0].is_dir);
+        assert_eq!(app.explorer_entries[0].name, "A_folder");
+        // Then files sorted case-insensitively:
+        assert_eq!(app.explorer_entries[1].name, "a_file.txt");
+        assert_eq!(app.explorer_entries[2].name, "b_file.txt");
+    }
+
+    #[test]
+    fn test_unique_destinations_prevent_overwrites() {
+        let temp = std::env::temp_dir().join(format!(
+            "sfm_collision_test_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&temp).unwrap();
+
+        // 1. Test unique_file_dest:
+        let f1 = temp.join("report.pdf");
+        std::fs::write(&f1, b"original").unwrap();
+
+        let src_file = PathBuf::from("/anywhere/report.pdf");
+        let dest1 = unique_file_dest(&temp, &src_file);
+        assert_eq!(dest1, temp.join("report_1.pdf"));
+
+        // If report_1.pdf also exists:
+        std::fs::write(&dest1, b"first collision").unwrap();
+        let dest2 = unique_file_dest(&temp, &src_file);
+        assert_eq!(dest2, temp.join("report_2.pdf"));
+
+        // 2. Test unique_dir_dest:
+        let d1 = temp.join("Photos");
+        std::fs::create_dir_all(&d1).unwrap();
+
+        let dest_d1 = unique_dir_dest(&temp, "Photos");
+        assert_eq!(dest_d1, temp.join("Photos_2"));
+
+        // If Photos_2 also exists:
+        std::fs::create_dir_all(&dest_d1).unwrap();
+        let dest_d2 = unique_dir_dest(&temp, "Photos");
+        assert_eq!(dest_d2, temp.join("Photos_3"));
+
+        // 3. Test fast_move safety guard:
+        let dummy_src = temp.join("dummy.txt");
+        std::fs::write(&dummy_src, b"test").unwrap();
+        let err = fast_move(&dummy_src, &f1);
+        assert!(err.is_err());
+        assert_eq!(err.unwrap_err().kind(), std::io::ErrorKind::AlreadyExists);
+
+        // 4. Test fast_move_dir safety guard:
+        let dummy_dir = temp.join("dummy_dir");
+        std::fs::create_dir_all(&dummy_dir).unwrap();
+        let err_dir = fast_move_dir(&dummy_dir, &d1);
+        assert!(err_dir.is_err());
+        assert_eq!(err_dir.unwrap_err().kind(), std::io::ErrorKind::AlreadyExists);
+
+        let _ = std::fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn test_movable_queue_individual_and_bulk_move_with_renaming() {
+        let temp = std::env::temp_dir().join(format!(
+            "sfm_movable_test_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let src_dir = temp.join("source");
+        let dest_a = temp.join("Person_A");
+        let dest_b = temp.join("Person_B");
+        std::fs::create_dir_all(&src_dir).unwrap();
+        std::fs::create_dir_all(&dest_a).unwrap();
+        std::fs::create_dir_all(&dest_b).unwrap();
+
+        // Populate source video files
+        let vid1 = src_dir.join("clip1.mp4");
+        let vid2 = src_dir.join("clip2.mp4");
+        let vid3 = src_dir.join("clip3.mp4");
+        std::fs::write(&vid1, b"video 1 content").unwrap();
+        std::fs::write(&vid2, b"video 2 content").unwrap();
+        std::fs::write(&vid3, b"video 3 content").unwrap();
+
+        // Create an existing file in dest_a with the exact same name clip1.mp4
+        std::fs::write(dest_a.join("clip1.mp4"), b"existing file").unwrap();
+
+        let mut app = SortwiseApp::default();
+        app.explorer_dir = src_dir.clone();
+
+        // Register destination queues
+        app.explorer_queues.push(FileQueue {
+            name: "Person A".to_string(),
+            target: dest_a.clone(),
+            items: Vec::new(),
+        });
+        app.explorer_queues.push(FileQueue {
+            name: "Person B".to_string(),
+            target: dest_b.clone(),
+            items: Vec::new(),
+        });
+
+        // 1. Stage items into movable queue
+        app.toggle_movable(vid1.clone());
+        app.toggle_movable(vid2.clone());
+        app.toggle_movable(vid3.clone());
+
+        assert_eq!(app.movable_items.len(), 3);
+        assert!(app.is_in_movable(&vid1));
+        assert!(app.is_in_movable(&vid2));
+        assert!(app.is_in_movable(&vid3));
+
+        // 2. Assign queues
+        app.movable_items[0].target_queue = Some("Person A".to_string());
+        app.movable_items[1].target_queue = Some("Person B".to_string());
+        // item 2 left unassigned for now
+
+        // 3. Move individual item 0 (clip1.mp4 to Person A)
+        let moved = app.move_single_movable_item(0);
+        assert!(moved);
+        assert_eq!(app.movable_items.len(), 2);
+        assert!(!vid1.exists(), "Original file should be moved");
+        // Check automatic non-destructive renaming
+        assert!(dest_a.join("clip1.mp4").exists(), "Existing destination file must remain intact");
+        assert!(dest_a.join("clip1_1.mp4").exists(), "Colliding file should be automatically renamed to clip1_1.mp4");
+
+        // 4. Assign queue for remaining item and move bulk
+        app.movable_items[1].target_queue = Some("Person B".to_string());
+        let (success, failed) = app.move_all_movable_items();
+        assert_eq!(success, 2);
+        assert_eq!(failed, 0);
+        assert_eq!(app.movable_items.len(), 0);
+        assert!(dest_b.join("clip2.mp4").exists());
+        assert!(dest_b.join("clip3.mp4").exists());
+
+        let _ = std::fs::remove_dir_all(&temp);
+    }
+}
+

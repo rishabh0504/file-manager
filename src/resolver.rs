@@ -39,6 +39,26 @@ pub fn score_entry(entry: &FileEntry, config: &ScanConfig) -> i64 {
     score
 }
 
+/// Explain the positive score terms that made `entry` the keep file (U10).
+/// Mirrors `score_entry`: preferred folders, root order, and path depth.
+pub fn keep_reason(entry: &FileEntry, config: &ScanConfig) -> String {
+    let mut reasons: Vec<String> = Vec::new();
+    if config.preferred_dirs.iter().any(|p| entry.path.starts_with(p)) {
+        reasons.push("in a preferred folder".into());
+    }
+    if let Some(rank) = config.root_order.iter().position(|f| entry.path.starts_with(f)) {
+        if rank == 0 {
+            reasons.push("in your first-ranked folder".into());
+        } else {
+            reasons.push(format!("in folder #{} of your order", rank + 1));
+        }
+    }
+    if reasons.is_empty() {
+        reasons.push("shallowest path and most recently used".into());
+    }
+    reasons.join(", ")
+}
+
 pub fn pick_keep_index(files: &[FileEntry], policy: KeepPolicy, config: &ScanConfig) -> usize {
     match policy {
         KeepPolicy::Manual => 0,
@@ -105,6 +125,7 @@ pub fn build_duplicate_group(
 
     if files_to_process.is_empty() {
         return DuplicateGroup {
+            keep_reason: String::new(),
             hash: hash_hex(&hash),
             files: Vec::new(),
             total_wasted_bytes: 0,
@@ -128,11 +149,13 @@ pub fn build_duplicate_group(
         })
         .collect();
 
+    let keep_reason = keep_reason(&files_to_process[keep_index], config);
     DuplicateGroup {
         hash: hash_hex(&hash),
         files: snapshots,
         total_wasted_bytes,
         keep_index,
+        keep_reason,
     }
 }
 

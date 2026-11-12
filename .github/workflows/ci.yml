@@ -21,4 +21,4 @@ jobs:
       - name: Tests
         run: cargo test
       - name: CLI (feature)
-        run: cargo build --features cli --bin sfm-cli
+        run: cargo build --features cli --bin sortwise-cli

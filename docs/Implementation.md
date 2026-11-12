@@ -1,4 +1,4 @@
-# Smart File Manager — Implementation Plan
+# Sortwise — Implementation Plan
 
 > **Goal:** A deterministic, batch-based, multi-stage duplicate file detection engine with a Rust-native egui UI. Scan → Index → Deduplicate with maximum throughput, minimum I/O, and full cancellability.
 >
@@ -125,7 +125,7 @@ User selects folders (egui UI)
 
 ```toml
 [package]
-name = "smart-file-manager"
+name = "sortwise"
 version = "0.1.0"
 edition = "2024"
 
@@ -1424,7 +1424,7 @@ fn partial_hash_cached(
 }
 ```
 
-**Cache file location:** `~/.config/smart-file-manager/hash_cache.json` (or OS-appropriate config dir via `dirs` crate).
+**Cache file location:** `~/.config/sortwise/hash_cache.json` (or OS-appropriate config dir via `dirs` crate).
 **Cache invalidation:** Automatic — mismatched `size` or `mtime_secs` triggers recompute.
 
 ---
