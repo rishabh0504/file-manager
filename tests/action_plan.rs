@@ -2,7 +2,7 @@
 //! These check which files an action would touch. They never call the OS trash.
 
 use sortwise::action_log::{ActionLogEntry, write_to};
-use sortwise::action_plan::{for_apply, for_empty_folders, for_folder, for_group, for_paths, for_same_folder, for_selected, SAMPLE_SIZE};
+use sortwise::action_plan::{prune_groups, for_apply, for_empty_folders, for_folder, for_group, for_paths, for_same_folder, for_selected, SAMPLE_SIZE};
 use sortwise::types::{ActionMode, DuplicateGroup, FileEntrySnapshot, ScanResult, ScanStats};
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -209,4 +209,25 @@ fn empty_folder_plan_is_exactly_the_checked_listed_folders() {
     assert_eq!(plan.paths, vec![PathBuf::from("/lib/Photos/Trip"), PathBuf::from("/lib/Docs/Drafts")]);
     assert_eq!(plan.group_count, 0);
     assert!(for_empty_folders(&listed, &HashSet::new()).is_empty());
+}
+
+#[test]
+fn pruning_earlier_copies_keeps_the_same_keep_file() {
+    // Keep is the middle file. Trashing the first one shifts indices; the keep must not move.
+    let g = group(vec![file("/a/x.mp4", 10, 0), file("/b/x.mp4", 10, 1), file("/c/x.mp4", 10, 2)], 1);
+    let removed: HashSet<PathBuf> = [PathBuf::from("/a/x.mp4")].into_iter().collect();
+    let out = prune_groups(vec![g], &removed);
+    assert_eq!(out.len(), 1);
+    let kept = &out[0].files[out[0].keep_index];
+    assert_eq!(kept.path, PathBuf::from("/b/x.mp4"));
+    assert!(kept.is_keep);
+    assert_eq!(out[0].files.iter().filter(|f| f.is_keep).count(), 1);
+    assert_eq!(out[0].total_wasted_bytes, 10);
+}
+
+#[test]
+fn pruning_drops_groups_left_with_one_file() {
+    let g = group(vec![file("/a/y.jpg", 5, 0), file("/b/y.jpg", 5, 1)], 0);
+    let removed: HashSet<PathBuf> = [PathBuf::from("/b/y.jpg")].into_iter().collect();
+    assert!(prune_groups(vec![g], &removed).is_empty());
 }

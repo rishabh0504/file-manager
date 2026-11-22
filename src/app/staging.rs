@@ -37,17 +37,41 @@ impl SortwiseApp {
 
     /// Stage a file or folder into queue[idx] (deduped by path).
     pub fn explorer_add_to_queue(&mut self, idx: usize, path: PathBuf) {
-        let Some(q) = self.explorer_queues.get_mut(idx) else { return };
+        if idx >= self.explorer_queues.len() {
+            return;
+        }
         let fname = path
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
-        if q.items.contains(&path) {
-            self.explorer_status = Some(format!("“{fname}” is already in “{}”.", q.name));
-        } else {
-            q.items.push(path);
-            self.explorer_status = Some(format!("Added “{fname}” to “{}”.", q.name));
+        let qname = self.explorer_queues[idx].name.clone();
+        if self.explorer_queues[idx].items.contains(&path) {
+            self.explorer_status = Some(format!("“{fname}” is already in “{qname}”."));
+            return;
         }
+        let from = self.unstage_elsewhere(idx, &path);
+        self.explorer_queues[idx].items.push(path);
+        self.explorer_status = Some(match from {
+            Some(old) => format!("Moved “{fname}” from “{old}” to “{qname}”."),
+            None => format!("Added “{fname}” to “{qname}”."),
+        });
+    }
+
+    /// A path lives in at most one place, so it can never be moved twice. Removes it from every
+    /// queue except `keep_idx` and from Items; returns where it was, for the status message.
+    pub(crate) fn unstage_elsewhere(&mut self, keep_idx: usize, path: &Path) -> Option<String> {
+        let mut from = None;
+        for (i, q) in self.explorer_queues.iter_mut().enumerate() {
+            if i != keep_idx && q.items.iter().any(|p| p == path) {
+                q.items.retain(|p| p != path);
+                from = Some(q.name.clone());
+            }
+        }
+        if self.movable_items.iter().any(|m| m.path == path) {
+            self.movable_items.retain(|m| m.path != path);
+            from.get_or_insert_with(|| "Items".to_string());
+        }
+        from
     }
 
     /// Check if a path is currently staged in queue[idx].
@@ -193,97 +217,105 @@ impl SortwiseApp {
         self.movable_items.clear();
     }
 
-    /// Move a single item from the movable queue to its assigned target queue folder.
-    /// Preserves existing files: uses unique_file_dest and unique_dir_dest to increment
-    /// filename if destination file already exists.
-    pub fn move_single_movable_item(&mut self, idx: usize) -> bool {
-        if idx >= self.movable_items.len() {
-            return false;
+    /// Drop a path that just left its folder from every listing, cache and preview.
+    fn forget_moved_path(&mut self, p: &Path, was_dir: bool) {
+        self.explorer_files_forget_path(p, was_dir);
+        let gone = |x: &Path| x == p || (was_dir && x.starts_with(p));
+        self.explorer_entries.retain(|e| !gone(&e.path));
+        if self.folder_modal_open {
+            self.folder_modal_entries.retain(|e| !gone(&e.path));
         }
-        let (p, q_name) = {
-            let item = &self.movable_items[idx];
-            let Some(ref q) = item.target_queue else {
-                self.explorer_status = Some("Select a queue first.".to_string());
-                return false;
-            };
-            (item.path.clone(), q.clone())
-        };
-
-        let target_dir = match self.explorer_queues.iter().find(|q| q.name == q_name) {
-            Some(q) => q.target.clone(),
-            None => {
-                self.explorer_status = Some(format!("Queue “{q_name}” not found."));
-                return false;
-            }
-        };
-
-        if !target_dir.is_dir() {
-            let _ = std::fs::create_dir_all(&target_dir);
-        }
-
-        let fname = p
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_default();
-
-        let was_dir = p.is_dir();
-        let moved = if p.is_dir() {
-            let dest = unique_dir_dest(&target_dir, p.file_name().unwrap_or_default());
-            fast_move_dir(&p, &dest).is_ok()
-        } else if p.is_file() {
-            let dest = unique_file_dest(&target_dir, &p);
-            fast_move(&p, &dest).is_ok()
-        } else {
-            false
-        };
-
-        if moved {
-            self.movable_items.remove(idx);
-            self.explorer_files_forget_path(&p, was_dir);
-            self.explorer_status = Some(format!("Moved “{fname}” → “{q_name}”."));
-            // Clean up caches & entries if it was currently in this directory
-            self.explorer_entries.retain(|e| e.path != p);
-            if self.folder_modal_open {
-                self.folder_modal_entries.retain(|e| e.path != p);
-            }
-            self.thumbnail_cache.remove(&p);
-            self.thumbnail_loading.remove(&p);
-            if self.explorer_preview_path.as_ref() == Some(&p) {
-                self.close_explorer_preview();
-            }
-            true
-        } else {
-            self.explorer_status = Some(format!("Failed to move “{fname}”."));
-            false
+        self.thumbnail_cache.retain(|k, _| !gone(k));
+        self.thumbnail_loading.retain(|k| !gone(k));
+        if self.explorer_preview_path.as_deref().is_some_and(gone) {
+            self.close_explorer_preview();
         }
     }
 
-    /// Move all items in the movable queue that have a valid target queue assigned.
-    pub fn move_all_movable_items(&mut self) -> (usize, usize) {
-        if self.movable_items.is_empty() {
-            return (0, 0);
+    /// Move staged Items to their queue folders on a background thread, so a large
+    /// cross-drive move never freezes the window. `only` limits it to one item.
+    pub fn start_movable_move(&mut self, only: Option<usize>) {
+        if self.movable_moving {
+            return;
+        }
+        let jobs: Vec<(PathBuf, PathBuf, bool)> = self
+            .movable_items
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| only.is_none_or(|o| o == *i))
+            .filter_map(|(_, item)| {
+                let q = item.target_queue.as_ref()?;
+                let target = self.explorer_queues.iter().find(|fq| &fq.name == q)?.target.clone();
+                Some((item.path.clone(), target, item.path.is_dir()))
+            })
+            .collect();
+        if jobs.is_empty() {
+            self.explorer_status = Some("Choose a queue for the item first.".to_string());
+            return;
         }
 
-        let mut success_count = 0;
-        let mut fail_count = 0;
-        let mut i = 0;
-
-        while i < self.movable_items.len() {
-            if self.movable_items[i].target_queue.is_none() {
-                i += 1;
-                continue;
+        let total = jobs.len();
+        self.movable_moving = true;
+        if let Ok(mut p) = self.movable_move_progress.lock() {
+            *p = (0, total, String::new());
+        }
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.movable_move_rx = Some(rx);
+        let progress = Arc::clone(&self.movable_move_progress);
+        std::thread::spawn(move || {
+            let mut results = Vec::with_capacity(total);
+            for (i, (path, target, was_dir)) in jobs.into_iter().enumerate() {
+                if let Ok(mut p) = progress.lock() {
+                    let name = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+                    *p = (i, total, name);
+                }
+                let moved = move_into_dir(&path, &target);
+                results.push((path, was_dir, moved));
             }
-            if self.move_single_movable_item(i) {
-                success_count += 1;
-                // do not increment i since remove shifts elements
+            if let Ok(mut p) = progress.lock() {
+                *p = (total, total, String::new());
+            }
+            let _ = tx.send(results);
+        });
+    }
+
+    /// Collect a finished background Items move: drop moved items, keep failed ones.
+    pub fn poll_movable_move(&mut self) {
+        let Some(rx) = &self.movable_move_rx else {
+            return;
+        };
+        let results = match rx.try_recv() {
+            Ok(r) => r,
+            Err(std::sync::mpsc::TryRecvError::Empty) => return,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                // Worker died: keep every item that is still at its source.
+                self.movable_moving = false;
+                self.movable_move_rx = None;
+                self.movable_items.retain(|m| m.path.symlink_metadata().is_ok());
+                self.explorer_status = Some("Moving stopped unexpectedly. Items not moved are still staged.".into());
+                self.explorer_reload();
+                return;
+            }
+        };
+        self.movable_moving = false;
+        self.movable_move_rx = None;
+        let mut ok = 0usize;
+        let mut failed = 0usize;
+        for (path, was_dir, moved) in results {
+            if moved {
+                ok += 1;
+                self.movable_items.retain(|m| m.path != path);
+                self.forget_moved_path(&path, was_dir);
             } else {
-                fail_count += 1;
-                i += 1;
+                failed += 1;
             }
         }
-
+        self.explorer_status = Some(if failed == 0 {
+            format!("Moved {ok} item(s).")
+        } else {
+            format!("Moved {ok} item(s); {failed} failed and are still staged.")
+        });
         self.explorer_reload();
-        (success_count, fail_count)
     }
 
     /// Re-pick the destination folder for queue[idx].
@@ -351,19 +383,11 @@ impl SortwiseApp {
                         .map(|n| n.to_string_lossy().to_string())
                         .unwrap_or_default();
                     if let Ok(mut prog) = progress.lock() {
-                        *prog = (current_idx, total_files, fname.clone());
+                        *prog = (current_idx, total_files, fname);
                     }
                     current_idx += 1;
 
-                    let moved = if p.is_dir() {
-                        let dest = unique_dir_dest(&target_dir, p.file_name().unwrap_or_default());
-                        fast_move_dir(&p, &dest).is_ok()
-                    } else if p.is_file() {
-                        let dest = unique_file_dest(&target_dir, &p);
-                        fast_move(&p, &dest).is_ok()
-                    } else {
-                        false
-                    };
+                    let moved = move_into_dir(&p, &target_dir);
 
                     if moved {
                         success_count += 1;

@@ -114,6 +114,27 @@ pub(crate) fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -
     Ok(())
 }
 
+/// Move one file or folder into `target_dir`, creating it if needed. A name that already
+/// exists there is never overwritten: the incoming item gets a unique name (`name_1.ext`,
+/// `Folder_2`). Returns whether the item left its source.
+pub(crate) fn move_into_dir(path: &Path, target_dir: &Path) -> bool {
+    if !target_dir.is_dir() && std::fs::create_dir_all(target_dir).is_err() {
+        return false;
+    }
+    let Ok(meta) = path.symlink_metadata() else {
+        return false;
+    };
+    if meta.is_dir() {
+        let dest = unique_dir_dest(target_dir, path.file_name().unwrap_or_default());
+        fast_move_dir(path, &dest).is_ok()
+    } else if meta.is_file() {
+        let dest = unique_file_dest(target_dir, path);
+        fast_move(path, &dest).is_ok()
+    } else {
+        false
+    }
+}
+
 /// Unique destination for a directory: `Name`, then `Name_2`, `Name_3`, …
 /// Never overwrites an existing directory, file, or symlink.
 pub fn unique_dir_dest(target_dir: &std::path::Path, folder_name: impl AsRef<std::ffi::OsStr>) -> PathBuf {

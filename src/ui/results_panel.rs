@@ -15,7 +15,7 @@ use sortwise::action_log::{self, ActionLogEntry};
 use sortwise::action_plan::{self, ActionPlan};
 use sortwise::resolver::{self, trash_batch};
 use sortwise::summarize_folders;
-use sortwise::types::{self, ActionManifest, ActionMode, DuplicateGroup, ManifestAction, ScanResult};
+use sortwise::types::{self, ActionManifest, ActionMode, ManifestAction, ScanResult};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -1066,26 +1066,7 @@ pub(crate) fn prune_paths_from_results(
         .map(|f| removed_paths.contains(&f.path))
         .unwrap_or(false);
 
-    let mut next: Vec<DuplicateGroup> = Vec::new();
-    for mut g in std::mem::take(&mut res.duplicate_groups) {
-        let keep_path = g.files.get(g.keep_index).map(|f| f.path.clone());
-        g.files.retain(|f| !removed_paths.contains(&f.path));
-        if g.files.len() < 2 {
-            continue;
-        }
-        // Follow the same keep file to its new position; only fall back if it was removed.
-        g.keep_index = keep_path
-            .and_then(|k| g.files.iter().position(|f| f.path == k))
-            .unwrap_or(0);
-        for (i, f) in g.files.iter_mut().enumerate() {
-            f.is_keep = i == g.keep_index;
-        }
-        let total: u64 = g.files.iter().map(|f| f.size).sum();
-        let keep_sz = g.files[g.keep_index].size;
-        g.total_wasted_bytes = total.saturating_sub(keep_sz);
-        next.push(g);
-    }
-    res.duplicate_groups = next;
+    res.duplicate_groups = action_plan::prune_groups(std::mem::take(&mut res.duplicate_groups), removed_paths);
     res.stats.duplicate_groups = res.duplicate_groups.len() as u64;
     res.stats.total_wasted_bytes = res
         .duplicate_groups

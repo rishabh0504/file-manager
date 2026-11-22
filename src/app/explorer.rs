@@ -135,15 +135,18 @@ impl SortwiseApp {
             }
         }
 
-        let Some(q) = self.explorer_queues.get_mut(idx) else { return };
-        let qname = q.name.clone();
+        if idx >= self.explorer_queues.len() {
+            return;
+        }
+        let qname = self.explorer_queues[idx].name.clone();
         let mut added = 0usize;
         let mut skipped = 0usize;
         for path in to_stage {
-            if q.items.contains(&path) {
+            if self.explorer_queues[idx].items.contains(&path) {
                 skipped += 1;
             } else {
-                q.items.push(path);
+                self.unstage_elsewhere(idx, &path);
+                self.explorer_queues[idx].items.push(path);
                 added += 1;
             }
         }

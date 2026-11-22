@@ -130,6 +130,10 @@ pub struct SortwiseApp {
     pub explorer_queue_submit_progress: std::sync::Arc<std::sync::Mutex<(usize, usize, String)>>,
     /// Queue index being submitted (so we can clear its moved items on completion).
     pub explorer_queue_submitting_idx: Option<usize>,
+    /// Background move of staged Items (`start_movable_move`).
+    pub movable_moving: bool,
+    pub movable_move_rx: Option<std::sync::mpsc::Receiver<Vec<(PathBuf, bool, bool)>>>,
+    pub movable_move_progress: std::sync::Arc<std::sync::Mutex<(usize, usize, String)>>,
     // ---- Folder Modal state ----
     pub folder_modal_open: bool,
     pub folder_modal_path: Option<PathBuf>,
@@ -340,6 +344,9 @@ impl Default for SortwiseApp {
             explorer_queue_submit_rx: None,
             explorer_queue_submit_progress: std::sync::Arc::new(std::sync::Mutex::new((0, 0, String::new()))),
             explorer_queue_submitting_idx: None,
+            movable_moving: false,
+            movable_move_rx: None,
+            movable_move_progress: std::sync::Arc::new(std::sync::Mutex::new((0, 0, String::new()))),
             folder_modal_open: false,
             folder_modal_path: None,
             folder_modal_entries: Vec::new(),

@@ -140,3 +140,29 @@ pub fn for_same_folder(result: &ScanResult) -> ActionPlan {
     }
     ActionPlan::build(items)
 }
+
+/// Remove `removed` paths from duplicate groups after an action.
+///
+/// Groups left with fewer than two files disappear. Each surviving group keeps the **same**
+/// keep file it had before (found by path, not by index); only if that file itself was removed
+/// does the first remaining file become the keep. Wasted bytes are recomputed.
+pub fn prune_groups(groups: Vec<DuplicateGroup>, removed: &HashSet<PathBuf>) -> Vec<DuplicateGroup> {
+    let mut next = Vec::with_capacity(groups.len());
+    for mut g in groups {
+        let keep_path = g.files.get(g.keep_index).map(|f| f.path.clone());
+        g.files.retain(|f| !removed.contains(&f.path));
+        if g.files.len() < 2 {
+            continue;
+        }
+        g.keep_index = keep_path
+            .and_then(|k| g.files.iter().position(|f| f.path == k))
+            .unwrap_or(0);
+        for (i, f) in g.files.iter_mut().enumerate() {
+            f.is_keep = i == g.keep_index;
+        }
+        let total: u64 = g.files.iter().map(|f| f.size).sum();
+        g.total_wasted_bytes = total.saturating_sub(g.files[g.keep_index].size);
+        next.push(g);
+    }
+    next
+}

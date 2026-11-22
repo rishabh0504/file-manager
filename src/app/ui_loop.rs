@@ -75,9 +75,10 @@ impl eframe::App for SortwiseApp {
 
         self.poll_archive_files_move_result();
         self.poll_queue_submit_result();
+        self.poll_movable_move();
 
         // Keep repainting while a move is in progress so the progress bar updates
-        if self.archive_files_moving || self.explorer_queue_submitting {
+        if self.archive_files_moving || self.explorer_queue_submitting || self.movable_moving {
             ctx.request_repaint_after(std::time::Duration::from_millis(100));
         }
 

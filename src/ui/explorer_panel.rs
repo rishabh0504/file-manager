@@ -1967,7 +1967,7 @@ fn items_body(
                                 }
                             });
                             if ui
-                                .add_enabled(target.is_some(), egui::Button::new("Move now"))
+                                .add_enabled(target.is_some() && !app.movable_moving, egui::Button::new("Move now"))
                                 .on_hover_text("Move this item to its queue's folder now")
                                 .clicked()
                             {
@@ -2041,11 +2041,20 @@ fn items_footer(app: &mut SortwiseApp, ui: &mut egui::Ui, queue_names: &[String]
         )
         .fill(crate::ui::style::pal().accent);
         if ui
-            .add_enabled(ready > 0, move_btn)
+            .add_enabled(ready > 0 && !app.movable_moving, move_btn)
             .on_hover_text("Move each sent item to its queue's folder")
             .clicked()
         {
             *act = Some(Act::MoveAllMovable);
+        }
+        if app.movable_moving {
+            let (done, total, _) = app
+                .movable_move_progress
+                .lock()
+                .map(|g| g.clone())
+                .unwrap_or((0, 0, String::new()));
+            ui.spinner();
+            ui.label(muted(format!("Moving… {done}/{total}")));
         }
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if ui
@@ -3126,10 +3135,10 @@ fn apply_action(app: &mut SortwiseApp, act: Option<Act>) {
         Act::DeleteQueue(i) => app.explorer_delete_queue(i),
         Act::ChangeQueueTarget(i) => app.explorer_change_queue_target(i),
         Act::MoveSingleMovable(idx) => {
-            app.move_single_movable_item(idx);
+            app.start_movable_move(Some(idx));
         }
         Act::MoveAllMovable => {
-            app.move_all_movable_items();
+            app.start_movable_move(None);
         }
         Act::RemoveMovable(idx) => app.remove_from_movable(idx),
         Act::ClearMovable => app.clear_movable_items(),

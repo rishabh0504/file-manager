@@ -329,8 +329,8 @@ fn test_movable_queue_individual_and_bulk_move_with_renaming() {
     // item 2 left unassigned for now
 
     // 3. Move individual item 0 (clip1.mp4 to Person A)
-    let moved = app.move_single_movable_item(0);
-    assert!(moved);
+    app.start_movable_move(Some(0));
+    wait_for_movable_move(&mut app);
     assert_eq!(app.movable_items.len(), 2);
     assert!(!vid1.exists(), "Original file should be moved");
     // Check automatic non-destructive renaming
@@ -339,9 +339,9 @@ fn test_movable_queue_individual_and_bulk_move_with_renaming() {
 
     // 4. Assign queue for remaining item and move bulk
     app.movable_items[1].target_queue = Some("Person B".to_string());
-    let (success, failed) = app.move_all_movable_items();
-    assert_eq!(success, 2);
-    assert_eq!(failed, 0);
+    app.start_movable_move(None);
+    wait_for_movable_move(&mut app);
+    assert_eq!(app.explorer_status.as_deref(), Some("Moved 2 item(s)."));
     assert_eq!(app.movable_items.len(), 0);
     assert!(dest_b.join("clip2.mp4").exists());
     assert!(dest_b.join("clip3.mp4").exists());
@@ -497,4 +497,48 @@ fn unique_destinations_keep_non_utf8_names() {
     assert_eq!(dest.file_name().unwrap(), name);
     let folder = std::ffi::OsStr::from_bytes(b"f\xe9te");
     assert_eq!(unique_dir_dest(target, folder).file_name().unwrap(), folder);
+}
+
+/// Drive the background Items move to completion, as the frame loop would.
+fn wait_for_movable_move(app: &mut SortwiseApp) {
+    let start = std::time::Instant::now();
+    while app.movable_moving {
+        assert!(start.elapsed() < std::time::Duration::from_secs(10), "move did not finish");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        app.poll_movable_move();
+    }
+}
+
+#[test]
+fn a_failed_items_move_stays_staged() {
+    let root = scratch_dir("items_fail");
+    let target = root.join("dest");
+    std::fs::create_dir_all(&target).unwrap();
+    let mut app = SortwiseApp::default();
+    app.explorer_dir = root.clone();
+    app.explorer_queues.push(FileQueue { name: "Q".into(), target: target.clone(), items: Vec::new() });
+    let missing = root.join("gone.mp4");
+    app.movable_items.push(MovableItem { path: missing.clone(), target_queue: Some("Q".into()) });
+
+    app.start_movable_move(None);
+    wait_for_movable_move(&mut app);
+    assert_eq!(app.movable_items.len(), 1, "failed item must stay staged");
+    assert!(app.explorer_status.as_deref().unwrap_or("").contains("1 failed"));
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_file_is_staged_in_only_one_place() {
+    let mut app = SortwiseApp::default();
+    for name in ["A", "B"] {
+        app.explorer_queues.push(FileQueue { name: name.into(), target: PathBuf::from(format!("/t/{name}")), items: Vec::new() });
+    }
+    let f = PathBuf::from("/src/clip.mp4");
+    app.toggle_movable(f.clone());
+    app.explorer_add_to_queue(0, f.clone());
+    assert!(app.movable_items.is_empty(), "leaves Items when queued");
+    app.explorer_add_to_queue(1, f.clone());
+    assert!(app.explorer_queues[0].items.is_empty(), "moved out of queue A");
+    assert_eq!(app.explorer_queues[1].items, vec![f.clone()]);
+    assert_eq!(app.explorer_status.as_deref(), Some("Moved “clip.mp4” from “A” to “B”."));
 }
