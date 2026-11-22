@@ -77,8 +77,11 @@ pub fn explorer_sidebar(app: &mut SortwiseApp, ui: &mut egui::Ui) {
     // Narrow sidebar (icons only): names move to tooltips.
     let collapsed = ui.available_width() < 120.0;
     if !collapsed {
-        ui.label(muted("PLACES"));
-        ui.add_space(6.0);
+        ui.horizontal(|ui| {
+            ui.add_space(12.0);
+            ui.label(crate::ui::style::eyebrow("Places"));
+        });
+        ui.add_space(2.0);
     }
 
     let mut nav: Option<PathBuf> = None;
@@ -90,8 +93,6 @@ pub fn explorer_sidebar(app: &mut SortwiseApp, ui: &mut egui::Ui) {
     }
 
     ui.add_space(8.0);
-    ui.separator();
-    ui.add_space(6.0);
     let open_clicked = if collapsed {
         ui.add(
             egui::Button::new(RichText::new(Icons::FOLDER_OPEN).size(15.0).strong())
@@ -100,7 +101,14 @@ pub fn explorer_sidebar(app: &mut SortwiseApp, ui: &mut egui::Ui) {
         .on_hover_text("Open folder…")
         .clicked()
     } else {
-        secondary_button(ui, "Open folder…").clicked()
+        ui.add_sized(
+            egui::vec2(ui.available_width(), crate::ui::style::H_CONTROL),
+            egui::Button::new(RichText::new(format!("{}  Open folder…", Icons::FOLDER_OPEN)).color(crate::ui::style::pal().text))
+                .fill(crate::ui::style::pal().surface)
+                .stroke(egui::Stroke::new(1.0, crate::ui::style::pal().border))
+                .rounding(egui::Rounding::same(crate::ui::style::R_SM)),
+        )
+        .clicked()
     };
     if open_clicked {
         if let Some(dir) = rfd::FileDialog::new().pick_folder() {
@@ -114,27 +122,40 @@ pub fn explorer_sidebar(app: &mut SortwiseApp, ui: &mut egui::Ui) {
 }
 
 fn place_row(ui: &mut egui::Ui, icon: &str, label: &str, selected: bool, collapsed: bool) -> egui::Response {
+    let p = crate::ui::style::pal();
+    let (rect, resp) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 30.0), egui::Sense::click());
     let bg = if selected {
-        crate::ui::style::pal().accent_soft
+        p.accent_soft
+    } else if resp.hovered() {
+        p.hover
     } else {
         Color32::TRANSPARENT
     };
-    egui::Frame::none()
-        .fill(bg)
-        .rounding(egui::Rounding::same(7.0))
-        .inner_margin(egui::Margin::symmetric(8.0, 6.0))
-        .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.label(RichText::new(icon).size(15.0));
-                if !collapsed {
-                    ui.add_space(4.0);
-                    ui.label(RichText::new(label).color(crate::ui::style::pal().text));
-                    ui.allocate_space(egui::vec2(ui.available_width(), 0.0));
-                }
-            });
-        })
-        .response
-        .interact(egui::Sense::click())
+    ui.painter().rect_filled(rect, egui::Rounding::same(crate::ui::style::R_SM), bg);
+    let icon_fg = if selected { p.accent } else { p.text_muted };
+    let fg = if selected { p.accent_on_soft } else { p.text };
+    if collapsed {
+        ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, icon, egui::FontId::proportional(16.0), icon_fg);
+    } else {
+        ui.painter().text(
+            egui::pos2(rect.left() + 12.0, rect.center().y),
+            egui::Align2::LEFT_CENTER,
+            icon,
+            egui::FontId::proportional(15.0),
+            icon_fg,
+        );
+        let galley = ui.painter().layout(
+            label.to_string(),
+            egui::FontId::proportional(13.0),
+            fg,
+            rect.width() - 46.0,
+        );
+        ui.painter().galley(egui::pos2(rect.left() + 38.0, rect.center().y - galley.size().y / 2.0), galley, fg);
+    }
+    if resp.hovered() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+    resp
 }
 
 fn places() -> Vec<(&'static str, String, PathBuf)> {
@@ -313,9 +334,12 @@ const TOOLBAR_H: f32 = 40.0;
 const TOOLBAR_FIXED_RIGHT_W: f32 = 190.0;
 
 fn icon_nav(ui: &mut egui::Ui, enabled: bool, icon: &str, tip: &str) -> bool {
+    let p = crate::ui::style::pal();
     ui.add_enabled(
         enabled,
-        egui::Button::new(RichText::new(icon).size(15.0).strong()).min_size(egui::vec2(28.0, 26.0)),
+        egui::Button::new(RichText::new(icon).size(16.0).color(if enabled { p.text } else { p.text_muted }))
+            .frame(false)
+            .min_size(egui::vec2(crate::ui::style::H_CONTROL, crate::ui::style::H_CONTROL)),
     )
     .on_hover_text(tip)
     .clicked()
@@ -324,8 +348,8 @@ fn icon_nav(ui: &mut egui::Ui, enabled: bool, icon: &str, tip: &str) -> bool {
 /// One row: navigation, breadcrumb (fills the middle), then search, view, sort and filter, new folder.
 fn toolbar(app: &mut SortwiseApp, ui: &mut egui::Ui, act: &mut Option<Act>) {
     ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 6.0;
-        // Icon buttons: the app-wide 16 px padding would make each one ~60 px wide.
+        ui.spacing_mut().item_spacing.x = 4.0;
+        // Icon buttons: the app-wide padding would make each one too wide.
         ui.spacing_mut().button_padding = egui::vec2(6.0, 4.0);
         let can_back = !app.explorer_back.is_empty();
         let can_fwd = !app.explorer_fwd.is_empty();
@@ -356,9 +380,9 @@ fn toolbar(app: &mut SortwiseApp, ui: &mut egui::Ui, act: &mut Option<Act>) {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if ui
                 .add(
-                    egui::Button::new(RichText::new(Icons::NEW_FOLDER).size(15.0).strong().color(crate::ui::style::pal().text))
-                        .fill(crate::ui::style::pal().surface_raised)
-                        .min_size(egui::vec2(30.0, 26.0)),
+                    egui::Button::new(RichText::new(Icons::NEW_FOLDER).size(16.0).color(crate::ui::style::pal().text))
+                        .frame(false)
+                        .min_size(egui::vec2(crate::ui::style::H_CONTROL, crate::ui::style::H_CONTROL)),
                 )
                 .on_hover_text("New folder")
                 .clicked()
@@ -367,11 +391,14 @@ fn toolbar(app: &mut SortwiseApp, ui: &mut egui::Ui, act: &mut Option<Act>) {
             }
             sort_filter_menu(app, ui);
             view_toggle(app, ui);
+            ui.add_space(6.0);
             ui.add(
                 egui::TextEdit::singleline(&mut app.explorer_filter)
-                    .hint_text("Search (recursive)…")
+                    .hint_text(format!("{}  Search", Icons::SEARCH))
+                    .margin(egui::Margin::symmetric(8.0, 6.0))
                     .desired_width(search_w),
-            );
+            )
+            .on_hover_text("Searches this folder and every folder inside it");
         });
     });
 
@@ -405,7 +432,7 @@ fn toolbar(app: &mut SortwiseApp, ui: &mut egui::Ui, act: &mut Option<Act>) {
 
 /// Sort field and direction, file-type filter and grouping, in one menu.
 fn sort_filter_menu(app: &mut SortwiseApp, ui: &mut egui::Ui) {
-    ui.menu_button(RichText::new(Icons::SORT_FILTER).size(15.0).strong(), |ui| {
+    ui.menu_button(RichText::new(Icons::SORT_FILTER).size(16.0), |ui| {
         ui.label(muted("Sort by"));
         let mut key = app.explorer_sort_key;
         let mut asc = app.explorer_sort_asc;
@@ -452,20 +479,26 @@ fn sort_filter_menu(app: &mut SortwiseApp, ui: &mut egui::Ui) {
 
 fn view_toggle(app: &mut SortwiseApp, ui: &mut egui::Ui) {
     let seg = |ui: &mut egui::Ui, icon: &str, active: bool, tip: &str| -> bool {
-        let (fg, bg) = if active {
-            (crate::ui::style::pal().on_accent, crate::ui::style::pal().accent)
-        } else {
-            (crate::ui::style::pal().text, crate::ui::style::pal().surface_raised)
-        };
+        let p = crate::ui::style::pal();
+        let (fg, bg) = if active { (p.accent_on_soft, p.accent_soft) } else { (p.text_muted, Color32::TRANSPARENT) };
         ui.add(
-            egui::Button::new(RichText::new(icon).size(15.0).strong().color(fg))
+            egui::Button::new(RichText::new(icon).size(15.0).color(fg))
                 .fill(bg)
+                .stroke(egui::Stroke::NONE)
+                .rounding(egui::Rounding::same(4.0))
                 .min_size(egui::vec2(28.0, 24.0)),
         )
         .on_hover_text(tip)
         .clicked()
     };
-    ui.spacing_mut().item_spacing.x = 4.0;
+    // Right-to-left parent layout: the frame keeps the three buttons together as one control.
+    egui::Frame::none()
+        .fill(crate::ui::style::pal().surface)
+        .stroke(egui::Stroke::new(1.0, crate::ui::style::pal().border))
+        .rounding(egui::Rounding::same(crate::ui::style::R_SM))
+        .inner_margin(egui::Margin::same(2.0))
+        .show(ui, |ui| {
+    ui.spacing_mut().item_spacing.x = 2.0;
     if seg(ui, Icons::VIEW_LIST, app.explorer_view_mode == ExplorerViewMode::List, "List view") {
         app.explorer_view_mode = ExplorerViewMode::List;
     }
@@ -477,13 +510,15 @@ fn view_toggle(app: &mut SortwiseApp, ui: &mut egui::Ui) {
             app.explorer_view_mode = ExplorerViewMode::Folders;
             app.explorer_reload();
         }
+        });
 }
 
 fn breadcrumb_bar(app: &SortwiseApp, ui: &mut egui::Ui, act: &mut Option<Act>) {
     egui::Frame::none()
-        .fill(crate::ui::style::pal().surface_raised)
-        .rounding(egui::Rounding::same(7.0))
-        .inner_margin(egui::Margin::symmetric(10.0, 6.0))
+        .fill(crate::ui::style::pal().surface)
+        .stroke(egui::Stroke::new(1.0, crate::ui::style::pal().border))
+        .rounding(egui::Rounding::same(crate::ui::style::R_SM))
+        .inner_margin(egui::Margin::symmetric(10.0, 1.0))
         .show(ui, |ui| {
             // Thin horizontal scrollbar so long paths don't dominate the bar height.
             ui.spacing_mut().scroll.bar_width = 4.0;
@@ -495,7 +530,8 @@ fn breadcrumb_bar(app: &SortwiseApp, ui: &mut egui::Ui, act: &mut Option<Act>) {
                 .id_salt("breadcrumb_scroll")
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        ui.set_min_height(28.0);
+                        ui.set_min_height(26.0);
+                        ui.spacing_mut().item_spacing.x = 4.0;
                         let mut crumbs: Vec<PathBuf> =
                             app.explorer_dir.ancestors().map(|p| p.to_path_buf()).collect();
                         crumbs.reverse();
@@ -503,8 +539,8 @@ fn breadcrumb_bar(app: &SortwiseApp, ui: &mut egui::Ui, act: &mut Option<Act>) {
                             if i > 0 {
                                 ui.label(
                                     RichText::new("›")
-                                        .size(14.0)
-                                        .color(crate::ui::style::pal().border_strong),
+                                        .size(13.0)
+                                        .color(crate::ui::style::pal().text_muted),
                                 );
                             }
                             let name = c
@@ -515,16 +551,15 @@ fn breadcrumb_bar(app: &SortwiseApp, ui: &mut egui::Ui, act: &mut Option<Act>) {
                             let color = if last {
                                 crate::ui::style::pal().text
                             } else {
-                                crate::ui::style::pal().accent_on_soft
+                                crate::ui::style::pal().text_muted
                             };
-                            if ui
-                                .add(
-                                    egui::Label::new(
-                                        RichText::new(name).size(14.0).color(color),
-                                    )
-                                    .sense(egui::Sense::click()),
-                                )
-                                .clicked()
+                            let text = RichText::new(name).size(13.0).color(color);
+                            let text = if last { text.strong() } else { text };
+                            let crumb = ui.add(egui::Label::new(text).sense(egui::Sense::click()));
+                            if crumb.hovered() && !last {
+                                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                            }
+                            if crumb.clicked()
                             {
                                 *act = Some(Act::Nav(c.clone()));
                             }
@@ -587,9 +622,8 @@ fn file_table(app: &mut SortwiseApp, ui: &mut egui::Ui, act: &mut Option<Act>, t
         .show(ui, |ui| {
             // Column header (List view only — Grid sorts via the toolbar control).
             if is_list {
-                egui::Frame::none()
-                    .fill(crate::ui::style::pal().surface_raised)
-                    .inner_margin(egui::Margin::symmetric(10.0, 7.0))
+                let header_resp = egui::Frame::none()
+                    .inner_margin(egui::Margin::symmetric(10.0, 6.0))
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
                             let tw = table_widths(ui.available_width());
@@ -615,6 +649,8 @@ fn file_table(app: &mut SortwiseApp, ui: &mut egui::Ui, act: &mut Option<Act>, t
                             }
                         });
                     });
+                let r = header_resp.response.rect;
+                ui.painter().hline(r.x_range(), r.bottom(), egui::Stroke::new(1.0, crate::ui::style::pal().border));
             }
 
             if visible.is_empty() {
@@ -963,6 +999,7 @@ fn header(ui: &mut egui::Ui, label: &str, width: f32) -> bool {
             .add(
                 egui::Label::new(
                     RichText::new(label)
+                        .size(12.0)
                         .strong()
                         .color(crate::ui::style::pal().text_muted),
                 )
@@ -1005,8 +1042,11 @@ fn row_ui(
     let checked = app.explorer_is_recursive_search && app.explorer_search_checked.contains(&e.path);
     let in_selection = app.explorer_multi.contains(&e.path);
     let staged = app.movable_items.iter().any(|m| m.path == e.path);
+    let row_rect = egui::Rect::from_min_size(ui.cursor().min, egui::vec2(ui.available_width(), 30.0));
     let fill = if selected || checked || in_selection {
         crate::ui::style::pal().accent_soft
+    } else if ui.rect_contains_pointer(row_rect) {
+        crate::ui::style::pal().hover
     } else {
         crate::ui::style::pal().surface
     };
@@ -1024,6 +1064,7 @@ fn row_ui(
     let mut checkbox_clicked = false;
     let resp = egui::Frame::none()
         .fill(fill)
+        .rounding(egui::Rounding::same(crate::ui::style::R_SM))
         .inner_margin(egui::Margin::symmetric(10.0, 3.0))
         .show(ui, |ui| {
             ui.set_width(ui.available_width());

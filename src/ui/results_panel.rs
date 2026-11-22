@@ -21,8 +21,8 @@ use std::path::{Path, PathBuf};
 
 /// Height of one group card in the list, including the gap below it (P-2).
 /// Cards use a fixed content height so `show_rows` can position them without measuring.
-const DUP_ROW_H: f32 = 84.0;
-const DUP_CARD_CONTENT_H: f32 = 62.0;
+const DUP_ROW_H: f32 = 54.0;
+const DUP_CARD_CONTENT_H: f32 = 36.0;
 
 pub fn results_dup_list_panel(
     app: &mut SortwiseApp,
@@ -34,16 +34,16 @@ pub fn results_dup_list_panel(
         return;
     };
 
-    ui.label(section_title("Duplicate groups"));
-    ui.add_space(6.0);
-    ui.horizontal_wrapped(|ui| {
-        stat_chip(ui, "Groups", &format!("{}", result.stats.duplicate_groups));
-        stat_chip(ui, "Reclaimable", &format_bytes(result.stats.total_wasted_bytes));
+    ui.horizontal(|ui| {
+        ui.label(section_title("Groups"));
+        style::pill(ui, &format!("{}", result.stats.duplicate_groups), style::pal().text_muted, style::pal().surface_raised);
     });
-    ui.add_space(8.0);
+    ui.label(muted(format!("{} reclaimable", format_bytes(result.stats.total_wasted_bytes))));
+    ui.add_space(10.0);
     ui.add(
         egui::TextEdit::singleline(&mut app.results_filter)
-            .hint_text("Filter by path or hash prefix")
+            .hint_text(format!("{}  Filter by path or hash", crate::ui::icons::Icons::SEARCH))
+            .margin(egui::Margin::symmetric(8.0, 6.0))
             .desired_width(f32::INFINITY),
     );
     if let Some((fa, fb)) = app.results_filter_folders.clone() {
@@ -57,10 +57,11 @@ pub fn results_dup_list_panel(
             }
         });
     }
-    ui.add_space(4.0);
-    // Wraps so the chips never push the sidebar wider than its 300 px slot.
+    ui.add_space(8.0);
+    // Wraps so the chips never push the sidebar wider than its slot.
     ui.horizontal_wrapped(|ui| {
-        ui.spacing_mut().item_spacing.x = 4.0;
+        ui.spacing_mut().item_spacing = egui::vec2(4.0, 4.0);
+        ui.spacing_mut().button_padding = egui::vec2(7.0, 2.0);
         let kinds = [
             None,
             Some(MediaKind::Image),
@@ -70,21 +71,17 @@ pub fn results_dup_list_panel(
         ];
         for kind in kinds {
             let label = kind.map_or("All", MediaKind::label);
-            let chip = RichText::new(label).size(11.5);
-            if ui.selectable_label(app.results_kind_filter == kind, chip).clicked() {
+            if style::chip(ui, label, app.results_kind_filter == kind).clicked() {
                 app.results_kind_filter = kind;
             }
         }
     });
-    ui.add_space(2.0);
-    ui.label(muted("Up / Down or J / K to move between groups."));
-
-    ui.add_space(4.0);
+    ui.add_space(8.0);
     ui.horizontal(|ui| {
-        ui.label(muted("Sort:"));
+        ui.label(muted("Sort"));
         egui::ComboBox::new(egui::Id::new("dup_group_sort"), "")
             // Fixed width: available_width() here is the panel's max on the first frame and would widen it.
-            .width(200.0)
+            .width(190.0)
             .selected_text(match app.dup_group_sort {
                 DupGroupSortOrder::ScanOrder => "Scan order (#1, #2, …)",
                 DupGroupSortOrder::WastedBytesDesc => "Reclaimable — largest first",
@@ -117,9 +114,9 @@ pub fn results_dup_list_panel(
     sync_selection_with_filter(app, &cache.visible, &result);
     apply_dup_list_keyboard_navigation(ctx, app, &cache.visible, &result);
 
-    ui.add_space(8.0);
-    ui.separator();
     ui.add_space(4.0);
+    ui.label(RichText::new("↑ ↓ or J / K to move between groups").size(11.0).color(style::pal().text_muted));
+    ui.add_space(8.0);
 
     // Scroll requests (keyboard, selection) become an offset, since off-screen rows are not laid out.
     let mut scroll = ScrollArea::vertical()
@@ -182,34 +179,36 @@ fn draw_dup_group_card(
 ) {
     let g = &result.duplicate_groups[gi];
     let selected = app.results_selected_group == Some(gi);
+    let p = style::pal();
 
-    let card_bg = if selected { crate::ui::style::pal().surface_raised } else { crate::ui::style::pal().surface };
-    let stroke_color = if selected { crate::ui::style::pal().accent } else { crate::ui::style::pal().border };
-
-    let response = egui::Frame::none()
-        .fill(card_bg)
-        .stroke(egui::Stroke::new(1.0, stroke_color))
-        .rounding(egui::Rounding::same(8.0))
-        .inner_margin(egui::Margin::symmetric(10.0, 8.0))
+    let frame = egui::Frame::none()
+        .fill(if selected { p.accent_soft } else { p.surface })
+        .stroke(egui::Stroke::new(1.0, if selected { p.accent } else { p.border }))
+        .rounding(egui::Rounding::same(style::R_MD))
+        .inner_margin(egui::Margin::symmetric(12.0, 8.0));
+    let response = frame
         .show(ui, |ui| {
             ui.set_min_height(DUP_CARD_CONTENT_H);
+            ui.set_width(ui.available_width());
             ui.vertical(|ui| {
+                ui.spacing_mut().item_spacing.y = 2.0;
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new(format!("Group #{}", gi + 1)).strong().size(13.0).color(crate::ui::style::pal().text));
+                    let title = if selected { p.accent_on_soft } else { p.text };
+                    ui.label(RichText::new(format!("Group #{}", gi + 1)).strong().size(13.0).color(title));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(muted(format!("{} files", g.files.len())));
+                        ui.label(RichText::new(format_bytes(g.total_wasted_bytes)).strong().size(12.5).color(p.text));
                     });
                 });
-                ui.add_space(4.0);
-                ui.horizontal(|ui| {
-                    ui.label(crate::ui::style::muted("Reclaimable"));
-                    ui.label(egui::RichText::new(format_bytes(g.total_wasted_bytes)).strong());
-                });
+                ui.label(muted(format!("{} files", g.files.len())));
             });
         })
         .response;
 
-    if response.interact(egui::Sense::click()).clicked() {
+    let response = response.interact(egui::Sense::click());
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+    if response.clicked() {
         app.results_selected_group = Some(gi);
         app.results_selected_file_in_group = g.keep_index;
         app.clear_preview_cache();
@@ -586,12 +585,9 @@ fn video_controls_bar(ui: &mut egui::Ui, app: &mut SortwiseApp, path: &Path, _ct
 fn action_row(app: &mut SortwiseApp, ui: &mut egui::Ui, result: &ScanResult) {
     // One toolbar card: everyday actions on the left, mode and the primary action on the right.
     egui::Frame::none()
-        .fill(crate::ui::style::pal().surface)
-        .stroke(egui::Stroke::new(1.0, crate::ui::style::pal().border))
-        .rounding(egui::Rounding::same(10.0))
-        .inner_margin(egui::Margin::symmetric(10.0, 8.0))
+        .inner_margin(egui::Margin::symmetric(0.0, 2.0))
         .show(ui, |ui| {
-            // Wraps onto a second line when the right column is narrow (640 px window).
+            // Wraps onto a second line when the right column is narrow.
             ui.horizontal_wrapped(|ui| {
                 if secondary_button(ui, "+ New scan").clicked() {
                     app.view = crate::app::AppView::Scan;
@@ -638,16 +634,26 @@ fn action_row(app: &mut SortwiseApp, ui: &mut egui::Ui, result: &ScanResult) {
 
     // Report-only state. The error count lives in the status bar.
     if app.action_mode == ActionMode::DryRun {
-        ui.add_space(6.0);
-        ui.horizontal_wrapped(|ui| {
-            // U9: say plainly that nothing is changing, and offer the way to change it.
-            ui.colored_label(crate::ui::style::pal().warning, "Report only");
-            ui.label(muted("Nothing is moved or deleted."));
-            if secondary_button(ui, "Switch to Trash mode").clicked() {
-                app.action_mode = ActionMode::Delete;
-                app.apply_message = Some("Mode set to Trash. Apply actions still asks before it runs.".into());
-            }
-        });
+        ui.add_space(8.0);
+        let p = style::pal();
+        egui::Frame::none()
+            .fill(p.warning_soft)
+            .rounding(egui::Rounding::same(style::R_MD))
+            .inner_margin(egui::Margin::symmetric(12.0, 6.0))
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                ui.horizontal_wrapped(|ui| {
+                    // U9: say plainly that nothing is changing, and offer the way to change it.
+                    ui.label(RichText::new(format!("{}  Report only", crate::ui::icons::Icons::SEARCH)).strong().color(p.warning_on_soft));
+                    ui.label(RichText::new("Nothing is moved or deleted.").color(p.warning_on_soft));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if secondary_button(ui, "Switch to Trash mode").clicked() {
+                            app.action_mode = ActionMode::Delete;
+                            app.apply_message = Some("Mode set to Trash. Apply actions still asks before it runs.".into());
+                        }
+                    });
+                });
+            });
     }
 }
 
@@ -676,7 +682,10 @@ fn group_action_bar(app: &mut SortwiseApp, ui: &mut egui::Ui, gi: usize, result:
                     .strong()
                     .color(crate::ui::style::pal().on_accent),
             )
-            .fill(crate::ui::style::pal().danger);
+            .fill(crate::ui::style::pal().danger)
+            .stroke(egui::Stroke::NONE)
+            .rounding(egui::Rounding::same(style::R_SM))
+            .min_size(egui::vec2(0.0, style::H_CONTROL));
             let hover = "Move the checked copies in this group to Trash. The keep file is never trashed.";
             if ui.add_enabled(n > 0, trash).on_hover_text(hover).clicked() {
                 let plan = action_plan::for_selected(gi, g, &app.results_selected_files);

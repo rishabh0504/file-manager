@@ -20,19 +20,31 @@ pub fn scan_scroll(ui: &mut egui::Ui, id: &'static str, body: impl FnOnce(&mut e
         });
 }
 
-/// Title block shared by every scan screen: icon, 22 px title, one muted line.
+/// Title block shared by every scan screen: accent icon, title, one muted line.
 pub fn scan_header(ui: &mut egui::Ui, icon: &str, title: &str, desc: &str) {
+    let p = crate::ui::style::pal();
     ui.horizontal(|ui| {
-        ui.label(RichText::new(icon).size(24.0));
-        ui.add_space(4.0);
-        ui.label(RichText::new(title).strong().size(22.0).color(crate::ui::style::pal().text));
+        Frame::none()
+            .fill(p.accent_soft)
+            .rounding(Rounding::same(crate::ui::style::R_MD))
+            .inner_margin(Margin::same(8.0))
+            .show(ui, |ui| {
+                ui.label(RichText::new(icon).size(18.0).color(p.accent));
+            });
+        ui.add_space(6.0);
+        ui.vertical(|ui| {
+            ui.spacing_mut().item_spacing.y = 2.0;
+            ui.label(crate::ui::style::page_title(title));
+            ui.label(RichText::new(desc).color(p.text_muted).size(12.5));
+        });
     });
-    ui.add_space(4.0);
-    ui.label(RichText::new(desc).color(crate::ui::style::pal().text_muted).size(13.0));
-    ui.add_space(16.0);
+    ui.add_space(18.0);
 }
 
-/// Two columns that fill `col_h`: folders on the left, launch card on the right.
+/// Width below which the folders and settings cards stack vertically.
+const STACK_W: f32 = 720.0;
+
+/// Folders on the left, launch card on the right. Below `STACK_W` they stack, settings last.
 /// Both closures get the app, so they run one after the other (no double mutable borrow).
 pub fn scan_columns(
     app: &mut SortwiseApp,
@@ -42,17 +54,30 @@ pub fn scan_columns(
     right: impl FnOnce(&mut SortwiseApp, &mut egui::Ui),
 ) {
     let total_width = ui.available_width();
-    // The launch card adds 28 px of frame padding outside its width, and a 12 px gap sits between columns.
-    // Floor of 240 keeps the Min size row (number + unit + label, about 210 px) inside the card at 640 px.
-    let right_width = 300.0f32.min(total_width * 0.35).max(240.0) - 28.0;
-    let left_width = (total_width - right_width - 28.0 - 12.0).max(280.0);
+    let gap = 16.0;
+    if total_width < STACK_W {
+        ui.allocate_ui(egui::vec2(total_width, 300.0), |ui| {
+            ui.set_width(total_width);
+            left(app, ui);
+        });
+        ui.add_space(gap);
+        ui.allocate_ui(egui::vec2(total_width, 420.0), |ui| {
+            ui.set_width(total_width);
+            right(app, ui);
+        });
+        return;
+    }
+    // Cards add 32 px of frame padding outside their content width.
+    let right_width = (total_width * 0.32).clamp(280.0, 360.0) - 32.0;
+    let left_width = total_width - right_width - 32.0 - gap - 32.0;
+    let col_h = col_h.min(540.0);
 
     ui.horizontal_top(|ui| {
         ui.allocate_ui(egui::vec2(left_width, col_h), |ui| {
             ui.set_width(left_width);
             left(app, ui);
         });
-        ui.add_space(12.0);
+        ui.add_space(gap);
         ui.allocate_ui(egui::vec2(right_width, col_h), |ui| {
             ui.set_width(right_width);
             right(app, ui);
@@ -144,51 +169,70 @@ pub(crate) fn render_folder_box(
     badge_bg: Color32,
     id_salt: &str,
 ) {
-    let border_stroke = Stroke::new(1.0, crate::ui::style::pal().border);
+    let p = crate::ui::style::pal();
+    let _ = badge_bg;
     Frame::none()
-        .fill(crate::ui::style::pal().surface)
-        .stroke(border_stroke)
-        .rounding(Rounding::same(10.0))
-        .inner_margin(Margin::same(14.0))
+        .fill(p.surface)
+        .stroke(Stroke::new(1.0, p.border))
+        .rounding(Rounding::same(crate::ui::style::R_MD))
+        .inner_margin(Margin::same(16.0))
         .show(ui, |ui| {
             ui.set_min_height(ui.available_height());
             ui.vertical(|ui| {
-                // Header
+                // Header: title + count on the left, Clear and Add on the right (own row when narrow).
+                let stacked = ui.available_width() < 520.0;
                 ui.horizontal(|ui| {
                     ui.vertical(|ui| {
-                        ui.label(RichText::new(title).strong().size(14.5).color(crate::ui::style::pal().text));
-                        ui.add_space(1.0);
-                        ui.label(RichText::new(subtitle).size(11.5).color(crate::ui::style::pal().text_muted));
+                        ui.spacing_mut().item_spacing.y = 2.0;
+                        ui.horizontal(|ui| {
+                            ui.label(crate::ui::style::section_title(title));
+                            if !roots.is_empty() {
+                                crate::ui::style::pill(ui, &roots.len().to_string(), p.text_muted, p.surface_raised);
+                            }
+                        });
+                        ui.label(RichText::new(subtitle).size(12.0).color(p.text_muted));
                     });
 
+                    if stacked {
+                        return;
+                    }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let btn = egui::Button::new(
+                            RichText::new(add_label).strong().color(p.on_accent),
+                        )
+                        .fill(accent_btn_color)
+                        .stroke(Stroke::NONE)
+                        .rounding(Rounding::same(crate::ui::style::R_SM))
+                        .min_size(egui::vec2(0.0, crate::ui::style::H_CONTROL));
+                        if ui.add(btn).clicked() {
+                            if let Some(mut folders) = rfd::FileDialog::new().pick_folders() {
+                                roots.append(&mut folders);
+                            }
+                        }
                         if !roots.is_empty() && secondary_button(ui, "Clear").clicked() {
                             roots.clear();
                         }
                     });
                 });
-                ui.add_space(10.0);
-
-                // Add button bar
-                ui.horizontal(|ui| {
-                    let btn = egui::Button::new(
-                        RichText::new(add_label)
-                            .strong()
-                            .size(12.5)
-                            .color(crate::ui::style::pal().on_accent),
-                    )
-                    .fill(accent_btn_color)
-                    .rounding(6.0)
-                    .min_size(egui::vec2(ui.available_width(), 30.0));
-
-                    if ui.add(btn).clicked() {
-                        if let Some(mut folders) = rfd::FileDialog::new().pick_folders() {
-                            roots.append(&mut folders);
+                if stacked {
+                    ui.add_space(8.0);
+                    ui.horizontal(|ui| {
+                        let btn = egui::Button::new(RichText::new(add_label).strong().color(p.on_accent))
+                            .fill(accent_btn_color)
+                            .stroke(Stroke::NONE)
+                            .rounding(Rounding::same(crate::ui::style::R_SM))
+                            .min_size(egui::vec2(0.0, crate::ui::style::H_CONTROL));
+                        if ui.add(btn).clicked() {
+                            if let Some(mut folders) = rfd::FileDialog::new().pick_folders() {
+                                roots.append(&mut folders);
+                            }
                         }
-                    }
-                });
-
-                ui.add_space(10.0);
+                        if !roots.is_empty() && secondary_button(ui, "Clear").clicked() {
+                            roots.clear();
+                        }
+                    });
+                }
+                ui.add_space(12.0);
 
                 // Folder entries or empty state
                 let mut remove_idx = None;
@@ -196,100 +240,73 @@ pub(crate) fn render_folder_box(
 
                 if roots.is_empty() {
                     Frame::none()
-                        .fill(badge_bg)
-                        .stroke(Stroke::new(1.0, crate::ui::style::pal().border))
-                        .rounding(Rounding::same(8.0))
-                        .inner_margin(Margin::symmetric(14.0, 28.0))
+                        .fill(p.surface_raised)
+                        .stroke(Stroke::new(1.0, p.border))
+                        .rounding(Rounding::same(crate::ui::style::R_MD))
+                        .inner_margin(Margin::symmetric(14.0, 32.0))
                         .show(ui, |ui| {
                             ui.set_width(ui.available_width());
                             ui.vertical_centered(|ui| {
-                                ui.label(RichText::new("\u{E256}").size(32.0));
+                                ui.label(RichText::new("\u{E256}").size(28.0).color(p.text_muted));
                                 ui.add_space(6.0);
-                                ui.label(
-                                    RichText::new("No folders selected")
-                                        .strong()
-                                        .size(13.5)
-                                        .color(crate::ui::style::pal().text),
-                                );
+                                ui.label(RichText::new("No folders yet").strong().size(13.5).color(p.text));
                                 ui.add_space(2.0);
-                                ui.label(muted("Click above to select directories"));
+                                ui.label(muted(format!("Use “{}” to choose folders", add_label.trim_start_matches("+ "))));
                             });
                         });
                 } else {
-                    let list_h = 240.0;
                     ScrollArea::vertical()
-                        .max_height(list_h)
+                        .max_height(ui.available_height().max(160.0))
                         .scroll_bar_visibility(ScrollBarVisibility::VisibleWhenNeeded)
-                        .auto_shrink([false, false])
+                        .auto_shrink([false, true])
                         .id_salt(id_salt)
                         .show(ui, |ui| {
                             ui.set_width(ui.available_width());
-                            for (i, p) in roots.iter().enumerate() {
-                                Frame::none()
-                                    .fill(crate::ui::style::pal().surface_raised)
-                                    .stroke(Stroke::new(1.0, crate::ui::style::pal().border))
-                                    .rounding(Rounding::same(6.0))
-                                    .inner_margin(Margin::symmetric(10.0, 8.0))
+                            ui.spacing_mut().item_spacing.y = 0.0;
+                            for (i, path) in roots.iter().enumerate() {
+                                let folder_name = path
+                                    .file_name()
+                                    .map(|n| n.to_string_lossy().to_string())
+                                    .unwrap_or_else(|| path.display().to_string());
+                                let row = Frame::none()
+                                    .inner_margin(Margin::symmetric(8.0, 7.0))
+                                    .rounding(Rounding::same(crate::ui::style::R_SM))
                                     .show(ui, |ui| {
                                         ui.horizontal(|ui| {
-                                            let folder_name = p
-                                                .file_name()
-                                                .map(|n| n.to_string_lossy().to_string())
-                                                .unwrap_or_else(|| p.display().to_string());
-
+                                            ui.label(RichText::new(crate::ui::icons::Icons::FOLDER).size(16.0).color(p.accent));
+                                            ui.add_space(2.0);
                                             ui.vertical(|ui| {
-                                                // Leave room for the remove and move-up buttons; long paths truncate.
-                                                ui.set_max_width(ui.available_width() - 40.0);
-                                                ui.label(
-                                                    RichText::new(&folder_name)
-                                                        .strong()
-                                                        .size(12.5)
-                                                        .color(crate::ui::style::pal().text),
-                                                );
+                                                ui.spacing_mut().item_spacing.y = 1.0;
+                                                // Leave room for the move-up and remove buttons; long paths truncate.
+                                                ui.set_max_width(ui.available_width() - 76.0);
+                                                ui.label(RichText::new(&folder_name).strong().size(13.0).color(p.text));
                                                 ui.add(
                                                     egui::Label::new(
-                                                        RichText::new(p.display().to_string())
-                                                            .size(10.5)
-                                                            .color(crate::ui::style::pal().text_muted),
+                                                        RichText::new(path.display().to_string()).size(11.5).color(p.text_muted),
                                                     )
                                                     .truncate(),
                                                 );
                                             });
-
-                                            ui.with_layout(
-                                                egui::Layout::right_to_left(egui::Align::Center),
-                                                |ui| {
-                                                    if ui
-                                                        .button(
-                                                            RichText::new("\u{E4F6}").size(12.0)
-                                                                .size(11.0)
-                                                                .color(crate::ui::style::pal().text_muted),
-                                                        )
-                                                        .on_hover_text("Remove folder")
+                                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                if crate::ui::style::icon_button(ui, crate::ui::icons::Icons::CLOSE, false)
+                                                    .on_hover_text("Remove folder")
+                                                    .clicked()
+                                                {
+                                                    remove_idx = Some(i);
+                                                }
+                                                if i > 0
+                                                    && crate::ui::style::icon_button(ui, crate::ui::icons::Icons::NAV_UP, false)
+                                                        .on_hover_text("Move up")
                                                         .clicked()
-                                                    {
-                                                        remove_idx = Some(i);
-                                                    }
-                                                    if i > 0 {
-                                                        ui.add_space(2.0);
-                                                        if ui
-                                                            .button(
-                                                                RichText::new("↑").size(13.0)
-                                                                    .size(11.0)
-                                                                    .color(crate::ui::style::pal().text_muted),
-                                                            )
-                                                            .on_hover_text("Move up")
-                                                            .clicked()
-                                                        {
-                                                            swap_up_idx = Some(i);
-                                                        }
-                                                    }
-                                                },
-                                            );
+                                                {
+                                                    swap_up_idx = Some(i);
+                                                }
+                                            });
                                         });
                                     });
-                                if i < roots.len() - 1 {
-                                    ui.add_space(4.0);
+                                if i + 1 < roots.len() {
+                                    let r = row.response.rect;
+                                    ui.painter().hline(r.x_range(), r.bottom(), Stroke::new(1.0, p.border));
                                 }
                             }
                         });
@@ -320,7 +337,7 @@ fn render_settings_panel(app: &mut SortwiseApp, ui: &mut egui::Ui, is_compare: b
 
     let clicked = launch_card(
         ui,
-        "\u{E270} Scan Settings",
+        "Settings",
         |ui| {
                 ui.checkbox(&mut app.skip_system_dirs, "Skip system/tool folders")
                     .on_hover_text("Excludes .git, node_modules, $RECYCLE.BIN, cache, and build folders.");
@@ -330,14 +347,14 @@ fn render_settings_panel(app: &mut SortwiseApp, ui: &mut egui::Ui, is_compare: b
                 ui.add_space(10.0);
 
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("Min Size:").size(12.5).color(crate::ui::style::pal().text_muted));
+                    ui.label(RichText::new("Minimum size").size(12.5).color(crate::ui::style::pal().text_muted));
                     // Unit is UI-only state; the engine always receives bytes (U6).
                     let unit_id = ui.id().with("min_size_unit");
                     let mut unit = ui.data_mut(|d| *d.get_temp_mut_or(unit_id, 1024u64));
                     let mut value = app.min_file_size as f64 / unit as f64;
                     let changed = ui
                         .add_sized(
-                            [72.0, 22.0],
+                            [72.0, 26.0],
                             egui::DragValue::new(&mut value)
                                 .speed(0.1)
                                 .range(0.0..=1.0e9)
@@ -361,7 +378,7 @@ fn render_settings_panel(app: &mut SortwiseApp, ui: &mut egui::Ui, is_compare: b
                 });
                 ui.add_space(10.0);
 
-                ui.label(RichText::new("Action Mode:").size(12.5).color(crate::ui::style::pal().text_muted));
+                ui.label(RichText::new("When duplicates are found").size(12.5).color(crate::ui::style::pal().text_muted));
                 ui.add_space(2.0);
                 egui::ComboBox::new(egui::Id::new("action_mode_scan_box"), "")
                     .width(ui.available_width())
@@ -432,13 +449,13 @@ pub fn launch_card(
     Frame::none()
         .fill(crate::ui::style::pal().surface)
         .stroke(Stroke::new(1.0, crate::ui::style::pal().border))
-        .rounding(Rounding::same(10.0))
-        .inner_margin(Margin::same(14.0))
+        .rounding(Rounding::same(crate::ui::style::R_MD))
+        .inner_margin(Margin::same(16.0))
         .show(ui, |ui| {
             ui.set_min_height(ui.available_height());
             ui.vertical(|ui| {
-                ui.label(RichText::new(title).strong().size(14.0).color(crate::ui::style::pal().text));
-                ui.add_space(10.0);
+                ui.label(crate::ui::style::section_title(title));
+                ui.add_space(12.0);
                 body(ui);
                 ui.add_space(18.0);
 
@@ -459,15 +476,14 @@ pub fn launch_card(
                             .color(if can_start { p.on_accent } else { p.text_muted }),
                     )
                     .fill(if can_start { p.accent } else { p.surface_raised })
-                    .rounding(8.0)
-                    .min_size(egui::vec2(ui.available_width(), 38.0));
+                    .stroke(if can_start { Stroke::NONE } else { Stroke::new(1.0, p.border) })
+                    .rounding(Rounding::same(crate::ui::style::R_SM))
+                    .min_size(egui::vec2(ui.available_width(), 36.0));
                     if ui.add_enabled(can_start, btn).clicked() {
                         clicked = true;
                     }
 
-                    ui.add_space(14.0);
-                    ui.separator();
-                    ui.add_space(14.0);
+                    ui.add_space(12.0);
                 });
             });
         });
