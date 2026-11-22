@@ -2,3 +2,5 @@
 /dist
 .DS_Store
 mpv_log.txt
+
+.claude/settings.local.json
