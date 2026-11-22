@@ -8,6 +8,8 @@ pub mod scan;
 pub mod thumbnails;
 pub mod actions;
 pub mod cache;
+pub mod operation_history;
+pub mod settings;
 
 // Re-export library types
 pub use library::{
@@ -24,4 +26,6 @@ pub use queue::{FileQueue, MovableItem, GroupOutcome};
 pub use scan::{ScanWorkKind, DupGroupSortOrder};
 pub use thumbnails::{ThumbnailRequest, SnapshotPlan, ThumbnailResponse};
 pub use actions::PendingAction;
+pub use operation_history::{OperationType, OperationRecord, OperationHistory};
+pub use settings::{AppSettings, ThemePreference};
 pub use cache::{ExtractBanner, DupListCache};
