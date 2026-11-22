@@ -24,11 +24,13 @@ pub mod result_list;
 pub mod explorer_interactions;
 pub mod notifications;
 pub mod operation_history_panel;
+pub mod explorer_history_panel;
 
 pub use explorer_panel::{explorer_main_panel, explorer_sidebar, player_window, staging_panel};
 pub use explorer_interactions::{handle_explorer_keys, show_enhanced_file_context_menu, apply_key_action, apply_context_action};
 pub use notifications::{Notification, NotificationManager, NotificationLevel};
 pub use operation_history_panel::{operation_history_panel, compact_history_summary};
+pub use explorer_history_panel::recent_operations_panel;
 pub use folder_explorer_panel::{folder_contents_modal, render_folder_grid};
 pub use confirm_dialog::confirm_pending_action;
 pub use progress_panel::progress_panel;

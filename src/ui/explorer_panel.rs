@@ -7,6 +7,8 @@ use crate::app::{
 };
 use crate::ui::preview::{format_bytes, open_in_default_app, reveal_in_folder};
 use crate::ui::style::{danger_button, muted, primary_button, secondary_button};
+use crate::ui::operation_history_panel::compact_history_summary;
+use crate::ui::explorer_history_panel::recent_operations_panel;
 use eframe::egui::{
     self, load::SizedTexture, scroll_area::ScrollBarVisibility, Color32, RichText, ScrollArea,
     TextureOptions,
@@ -237,6 +239,24 @@ pub fn explorer_main_panel(app: &mut SortwiseApp, ui: &mut egui::Ui) {
     file_table(app, ui, &mut act, table_h);
 
     selection_bar(app, ui, &mut act);
+    
+    // Show operation history summary and details in footer
+    if !app.operation_history.is_empty() {
+        ui.add_space(2.0);
+        egui::Frame::none()
+            .fill(crate::ui::style::pal().surface_raised)
+            .rounding(egui::Rounding::same(4.0))
+            .inner_margin(egui::Margin::symmetric(10.0, 4.0))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new("📊 Operations").small().color(crate::ui::style::pal().success_on_soft));
+                    ui.separator();
+                    compact_history_summary(app.operation_history.records(), ui);
+                });
+                
+                recent_operations_panel(app.operation_history.records(), ui);
+            });
+    }
 
     apply_action(app, act);
 }
