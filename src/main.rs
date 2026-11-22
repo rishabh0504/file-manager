@@ -1,6 +1,7 @@
 mod app;
 mod ui;
 mod operations;
+mod helpers;
 mod types;
 mod constants;
 
