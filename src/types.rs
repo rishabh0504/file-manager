@@ -27,6 +27,10 @@ pub struct FileEntry {
     /// Modification time as seconds since UNIX epoch, pre-computed at scan time.
     /// Used by the pipeline and hash cache — avoids repeated stat() syscalls.
     pub mtime_secs: u64,
+    /// Inode change time in nanoseconds since UNIX epoch. Set by the kernel on every
+    /// content or metadata write and not settable by user tools, so it catches changes
+    /// that restored mtimes (`cp -p`, `rsync -t`) would hide. Used as the hash-cache key.
+    pub ctime_ns: u64,
     pub file_id: FileId,
     /// Unix link count when known; 1 on Windows if unknown.
     pub nlink: u32,
@@ -105,7 +109,7 @@ impl Default for ScanConfig {
             folder_configs: Vec::new(),
             skip_hidden: false,
             skip_system_dirs: true,
-            min_file_size: 4 * 1024,
+            min_file_size: 0,
             action_mode: ActionMode::DryRun,
             preferred_dirs: Vec::new(),
             root_order: Vec::new(),

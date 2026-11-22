@@ -90,6 +90,7 @@ fn make_entry(path: &Path, meta: &std::fs::Metadata, root_index: usize) -> Optio
         .duration_since(std::time::SystemTime::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
+    let ctime_ns = ctime_nanos(meta);
     let atime_secs = atime_seconds(meta);
     #[cfg(unix)]
     let nlink = {
@@ -104,11 +105,30 @@ fn make_entry(path: &Path, meta: &std::fs::Metadata, root_index: usize) -> Optio
         size: meta.len(),
         mtime,
         mtime_secs,
+        ctime_ns,
         file_id,
         nlink,
         root_index,
         atime_secs,
     })
+}
+
+/// Inode change time in ns. On non-Unix targets there is no ctime, so mtime is used as the
+/// closest stand-in (weaker against mtime-restoring tools).
+#[cfg(unix)]
+fn ctime_nanos(meta: &std::fs::Metadata) -> u64 {
+    use std::os::unix::fs::MetadataExt;
+    let secs = meta.ctime().max(0) as u64;
+    secs.saturating_mul(1_000_000_000).saturating_add(meta.ctime_nsec().max(0) as u64)
+}
+
+#[cfg(not(unix))]
+fn ctime_nanos(meta: &std::fs::Metadata) -> u64 {
+    meta.modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0)
 }
 
 #[cfg(unix)]

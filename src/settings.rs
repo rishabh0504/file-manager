@@ -31,7 +31,7 @@ impl Default for Settings {
             version: CURRENT_VERSION,
             skip_system_dirs: true,
             skip_hidden: false,
-            min_file_size: 4 * 1024,
+            min_file_size: 0,
             use_hash_cache: true,
             skip_logs_and_locks: false,
             io_profile: IoProfile::Auto,
@@ -104,7 +104,7 @@ mod tests {
         std::fs::write(&path, r#"{"skip_hidden": true}"#).unwrap();
         let s = load_from(&path).unwrap();
         assert!(s.skip_hidden);
-        assert_eq!(s.min_file_size, 4 * 1024);
+        assert_eq!(s.min_file_size, 0);
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
     }
 }

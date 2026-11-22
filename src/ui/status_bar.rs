@@ -61,6 +61,10 @@ fn left_text(app: &SortwiseApp) -> String {
             AppView::Scanning => "Scanning for archives…".into(),
             _ => "Archives".into(),
         },
+        AppMode::AllFiles => match &app.files_view_dir {
+            Some(d) => d.display().to_string(),
+            None => "Files".into(),
+        },
     }
 }
 
@@ -88,6 +92,10 @@ fn middle_text(app: &SortwiseApp) -> String {
         AppMode::ArchiveFiles => {
             let selected = app.archive_files_selected.len();
             if selected > 0 { format!("{selected} selected") } else { String::new() }
+        }
+        AppMode::AllFiles => {
+            let checked = app.explorer_files_checked.len();
+            if checked > 0 { format!("{checked} checked") } else { String::new() }
         }
     }
 }

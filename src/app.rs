@@ -42,6 +42,8 @@ pub enum AppMode {
     CompareSourceDest,
     EmptyFolders,
     ArchiveFiles,
+    /// Header "Files" tab: flat recursive list of every file under `files_view_dir`.
+    AllFiles,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -59,17 +61,70 @@ pub enum ExplorerViewMode {
     List,
     Grid,
     Folders,
-    /// Flat recursive list of every file under the current folder.
-    Files,
 }
 
-/// Sort key for the Explorer "Files" view. Default: size, descending.
+/// Parent tab of the Files view: Filter or Sort. Only one set of controls is shown at a time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FilesPanelMode {
+    #[default]
+    Filter,
+    Sort,
+}
+
+/// Sort key for the Files view. Default: size, descending.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ExplorerFilesSort {
     #[default]
     Size,
     Name,
     Modified,
+    Type,
+}
+
+/// Where a file shown in the Files view is staged.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FilesStage {
+    None,
+    /// In this folder queue's items (Folder queues tab).
+    Queue(String),
+    /// In Items (loose staging), with the queue picked there, if any.
+    Item(Option<String>),
+}
+
+/// Whether the Files view shows staged files (in a folder queue or in Items).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum StagedFilter {
+    #[default]
+    All,
+    StagedOnly,
+    NotStaged,
+}
+
+/// Every filter the Files view applies. All fields are AND-ed together.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FilesFilter {
+    /// Case-insensitive substring of the path relative to the chosen folder.
+    pub name: String,
+    pub kind: ExplorerTypeFilter,
+    /// Inclusive size bounds in bytes.
+    pub min_size: Option<u64>,
+    pub max_size: Option<u64>,
+    /// Keep files modified within this many days.
+    pub modified_within_days: Option<u32>,
+    pub staged: StagedFilter,
+}
+
+impl Default for FilesFilter {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            kind: ExplorerTypeFilter::Video,
+            min_size: None,
+            max_size: None,
+            modified_within_days: None,
+            staged: StagedFilter::All,
+        }
+    }
 }
 
 /// Header type filter for the Explorer listing (All / Folders / Images / Videos / Zips).
@@ -242,7 +297,18 @@ pub struct SortwiseApp {
     pub explorer_search_pending: bool,
     /// Checked paths among collapsed recursive-search results (Select All / per-row).
     pub explorer_search_checked: HashSet<PathBuf>,
-    // ---- Files view (recursive flat list) state ----
+    // ---- Files tab (recursive flat list) state ----
+    /// Folder chosen in the Files tab. `None` until the tab is first opened (then = explorer folder).
+    pub files_view_dir: Option<PathBuf>,
+    /// All Files-tab filters, independent of the Explorer toolbar.
+    pub files_filter: FilesFilter,
+    /// Set by Refresh: re-walk the same folder, keeping checked files.
+    pub explorer_files_rescan: bool,
+    /// True while the shared preview modal was opened from the Files tab. Its arrow keys
+    /// then step through the filtered, sorted Files list instead of the Explorer list.
+    pub files_preview_active: bool,
+    /// Filter or Sort parent tab.
+    pub files_panel_mode: FilesPanelMode,
     /// Folder the current `explorer_files` listing belongs to.
     pub explorer_files_root: Option<PathBuf>,
     /// Unfiltered recursive listing for `explorer_files_root`, sorted by size desc.
@@ -256,7 +322,8 @@ pub struct SortwiseApp {
     pub explorer_files_sort_asc: bool,
     /// Indices into `explorer_files` after filter + sort. Rebuilt when `explorer_files_view_key` changes.
     pub explorer_files_view: Vec<usize>,
-    pub explorer_files_view_key: Option<(String, ExplorerTypeFilter, ExplorerFilesSort, bool, u64)>,
+    /// (filter, sort, ascending, listing generation, staged count) the current view was built from.
+    pub explorer_files_view_key: Option<(FilesFilter, ExplorerFilesSort, bool, u64, u64)>,
     /// Bumped whenever `explorer_files` changes; invalidates `explorer_files_view`.
     pub explorer_files_gen: u64,
     #[cfg(feature = "mpv")]
@@ -465,6 +532,11 @@ impl Default for SortwiseApp {
             explorer_search_typed_at: None,
             explorer_search_pending: false,
             explorer_search_checked: HashSet::new(),
+            files_view_dir: None,
+            files_filter: FilesFilter::default(),
+            explorer_files_rescan: false,
+            files_preview_active: false,
+            files_panel_mode: FilesPanelMode::default(),
             explorer_files_root: None,
             explorer_files: Vec::new(),
             explorer_files_loading: false,
@@ -1255,6 +1327,7 @@ impl SortwiseApp {
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
 
+        let was_dir = p.is_dir();
         let moved = if p.is_dir() {
             let dest = unique_dir_dest(&target_dir, &fname);
             fast_move_dir(&p, &dest).is_ok()
@@ -1267,6 +1340,7 @@ impl SortwiseApp {
 
         if moved {
             self.movable_items.remove(idx);
+            self.explorer_files_forget_path(&p, was_dir);
             self.explorer_status = Some(format!("Moved “{fname}” → “{q_name}”."));
             // Clean up caches & entries if it was currently in this directory
             self.explorer_entries.retain(|e| e.path != p);
@@ -1432,6 +1506,7 @@ impl SortwiseApp {
                     format!("Moved {success_count} file(s); {fail_count} failed.")
                 };
                 self.explorer_status = Some(msg);
+                self.explorer_files_prune_missing();
                 self.explorer_reload();
             }
         }
@@ -1492,6 +1567,7 @@ impl SortwiseApp {
 
     /// Stop any open preview/player cleanly without dropping the MPV render context.
     pub fn explorer_close_preview(&mut self) {
+        self.files_preview_active = false;
         self.explorer_preview_open = false;
         self.explorer_preview_path = None;
         self.preview_path = None;
@@ -1819,15 +1895,22 @@ impl SortwiseApp {
                 }
             }
         }
-        if self.explorer_files_root.as_ref() == Some(&self.explorer_dir) {
+        let Some(dir) = self.files_view_dir.clone() else {
+            return;
+        };
+        let same_dir = self.explorer_files_root.as_ref() == Some(&dir);
+        if same_dir && !self.explorer_files_rescan {
             return;
         }
+        // Refresh of the same folder keeps the checked files and the old list until the new one arrives.
+        let keep_state = same_dir;
+        self.explorer_files_rescan = false;
         if let Some(old) = self.explorer_files_cancel.take() {
             old.store(true, std::sync::atomic::Ordering::Relaxed);
         }
         let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let worker_cancel = Arc::clone(&cancel);
-        let root = self.explorer_dir.clone();
+        let root = dir.clone();
         let skip_system = self.skip_system_dirs;
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
@@ -1840,37 +1923,131 @@ impl SortwiseApp {
             sortwise::recursive_files::sort_by_size_desc(&mut listing.files);
             let _ = tx.send(listing);
         });
-        self.explorer_files_root = Some(self.explorer_dir.clone());
+        self.explorer_files_root = Some(dir);
         self.explorer_files_cancel = Some(cancel);
         self.explorer_files_rx = Some(rx);
         self.explorer_files_loading = true;
-        self.explorer_files.clear();
-        self.explorer_files_truncated = false;
-        self.explorer_files_checked.clear();
+        if !keep_state {
+            self.explorer_files.clear();
+            self.explorer_files_truncated = false;
+            self.explorer_files_checked.clear();
+        }
         self.explorer_files_gen += 1;
     }
 
-    /// Files view: put files into the Movable Queue with `queue` as destination.
-    /// Already-staged files only have their destination changed. Moves nothing on disk.
+    /// Files tab Refresh: re-walk the current folder and pick up new, renamed or deleted files.
+    pub fn explorer_files_refresh(&mut self) {
+        self.explorer_files_rescan = true;
+        self.explorer_files_gen += 1;
+    }
+
+    /// Drop one moved path (and everything under it, for a moved folder) from the Files list.
+    /// Called after a successful move, so moved items disappear from the list.
+    pub fn explorer_files_forget_path(&mut self, path: &Path, was_dir: bool) {
+        let gone = |p: &Path| p == path || (was_dir && p.starts_with(path));
+        let before = self.explorer_files.len();
+        self.explorer_files.retain(|f| !gone(&f.path));
+        self.explorer_files_checked.retain(|p| !gone(p));
+        if self.explorer_files.len() != before {
+            self.explorer_files_gen += 1;
+        }
+    }
+
+    /// Drop every listed file that no longer exists on disk. Called after folder-queue submits,
+    /// which move many files at once.
+    pub fn explorer_files_prune_missing(&mut self) {
+        let before = self.explorer_files.len();
+        self.explorer_files.retain(|f| f.path.exists());
+        let remaining: HashSet<&PathBuf> = self.explorer_files.iter().map(|f| &f.path).collect();
+        self.explorer_files_checked.retain(|p| remaining.contains(p));
+        if self.explorer_files.len() != before {
+            self.explorer_files_gen += 1;
+        }
+    }
+
+    /// Files view: stage files. `Some(name)` adds them to that folder queue's items (Folder
+    /// queues tab, moved on Submit). `None` adds them to Items (loose staging, no queue).
+    /// A file ends up in exactly one place, so it can never be moved twice. Moves nothing on disk.
+    /// Returns how many files were newly placed.
     pub fn explorer_files_stage(&mut self, paths: &[PathBuf], queue: Option<String>) -> usize {
+        let idx = match &queue {
+            Some(name) => match self.explorer_queues.iter().position(|q| &q.name == name) {
+                Some(i) => Some(i),
+                None => {
+                    self.explorer_status = Some(format!("Queue “{name}” not found."));
+                    return 0;
+                }
+            },
+            None => None,
+        };
         let mut added = 0;
         for path in paths {
-            if let Some(item) = self.movable_items.iter_mut().find(|i| &i.path == path) {
-                item.target_queue = queue.clone();
-            } else {
-                self.movable_items.push(MovableItem {
-                    path: path.clone(),
-                    target_queue: queue.clone(),
-                });
-                added += 1;
+            match idx {
+                Some(i) => {
+                    if self.explorer_queues[i].items.contains(path) {
+                        continue;
+                    }
+                    self.explorer_files_unstage(path);
+                    self.explorer_queues[i].items.push(path.clone());
+                    added += 1;
+                }
+                None => {
+                    if self.movable_items.iter().any(|m| &m.path == path) {
+                        continue;
+                    }
+                    self.explorer_files_unstage(path);
+                    self.movable_items.push(MovableItem { path: path.clone(), target_queue: None });
+                    added += 1;
+                }
             }
         }
-        if queue.is_some() {
-            self.movable_last_chosen_queue = queue.clone();
-        }
-        let dest = queue.map(|q| format!(" to “{q}”")).unwrap_or_default();
-        self.explorer_status = Some(format!("Queued {} file(s){dest}.", paths.len()));
+        self.explorer_status = Some(match &queue {
+            Some(q) => format!("Added {added} file(s) to queue “{q}”."),
+            None => format!("Added {added} file(s) to Items."),
+        });
         added
+    }
+
+    /// Files view: remove a file from every folder queue and from Items. Never touches the file.
+    pub fn explorer_files_unstage(&mut self, path: &Path) {
+        for q in &mut self.explorer_queues {
+            q.items.retain(|p| p != path);
+        }
+        self.movable_items.retain(|m| m.path != path);
+    }
+
+    /// Files view: where a file is staged. A folder queue wins over Items.
+    pub fn explorer_files_stage_of(&self, path: &Path) -> FilesStage {
+        if let Some(q) = self.explorer_queues.iter().find(|q| q.items.iter().any(|p| p == path)) {
+            return FilesStage::Queue(q.name.clone());
+        }
+        match self.movable_items.iter().find(|m| m.path == path) {
+            Some(m) => FilesStage::Item(m.target_queue.clone()),
+            None => FilesStage::None,
+        }
+    }
+
+    /// Files view: every staged path, from folder queues and Items.
+    pub fn explorer_files_staged_set(&self) -> std::collections::HashSet<PathBuf> {
+        self.explorer_queues
+            .iter()
+            .flat_map(|q| q.items.iter().cloned())
+            .chain(self.movable_items.iter().map(|m| m.path.clone()))
+            .collect()
+    }
+
+    /// Files view: order-independent fingerprint of the staged set, so the list is refiltered
+    /// whenever staging changes anywhere (cards, preview modal, staging panel).
+    pub fn explorer_files_staged_fingerprint(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let set = self.explorer_files_staged_set();
+        let mut acc = set.len() as u64;
+        for p in &set {
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            p.hash(&mut h);
+            acc = acc.wrapping_add(h.finish());
+        }
+        acc
     }
 
     pub fn explorer_ensure_loaded(&mut self) {
@@ -2034,7 +2211,14 @@ impl SortwiseApp {
         }
     }
 
+    /// Open the shared preview from a Files-tab card. Arrow keys then step through the Files list.
+    pub fn files_open_preview(&mut self, path: PathBuf) {
+        self.explorer_open_preview(path);
+        self.files_preview_active = true;
+    }
+
     pub fn explorer_open_preview(&mut self, path: PathBuf) {
+        self.files_preview_active = false;
         self.clear_preview_cache();
         if let Some(q_idx) = self.explorer_find_queue_for_path(&path) {
             self.explorer_preview_queue_pick = Some(q_idx);
@@ -2159,6 +2343,7 @@ impl SortwiseApp {
     }
 
     pub fn close_explorer_preview(&mut self) {
+        self.files_preview_active = false;
         self.explorer_preview_open = false;
         self.explorer_preview_path = None;
         self.explorer_preview_rotation = 0;
@@ -2285,8 +2470,7 @@ impl eframe::App for SortwiseApp {
         if self.mode == AppMode::Explorer {
             let filter_changed = self.explorer_filter != self.explorer_last_filter;
             self.explorer_last_filter = self.explorer_filter.clone();
-            // Files view filters in memory; it must not start a disk-wide recursive search.
-            if filter_changed && self.explorer_view_mode != ExplorerViewMode::Files {
+            if filter_changed {
                 if self.explorer_filter.trim().is_empty() {
                     self.explorer_cancel_search();
                     self.explorer_reload();
@@ -2346,7 +2530,7 @@ impl eframe::App for SortwiseApp {
                     );
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         mode_switch(self, ui);
-                        if mode == AppMode::Explorer {
+                        if matches!(mode, AppMode::Explorer | AppMode::AllFiles) {
                             ui.add_space(10.0);
                             // One entry point for everything set aside (U8): loose items and folder queues.
                             let movable_count = self.movable_items.len();
@@ -2416,6 +2600,7 @@ impl eframe::App for SortwiseApp {
             AppMode::Dedupe | AppMode::CompareSourceDest => results_ready,
             AppMode::EmptyFolders => false,
             AppMode::ArchiveFiles => false,
+            AppMode::AllFiles => false,
         };
 
         if show_sidebar {
@@ -2484,6 +2669,7 @@ impl eframe::App for SortwiseApp {
                         AppView::Scanning => crate::ui::archive_files_progress_panel(self, ui, ctx),
                         AppView::Results => crate::ui::archive_files_results_panel(self, ui),
                     },
+                    AppMode::AllFiles => crate::ui::recursive_files_panel::recursive_files_page(self, ui),
                 }
                 // Render global player modal globally so it functions in all modes/views
                 crate::ui::folder_contents_modal(self, ctx);
@@ -2521,6 +2707,13 @@ fn mode_switch(app: &mut SortwiseApp, ui: &mut egui::Ui) {
     };
     ui.spacing_mut().item_spacing.x = 6.0;
 
+    if seg(ui, crate::ui::icons::Icons::DOCUMENT, "Files", app.mode == AppMode::AllFiles, "All files under a folder, recursive, largest first") {
+        app.mode = AppMode::AllFiles;
+        app.view = AppView::Scan;
+        if app.files_view_dir.is_none() {
+            app.files_view_dir = Some(app.explorer_dir.clone());
+        }
+    }
     if seg(ui, crate::ui::icons::Icons::PACKAGE, "Archives", app.mode == AppMode::ArchiveFiles, "Find archive files (zip, rar, 7z…)") {
         app.mode = AppMode::ArchiveFiles;
         app.view = AppView::Scan;
@@ -3147,6 +3340,100 @@ mod tests {
         assert!(dest_b.join("clip2.mp4").exists());
         assert!(dest_b.join("clip3.mp4").exists());
 
+        let _ = std::fs::remove_dir_all(&temp);
+    }
+
+    fn files_tab_rec(path: &str) -> sortwise::recursive_files::RecursiveFile {
+        sortwise::recursive_files::RecursiveFile {
+            path: PathBuf::from(path),
+            rel: path.to_string(),
+            size: 1,
+            modified: None,
+        }
+    }
+
+    #[test]
+    fn files_tab_stage_goes_to_folder_queue_or_items_never_both() {
+        let mut app = SortwiseApp::default();
+        app.explorer_queues.push(FileQueue { name: "A".into(), target: PathBuf::from("/dest/a"), items: vec![] });
+        app.explorer_queues.push(FileQueue { name: "B".into(), target: PathBuf::from("/dest/b"), items: vec![] });
+        let f = PathBuf::from("/x/a.mp4");
+
+        // Picking a queue lists the file in that folder queue (Folder queues tab).
+        assert_eq!(app.explorer_files_stage(&[f.clone()], Some("A".into())), 1);
+        assert_eq!(app.explorer_queues[0].items, vec![f.clone()]);
+        assert!(app.movable_items.is_empty());
+        assert_eq!(app.explorer_files_stage_of(&f), FilesStage::Queue("A".into()));
+
+        // Re-picking another queue moves it there; it is never in two queues.
+        app.explorer_files_stage(&[f.clone()], Some("B".into()));
+        assert!(app.explorer_queues[0].items.is_empty());
+        assert_eq!(app.explorer_queues[1].items, vec![f.clone()]);
+
+        // No queue: goes to Items only.
+        app.explorer_files_stage(&[f.clone()], None);
+        assert!(app.explorer_queues.iter().all(|q| q.items.is_empty()));
+        assert_eq!(app.explorer_files_stage_of(&f), FilesStage::Item(None));
+
+        // Unknown queue changes nothing.
+        assert_eq!(app.explorer_files_stage(&[f.clone()], Some("Nope".into())), 0);
+        assert_eq!(app.explorer_files_stage_of(&f), FilesStage::Item(None));
+
+        // Added from the preview modal (folder queue path) is seen by the Files view too.
+        app.explorer_files_unstage(&f);
+        assert_eq!(app.explorer_files_stage_of(&f), FilesStage::None);
+        let before = app.explorer_files_staged_fingerprint();
+        app.explorer_add_to_queue(0, f.clone());
+        assert!(app.explorer_files_staged_set().contains(&f));
+        assert_ne!(before, app.explorer_files_staged_fingerprint());
+    }
+
+    #[test]
+    fn files_tab_moved_file_leaves_list_and_folder_move_removes_children() {
+        let mut app = SortwiseApp::default();
+        app.explorer_files = vec![
+            files_tab_rec("/x/a.mp4"),
+            files_tab_rec("/x/dir/b.mp4"),
+            files_tab_rec("/x/dir/c.zip"),
+            files_tab_rec("/x/d.zip"),
+        ];
+        app.explorer_files_checked.insert(PathBuf::from("/x/a.mp4"));
+
+        app.explorer_files_forget_path(Path::new("/x/a.mp4"), false);
+        assert_eq!(app.explorer_files.len(), 3);
+        assert!(!app.explorer_files_checked.contains(Path::new("/x/a.mp4")));
+
+        // A moved folder takes every file under it with it, but not similar prefixes.
+        app.explorer_files_forget_path(Path::new("/x/dir"), true);
+        let left: Vec<&str> = app.explorer_files.iter().map(|f| f.rel.as_str()).collect();
+        assert_eq!(left, vec!["/x/d.zip"]);
+    }
+
+    #[test]
+    fn files_tab_prune_drops_missing_and_refresh_sets_rescan() {
+        let temp = std::env::temp_dir().join(format!(
+            "sfm_files_prune_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&temp).unwrap();
+        let keep = temp.join("keep.zip");
+        std::fs::write(&keep, b"k").unwrap();
+        let mut app = SortwiseApp::default();
+        app.explorer_files = vec![
+            files_tab_rec(&keep.to_string_lossy()),
+            files_tab_rec(&temp.join("gone.zip").to_string_lossy()),
+        ];
+        app.explorer_files_checked.insert(temp.join("gone.zip"));
+
+        app.explorer_files_prune_missing();
+        assert_eq!(app.explorer_files.len(), 1);
+        assert!(app.explorer_files_checked.is_empty());
+
+        app.explorer_files_refresh();
+        assert!(app.explorer_files_rescan);
         let _ = std::fs::remove_dir_all(&temp);
     }
 }
