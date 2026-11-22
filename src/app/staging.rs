@@ -149,6 +149,7 @@ impl SortwiseApp {
             use_hash_cache: self.use_hash_cache,
             skip_logs_and_locks: self.skip_logs_and_locks,
             io_profile: self.io_profile,
+            match_media_payload: self.match_media_payload,
         }
     }
 
@@ -160,6 +161,7 @@ impl SortwiseApp {
         self.use_hash_cache = s.use_hash_cache;
         self.skip_logs_and_locks = s.skip_logs_and_locks;
         self.io_profile = s.io_profile;
+        self.match_media_payload = s.match_media_payload;
     }
 
     /// Size of a movable-queue item, read once and cached (P-5).

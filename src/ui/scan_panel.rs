@@ -337,6 +337,12 @@ fn render_settings_panel(app: &mut SortwiseApp, ui: &mut egui::Ui, is_compare: b
                 ui.add_space(4.0);
                 ui.checkbox(&mut app.skip_hidden, "Skip hidden dotfiles (e.g. .photos)")
                     .on_hover_text("When checked, files starting with '.' are skipped.");
+                ui.add_space(4.0);
+                ui.checkbox(&mut app.match_media_payload, "Match photos/videos with different metadata")
+                    .on_hover_text(
+                        "Also groups JPEG and MP4/MOV files whose picture and sound data are byte-for-byte \
+                         identical but whose date, location or tags were edited. Different footage never matches.",
+                    );
                 ui.add_space(10.0);
 
                 ui.horizontal(|ui| {

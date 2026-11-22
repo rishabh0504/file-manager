@@ -92,6 +92,9 @@ pub struct ScanConfig {
     /// When Some(split_idx), roots 0..split_idx are Source (A) and roots split_idx..roots.len() are Destination (B).
     /// Asymmetric mode: only find duplicates in B that exist in A. Internal duplicates in A or B are ignored.
     pub asymmetric_split_index: Option<usize>,
+    /// Also group photos/videos whose media data is identical but whose metadata differs
+    /// (see `media_hash`).
+    pub match_media_payload: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -118,6 +121,7 @@ impl Default for ScanConfig {
             skip_logs_and_locks: false,
             io_profile: IoProfile::default(),
             asymmetric_split_index: None,
+            match_media_payload: true,
         }
     }
 }

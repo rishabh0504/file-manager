@@ -204,7 +204,12 @@ fn draw_dup_group_card(
                         ui.label(RichText::new(format_bytes(g.total_wasted_bytes)).strong().size(12.5).color(p.text));
                     });
                 });
-                ui.label(muted(format!("{} files", g.files.len())));
+                if g.hash.starts_with(sortwise::pipeline::MEDIA_GROUP_PREFIX) {
+                    ui.label(muted(format!("{} files · metadata differs", g.files.len())))
+                        .on_hover_text("Same picture/video data; date, location or tags were edited");
+                } else {
+                    ui.label(muted(format!("{} files", g.files.len())));
+                }
             });
         })
         .response;
@@ -1325,7 +1330,14 @@ fn apply_hardlinks(app: &mut SortwiseApp, plan: &ActionPlan) {
             stale.len()
         ));
     }
+    let mut media_skipped = 0usize;
     for g in &result.duplicate_groups {
+        // Same-media groups differ in metadata: a hard link would silently discard the copy's own
+        // date/location tags. Those copies can only be trashed.
+        if g.hash.starts_with(sortwise::pipeline::MEDIA_GROUP_PREFIX) {
+            media_skipped += g.files.iter().filter(|f| planned.contains(&f.path)).count();
+            continue;
+        }
         // Only the files in the confirmed plan are replaced; the keep file always stays first-class.
         let mut g = g.clone();
         let keep_path = g.files.get(g.keep_index).map(|f| f.path.clone());
@@ -1343,6 +1355,11 @@ fn apply_hardlinks(app: &mut SortwiseApp, plan: &ActionPlan) {
                 Err(e) => errs.push(e.to_string()),
             }
         }
+    }
+    if media_skipped > 0 {
+        errs.push(format!(
+            "Skipped {media_skipped} file(s) that differ only in metadata; hard links would drop their tags. Trash them instead."
+        ));
     }
     let note = format!("replaced {ok} of {} planned; {} error(s)", plan.paths.len(), errs.len());
     let log = record_action("apply_hardlink", &plan.paths, &[], Some(&note));

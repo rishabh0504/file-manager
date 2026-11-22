@@ -197,3 +197,63 @@ fn user_folders_named_like_linux_system_dirs_are_scanned() {
     assert_eq!(groups.len(), 1, "videos inside Dev/ and run/ must be scanned: {groups:?}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+fn mp4_bytes(meta: &[u8], media: &[u8]) -> Vec<u8> {
+    let bx = |kind: &[u8; 4], body: &[u8]| {
+        let mut v = ((body.len() + 8) as u32).to_be_bytes().to_vec();
+        v.extend_from_slice(kind);
+        v.extend_from_slice(body);
+        v
+    };
+    let mut v = bx(b"ftyp", b"isom\0\0\0\0isomavc1");
+    v.extend(bx(b"moov", &bx(b"udta", meta)));
+    v.extend(bx(b"mdat", media));
+    v
+}
+
+#[test]
+fn videos_that_differ_only_in_metadata_join_the_exact_group() {
+    let dir = scratch("media_meta");
+    let media: Vec<u8> = (0..60_000u32).map(|i| (i * 31 % 251) as u8).collect();
+    let original = mp4_bytes(b"date=2021", &media);
+    let a = dir.join("a/trip.mp4");
+    let b = dir.join("b/trip.mp4");
+    let edited = dir.join("c/trip edited.mov");
+    let other = dir.join("d/other.mp4");
+    for p in [&a, &b, &edited, &other] {
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+    }
+    std::fs::write(&a, &original).unwrap();
+    std::fs::write(&b, &original).unwrap(); // exact copy
+    std::fs::write(&edited, mp4_bytes(b"date=2024 location=Goa title=Trip", &media)).unwrap();
+    let mut different = media.clone();
+    different[30_000] ^= 0xFF;
+    std::fs::write(&other, mp4_bytes(b"date=2021", &different)).unwrap();
+
+    let cfg = scan_cfg(vec![dir.clone()], false);
+    let groups = dup_paths(&cfg);
+    assert_eq!(groups.len(), 1, "one group: exact pair plus the edited copy: {groups:?}");
+    assert_eq!(groups[0].len(), 3);
+    assert!(groups[0].contains(&edited));
+    assert!(!groups[0].contains(&other), "different footage must never match");
+
+    // With the option off, only the exact pair is found.
+    let mut off = scan_cfg(vec![dir.clone()], false);
+    off.match_media_payload = false;
+    let groups = dup_paths(&off);
+    assert_eq!(groups, vec![vec![a.clone(), b.clone()]]);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn two_metadata_variants_without_an_exact_copy_form_a_group() {
+    let dir = scratch("media_pair");
+    let media: Vec<u8> = (0..40_000u32).map(|i| (i % 253) as u8).collect();
+    let x = dir.join("x.mp4");
+    let y = dir.join("y.m4v");
+    std::fs::write(&x, mp4_bytes(b"one", &media)).unwrap();
+    std::fs::write(&y, mp4_bytes(b"two two", &media)).unwrap();
+    let groups = dup_paths(&scan_cfg(vec![dir.clone()], false));
+    assert_eq!(groups, vec![vec![x.clone(), y.clone()]]);
+    let _ = std::fs::remove_dir_all(&dir);
+}

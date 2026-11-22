@@ -54,7 +54,7 @@ Any change to move, trash or hard-link code needs a test that proves which paths
 | Item | State |
 |------|-------|
 | Build | `cargo build --bin sortwise`: 0 errors, 0 warnings |
-| Tests | `cargo test`: 72 passing, 1 ignored (the real cross-volume test, see §4) |
+| Tests | `cargo test`: 78 passing, 1 ignored (the real cross-volume test, see §4) |
 | Clippy | `cargo clippy --all-targets`: 0 warnings |
 | Platform verified | macOS (aarch64) only. Windows and Linux not run. |
 | Branches | Only `main` matters. `recovery/working-baseline`, `ui-rewrite`, `app-split`, `audit-fixes` are fully merged and can be deleted. |
@@ -170,8 +170,12 @@ keep-both rename, source removed); scan correctness and speed on 20k generated f
 
 1. **Manual pass on macOS** with real folders: stage → submit with a name collision (expect `name_1`),
    run Duplicates, trash with confirm, check the Trash, try folder twins with both sides ticked.
-2. **Same-content videos with different bytes** (re-exports, metadata edits) are not exact duplicates and
-   are not reported. Only a future "similar media" feature (behind `--features similarity`) can find them.
+2. **Metadata-only edits are matched** for JPEG and MP4/MOV/M4V/3GP (`src/media_hash.rs`, scan setting
+   "Match photos/videos with different metadata", on by default): only the encoded media bytes are hashed
+   (MP4 `mdat`; JPEG minus APPn/COM). Such groups have hash prefix `media-`, show "metadata differs", and are
+   never hard-linked (that would drop the copy's tags). **Not matched:** re-encoded or re-compressed files
+   (different media bytes, e.g. `sips` edits re-compress JPEGs), HEIC, MKV/AVI. Those need perceptual
+   "similar media" matching (`--features similarity`, not started).
 3. A folder and a file inside it can both be staged; the folder moves first and the file then fails
    (reported, stays staged). Harmless but noisy.
 

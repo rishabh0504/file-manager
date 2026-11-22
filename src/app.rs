@@ -159,6 +159,8 @@ pub struct SortwiseApp {
     pub min_file_size: u64,
     pub action_mode: ActionMode,
     pub use_hash_cache: bool,
+    /// Also match photos/videos whose media data is identical but metadata differs.
+    pub match_media_payload: bool,
     pub skip_logs_and_locks: bool,
     pub io_profile: IoProfile,
     pub token: CancellationToken,
@@ -368,6 +370,7 @@ impl Default for SortwiseApp {
             min_file_size: 4 * 1024,
             action_mode: ActionMode::DryRun,
             use_hash_cache: true,
+            match_media_payload: true,
             skip_logs_and_locks: false,
             io_profile: IoProfile::default(),
             token: CancellationToken::new(),

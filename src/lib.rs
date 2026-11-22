@@ -6,6 +6,7 @@ pub mod cdc;
 pub mod errors;
 pub mod excludes;
 pub mod hasher;
+pub mod media_hash;
 pub mod heuristics;
 pub mod pipeline;
 pub mod platform;

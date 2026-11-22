@@ -56,6 +56,7 @@ impl SortwiseApp {
             skip_logs_and_locks: self.skip_logs_and_locks,
             io_profile: self.io_profile,
             asymmetric_split_index,
+            match_media_payload: self.match_media_payload,
         }
     }
 

@@ -23,6 +23,8 @@ pub struct Settings {
     pub use_hash_cache: bool,
     pub skip_logs_and_locks: bool,
     pub io_profile: IoProfile,
+    /// Also match photos/videos that differ only in metadata. Older files lack it: default on.
+    pub match_media_payload: bool,
 }
 
 impl Default for Settings {
@@ -35,6 +37,7 @@ impl Default for Settings {
             use_hash_cache: true,
             skip_logs_and_locks: false,
             io_profile: IoProfile::Auto,
+            match_media_payload: true,
         }
     }
 }

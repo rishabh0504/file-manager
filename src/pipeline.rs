@@ -298,6 +298,10 @@ fn run_dedup_inner(
     let (unique_entries, hard_link_groups) = partition_hardlinks(entries);
     let hard_link_group_count = hard_link_groups.len() as u64;
     let to_hash = apply_heuristics(unique_entries, config);
+    // The media pass needs every hashed entry by path (exact-group members may be any type).
+    let media_entries: Option<HashMap<PathBuf, FileEntry>> = config
+        .match_media_payload
+        .then(|| to_hash.iter().map(|e| (e.path.clone(), e.clone())).collect());
     let (size_groups, bytes_total) = bucket_by_size(to_hash);
 
     {
@@ -342,6 +346,21 @@ fn run_dedup_inner(
     for outcome in outcomes {
         duplicate_groups.extend(outcome.dup_groups);
         error_log.extend(outcome.errors);
+    }
+    if let Some(entries) = media_entries {
+        if !token.is_cancelled() {
+            {
+                let mut p = progress.lock().unwrap();
+                p.phase = ProgressPhase::Processing {
+                    stage_label: "Matching photos and videos with different metadata".into(),
+                    stage: 2,
+                    stages_total: 2,
+                };
+            }
+            duplicate_groups = pool.install(|| {
+                merge_media_payload_groups(duplicate_groups, &entries, config, token, &mut error_log)
+            });
+        }
     }
     let groups_found = duplicate_groups.len() as u64;
 
@@ -469,4 +488,164 @@ pub fn summarize_folders(groups: &[DuplicateGroup], roots: &[std::path::PathBuf]
             }
         })
         .collect()
+}
+
+/// Marker in `DuplicateGroup::hash` for groups joined by media data rather than whole-file bytes.
+pub const MEDIA_GROUP_PREFIX: &str = "media-";
+
+/// Join photos/videos whose media data is identical but whose metadata differs.
+///
+/// Exact groups that share media data with other files (or other exact groups) are merged into one
+/// group, so every file sits in exactly one group. Only files whose media byte ranges hash equal are
+/// joined; see `crate::media_hash`.
+fn merge_media_payload_groups(
+    groups: Vec<DuplicateGroup>,
+    entries: &HashMap<PathBuf, FileEntry>,
+    config: &ScanConfig,
+    token: &CancellationToken,
+    errors: &mut Vec<(PathBuf, String)>,
+) -> Vec<DuplicateGroup> {
+    use crate::media_hash::{format_for, hash as media_hash, locate, Payload};
+
+    // 1. Cheap header parse of every candidate.
+    let candidates: Vec<&FileEntry> = entries.values().filter(|e| format_for(&e.path).is_some()).collect();
+    let located: Vec<(&FileEntry, Payload)> = candidates
+        .par_iter()
+        .filter(|_| !token.is_cancelled())
+        .filter_map(|e| locate(&e.path).ok().flatten().map(|p| (*e, p)))
+        .collect();
+
+    // 2. Only payloads whose size is shared by another file are worth hashing.
+    let mut by_len: HashMap<(crate::media_hash::MediaFormat, u64), Vec<(&FileEntry, Payload)>> = HashMap::new();
+    for (e, p) in located {
+        by_len.entry((p.format, p.len())).or_default().push((e, p));
+    }
+    let to_hash: Vec<(&FileEntry, Payload)> = by_len.into_values().filter(|v| v.len() > 1).flatten().collect();
+    let hashed: Vec<(&FileEntry, Result<[u8; 32], String>)> = to_hash
+        .par_iter()
+        .filter(|_| !token.is_cancelled())
+        .map(|(e, p)| (*e, media_hash(&e.path, p).map_err(|err| err.to_string())))
+        .collect();
+    let mut by_hash: HashMap<[u8; 32], Vec<&FileEntry>> = HashMap::new();
+    for (e, r) in hashed {
+        match r {
+            Ok(h) => by_hash.entry(h).or_default().push(e),
+            Err(msg) => errors.push((e.path.clone(), format!("media match: {msg}"))),
+        }
+    }
+    if token.is_cancelled() {
+        return groups;
+    }
+
+    // 3. Union exact groups and single files that share media data.
+    let mut node_of: HashMap<PathBuf, usize> = HashMap::new();
+    for (gi, g) in groups.iter().enumerate() {
+        for f in &g.files {
+            node_of.insert(f.path.clone(), gi);
+        }
+    }
+    let mut parent: Vec<usize> = (0..groups.len()).collect();
+    fn find(parent: &mut [usize], mut x: usize) -> usize {
+        while parent[x] != x {
+            parent[x] = parent[parent[x]];
+            x = parent[x];
+        }
+        x
+    }
+    let mut media_hash_of_root: HashMap<usize, [u8; 32]> = HashMap::new();
+    let mut joined: HashSet<usize> = HashSet::new();
+    for (h, files) in by_hash {
+        if files.len() < 2 {
+            continue;
+        }
+        let mut nodes: Vec<usize> = Vec::new();
+        for e in files {
+            let n = *node_of.entry(e.path.clone()).or_insert_with(|| {
+                parent.push(parent.len());
+                parent.len() - 1
+            });
+            nodes.push(n);
+        }
+        let first = nodes[0];
+        for &n in &nodes[1..] {
+            let (a, b) = (find(&mut parent, first), find(&mut parent, n));
+            if a != b {
+                parent[b] = a;
+                joined.insert(a);
+            }
+        }
+        let root = find(&mut parent, first);
+        media_hash_of_root.entry(root).or_insert(h);
+    }
+    if joined.is_empty() {
+        return groups;
+    }
+
+    // 4. Rebuild: components that joined two or more nodes become one media group.
+    let mut members: HashMap<usize, Vec<PathBuf>> = HashMap::new();
+    for (path, n) in &node_of {
+        let root = find(&mut parent, *n);
+        members.entry(root).or_default().push(path.clone());
+    }
+    let mut out = Vec::with_capacity(groups.len());
+    let mut emitted: HashSet<usize> = HashSet::new();
+    for (gi, g) in groups.into_iter().enumerate() {
+        let root = find(&mut parent, gi);
+        let multi = members.get(&root).is_some_and(|m| {
+            let nodes: HashSet<usize> = m.iter().map(|p| node_of[p]).collect();
+            nodes.len() > 1
+        });
+        if !multi {
+            out.push(g);
+            continue;
+        }
+        if emitted.insert(root) {
+            if let Some(dg) = build_media_group(root, &members, entries, &media_hash_of_root, config) {
+                out.push(dg);
+            } else {
+                out.push(g); // could not rebuild safely: keep the exact group as it was
+            }
+        }
+    }
+    // Components made only of single files (no exact group involved).
+    let roots: Vec<usize> = members.keys().copied().collect();
+    for root in roots {
+        if emitted.contains(&root) {
+            continue;
+        }
+        let nodes: HashSet<usize> = members[&root].iter().map(|p| node_of[p]).collect();
+        if nodes.len() > 1 {
+            emitted.insert(root);
+            if let Some(dg) = build_media_group(root, &members, entries, &media_hash_of_root, config) {
+                out.push(dg);
+            }
+        }
+    }
+    out
+}
+
+fn build_media_group(
+    root: usize,
+    members: &HashMap<usize, Vec<PathBuf>>,
+    entries: &HashMap<PathBuf, FileEntry>,
+    media_hash_of_root: &HashMap<usize, [u8; 32]>,
+    config: &ScanConfig,
+) -> Option<DuplicateGroup> {
+    let mut files: Vec<FileEntry> = Vec::new();
+    for p in members.get(&root)? {
+        files.push(entries.get(p)?.clone());
+    }
+    files.sort_by(|a, b| a.path.cmp(&b.path));
+    let hash = media_hash_of_root.get(&root).copied().unwrap_or([0u8; 32]);
+    let mut dg = build_duplicate_group(hash, files, KeepPolicy::SmartScore, config);
+    if dg.files.len() < 2 {
+        return None;
+    }
+    dg.hash = format!("{MEDIA_GROUP_PREFIX}{}", dg.hash);
+    dg.keep_reason = if dg.keep_reason.is_empty() {
+        "same media, different metadata".to_string()
+    } else {
+        format!("{} · same media, different metadata", dg.keep_reason)
+    };
+    Some(dg)
 }
