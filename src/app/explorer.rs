@@ -470,61 +470,84 @@ impl SortwiseApp {
         }
     }
 
-    /// Extract a `.zip` into a sibling folder. On success, queues a prompt to
-    /// move the original archive to the Trash.
+    /// Extract a `.zip` into a new sibling folder on a background thread. On success, the
+    /// banner offers to move the original archive to the Trash.
     pub fn explorer_extract_zip(&mut self, zip: &std::path::Path) {
-        let parent = zip.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| self.explorer_dir.clone());
-        let stem = zip
-            .file_stem()
-            .map(|s| s.to_string_lossy().to_string())
-            .unwrap_or_else(|| "extracted".to_string());
-        let mut dest = parent.join(&stem);
-        let mut n = 2;
-        while dest.exists() {
-            dest = parent.join(format!("{stem} ({n})"));
-            n += 1;
+        if self.extract_rx.is_some() {
+            self.explorer_status = Some("Another archive is still extracting.".into());
+            return;
         }
+        let parent = zip.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| self.explorer_dir.clone());
+        let stem = zip.file_stem().map(|s| s.to_os_string()).unwrap_or_else(|| "extracted".into());
+        let dest = unique_dir_dest(&parent, &stem);
         if let Err(e) = std::fs::create_dir_all(&dest) {
             self.explorer_status = Some(format!("Extract failed: {e}"));
             return;
         }
+        let zip_path = zip.to_path_buf();
+        let worker_dest = dest.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(run_unzip(&zip_path, &worker_dest));
+        });
+        self.extract_rx = Some((rx, zip.to_path_buf(), dest));
+        let name = zip.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+        self.explorer_status = Some(format!("Extracting “{name}”…"));
+    }
 
-        #[cfg(windows)]
-        let status = std::process::Command::new("powershell")
-            .args([
-                "-NoProfile",
-                "-Command",
-                &format!(
-                    "Expand-Archive -LiteralPath '{}' -DestinationPath '{}' -Force",
-                    zip.display(),
-                    dest.display()
-                ),
-            ])
-            .status();
-        #[cfg(not(windows))]
-        let status = std::process::Command::new("/usr/bin/unzip")
-            .arg("-o")
-            .arg(zip)
-            .arg("-d")
-            .arg(&dest)
-            .status();
-
-        match status {
-            Ok(s) if s.success() => {
+    /// Collect a finished extraction. A failed one removes the folder it created.
+    pub fn poll_extract(&mut self) {
+        let Some((rx, _, _)) = &self.extract_rx else {
+            return;
+        };
+        let outcome = match rx.try_recv() {
+            Ok(r) => r,
+            Err(std::sync::mpsc::TryRecvError::Empty) => return,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => Err("extraction stopped unexpectedly".to_string()),
+        };
+        let Some((_, zip, dest)) = self.extract_rx.take() else {
+            return;
+        };
+        match outcome {
+            Ok(()) => {
                 self.explorer_status = None;
-                self.extract_banner = Some(ExtractBanner {
-                    zip: zip.to_path_buf(),
-                    dest: dest.clone(),
-                    dir: self.explorer_dir.clone(),
-                });
-                self.explorer_reload();
-            }
-            Ok(s) => {
-                self.explorer_status = Some(format!("Extract failed (exit {:?}).", s.code()));
+                self.extract_banner = Some(ExtractBanner { zip, dest, dir: self.explorer_dir.clone() });
             }
             Err(e) => {
+                // Only our own new folder is removed; the archive is untouched.
+                let _ = std::fs::remove_dir_all(&dest);
                 self.explorer_status = Some(format!("Extract failed: {e}"));
             }
         }
+        self.explorer_reload();
+    }
+}
+
+/// Run the platform unzip into `dest` (a new, empty folder).
+fn run_unzip(zip: &Path, dest: &Path) -> Result<(), String> {
+    #[cfg(windows)]
+    let status = {
+        let q = |p: &Path| p.display().to_string().replace('\'', "''");
+        std::process::Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                &format!("Expand-Archive -LiteralPath '{}' -DestinationPath '{}' -Force", q(zip), q(dest)),
+            ])
+            .status()
+    };
+    #[cfg(not(windows))]
+    let status = std::process::Command::new("/usr/bin/unzip")
+        .arg("-o")
+        .arg("-q")
+        .arg(zip)
+        .arg("-d")
+        .arg(dest)
+        .status();
+    match status {
+        // unzip exit 1 = finished with warnings; the files are extracted.
+        Ok(s) if s.success() || (cfg!(not(windows)) && s.code() == Some(1)) => Ok(()),
+        Ok(s) => Err(format!("unzip exited with {:?}", s.code())),
+        Err(e) => Err(e.to_string()),
     }
 }

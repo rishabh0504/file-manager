@@ -1457,7 +1457,7 @@ fn small_copy(ui: &mut egui::Ui) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sortwise::types::{FileEntrySnapshot, ScanStats};
+    use sortwise::types::{DuplicateGroup, FileEntrySnapshot, ScanStats};
 
     fn group(hash: &str, path: &str) -> DuplicateGroup {
         DuplicateGroup {

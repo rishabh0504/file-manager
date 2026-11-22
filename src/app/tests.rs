@@ -542,3 +542,51 @@ fn a_file_is_staged_in_only_one_place() {
     assert_eq!(app.explorer_queues[1].items, vec![f.clone()]);
     assert_eq!(app.explorer_status.as_deref(), Some("Moved “clip.mp4” from “A” to “B”."));
 }
+
+fn wait_for_extract(app: &mut SortwiseApp) {
+    let start = std::time::Instant::now();
+    while app.extract_rx.is_some() {
+        assert!(start.elapsed() < std::time::Duration::from_secs(10), "extract did not finish");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        app.poll_extract();
+    }
+}
+
+#[test]
+fn extracting_a_zip_never_touches_an_existing_folder_and_cleans_up_on_failure() {
+    let root = scratch_dir("unzip");
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::write(root.join("src").join("a.txt"), b"hello").unwrap();
+    let zip = root.join("photos.zip");
+    let ok = std::process::Command::new("/usr/bin/zip")
+        .current_dir(root.join("src"))
+        .arg("-q")
+        .arg(&zip)
+        .arg("a.txt")
+        .status()
+        .unwrap();
+    assert!(ok.success());
+    // A folder with the archive's name already exists: it must stay untouched.
+    std::fs::create_dir_all(root.join("photos")).unwrap();
+    std::fs::write(root.join("photos").join("mine.txt"), b"keep").unwrap();
+
+    let mut app = SortwiseApp::default();
+    app.explorer_dir = root.clone();
+    app.explorer_extract_zip(&zip);
+    wait_for_extract(&mut app);
+    let banner = app.extract_banner.clone().expect("extract succeeded");
+    assert_eq!(banner.dest, root.join("photos_2"));
+    assert_eq!(std::fs::read(root.join("photos_2").join("a.txt")).unwrap(), b"hello");
+    assert_eq!(std::fs::read(root.join("photos").join("mine.txt")).unwrap(), b"keep");
+
+    // A broken archive fails and leaves no half-made folder behind.
+    let bad = root.join("broken.zip");
+    std::fs::write(&bad, b"not a zip").unwrap();
+    app.extract_banner = None;
+    app.explorer_extract_zip(&bad);
+    wait_for_extract(&mut app);
+    assert!(app.extract_banner.is_none());
+    assert!(!root.join("broken").exists());
+    assert!(bad.exists(), "the archive itself is never touched");
+    let _ = std::fs::remove_dir_all(&root);
+}
