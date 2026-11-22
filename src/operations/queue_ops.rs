@@ -11,14 +11,20 @@ pub fn explorer_new_queue(app: &mut SortwiseApp) {
         let mut created_count = 0;
         let mut last_name = String::new();
         for dir in folders {
-            let name = dir.file_name().map(|n| n.to_string_lossy().to_string())
-                .filter(|s| !s.is_empty()).unwrap_or_else(|| "Queue".to_string());
-            app.explorer_queues.push(FileQueue { name: name.clone(), target: dir, items: Vec::new() });
+            let name = dir.file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "Queue".to_string());
+            app.explorer_queues.push(FileQueue {
+                name: name.clone(),
+                target: dir,
+                items: Vec::new(),
+            });
             last_name = name;
             created_count += 1;
         }
         if created_count == 1 {
-            app.explorer_status = Some(format!("Created queue "{last_name}"."));
+            app.explorer_status = Some(format!("Created queue \"{last_name}\"."));
         } else if created_count > 1 {
             app.explorer_status = Some(format!("Created {created_count} queues."));
         }
@@ -32,10 +38,10 @@ pub fn explorer_add_to_queue(app: &mut SortwiseApp, idx: usize, path: PathBuf) {
     let Some(q) = app.explorer_queues.get_mut(idx) else { return };
     let fname = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
     if q.items.contains(&path) {
-        app.explorer_status = Some(format!(""{fname}" is already in "{}".", q.name));
+        app.explorer_status = Some(format!("\"{fname}\" is already in \"{}\".", q.name));
     } else {
         q.items.push(path);
-        app.explorer_status = Some(format!("Added "{fname}" to "{}".", q.name));
+        app.explorer_status = Some(format!("Added \"{fname}\" to \"{}\".", q.name));
     }
 }
 
@@ -53,7 +59,7 @@ pub fn explorer_toggle_queue(app: &mut SortwiseApp, idx: usize, path: PathBuf) {
     if is_in {
         let qname = app.explorer_queues.get(idx).map(|q| q.name.clone()).unwrap_or_default();
         explorer_remove_from_queue(app, idx, path);
-        app.explorer_status = Some(format!("Removed "{fname}" from "{qname}"."));
+        app.explorer_status = Some(format!("Removed \"{fname}\" from \"{qname}\"."));
     } else {
         explorer_add_to_queue(app, idx, path);
     }
@@ -83,7 +89,7 @@ pub fn explorer_delete_queue(app: &mut SortwiseApp, idx: usize) {
             }
         }
         app.explorer_preview_queue_pick = None;
-        app.explorer_status = Some(format!("Deleted queue "{name}"."));
+        app.explorer_status = Some(format!("Deleted queue \"{name}\"."));
     }
 }
 
@@ -91,26 +97,38 @@ pub fn explorer_change_queue_target(app: &mut SortwiseApp, idx: usize) {
     if let Some(dir) = rfd::FileDialog::new().pick_folder() {
         if let Some(q) = app.explorer_queues.get_mut(idx) {
             q.target = dir;
-            app.explorer_status = Some(format!("Updated folder for "{}".", q.name));
+            app.explorer_status = Some(format!("Updated folder for \"{}\".", q.name));
         }
     }
 }
 
 pub fn submit_all_queues(app: &mut SortwiseApp) {
     let total_files: usize = app.explorer_queues.iter().map(|q| q.items.len()).sum();
-    if total_files == 0 { app.explorer_status = Some("All queues are empty — nothing to move.".to_string()); return; }
+    if total_files == 0 {
+        app.explorer_status = Some("All queues are empty --- nothing to move.".to_string());
+        return;
+    }
 
-    let confirm = rfd::MessageDialog::new().set_level(rfd::MessageLevel::Info).set_title("Submit All Queues")
-        .set_description(format!("Move all {} file(s) across {} queue(s) to their respective target folders?", total_files, app.explorer_queues.len()))
-        .set_buttons(rfd::MessageButtons::YesNo).show();
+    let confirm = rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Info)
+        .set_title("Submit All Queues")
+        .set_description(format!(
+            "Move all {} file(s) across {} queue(s) to their respective target folders?",
+            total_files, app.explorer_queues.len()
+        ))
+        .set_buttons(rfd::MessageButtons::YesNo)
+        .show();
     if confirm != rfd::MessageDialogResult::Yes { return; }
 
     app.explorer_queue_submitting = true;
     app.explorer_queue_submitting_idx = None;
-    if let Ok(mut p) = app.explorer_queue_submit_progress.lock() { *p = (0, total_files, String::new()); }
+    if let Ok(mut p) = app.explorer_queue_submit_progress.lock() {
+        *p = (0, total_files, String::new());
+    }
 
     let queue_snapshots: Vec<(PathBuf, Vec<PathBuf>)> = app.explorer_queues.iter()
         .map(|q| (q.target.clone(), q.items.clone())).collect();
+
     let (tx, rx) = std::sync::mpsc::channel();
     app.explorer_queue_submit_rx = Some(rx);
     let progress = std::sync::Arc::clone(&app.explorer_queue_submit_progress);
@@ -121,10 +139,15 @@ pub fn submit_all_queues(app: &mut SortwiseApp) {
         let mut current_idx = 0;
 
         for (target_dir, items) in queue_snapshots {
-            if !target_dir.is_dir() { let _ = std::fs::create_dir_all(&target_dir); }
+            if !target_dir.is_dir() {
+                let _ = std::fs::create_dir_all(&target_dir);
+            }
+
             for p in items {
                 let fname = p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
-                if let Ok(mut prog) = progress.lock() { *prog = (current_idx, total_files, fname.clone()); }
+                if let Ok(mut prog) = progress.lock() {
+                    *prog = (current_idx, total_files, fname.clone());
+                }
                 current_idx += 1;
 
                 let moved = if p.is_dir() {
@@ -136,11 +159,14 @@ pub fn submit_all_queues(app: &mut SortwiseApp) {
                 } else {
                     false
                 };
+
                 if moved { success_count += 1; } else { fail_count += 1; }
             }
         }
 
-        if let Ok(mut prog) = progress.lock() { *prog = (total_files, total_files, String::new()); }
+        if let Ok(mut prog) = progress.lock() {
+            *prog = (total_files, total_files, String::new());
+        }
         let _ = tx.send((success_count, fail_count));
     });
 }
@@ -152,9 +178,13 @@ pub fn poll_queue_submit_result(app: &mut SortwiseApp) {
             app.explorer_queue_submit_rx = None;
 
             if let Some(idx) = app.explorer_queue_submitting_idx.take() {
-                if let Some(q) = app.explorer_queues.get_mut(idx) { q.items.clear(); }
+                if let Some(q) = app.explorer_queues.get_mut(idx) {
+                    q.items.clear();
+                }
             } else {
-                for q in &mut app.explorer_queues { q.items.clear(); }
+                for q in &mut app.explorer_queues {
+                    q.items.clear();
+                }
             }
 
             let msg = if fail_count == 0 {
