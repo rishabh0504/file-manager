@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 use crate::app::SortwiseApp;
-use crate::types::FileQueue;
+use crate::types::queue::FileQueue;
 use super::move_ops::{fast_move, fast_move_dir, unique_file_dest, unique_dir_dest};
 
 pub fn explorer_new_queue(app: &mut SortwiseApp) {
