@@ -1,4 +1,6 @@
-mod app;
+mod app {
+    pub mod state;
+}
 mod ui;
 mod operations;
 mod helpers;
