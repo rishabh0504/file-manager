@@ -9,7 +9,6 @@ use crate::ui::style::{muted, secondary_button};
 use eframe::egui::{
     self, scroll_area::ScrollBarVisibility, Color32, RichText, ScrollArea,
 };
-use sortwise::resolver::trash_single_path;
 use std::path::PathBuf;
 
 const FOLDER_TILE_W: f32 = 145.0;
@@ -257,11 +256,8 @@ fn folder_tile_ui(app: &mut SortwiseApp, ui: &mut egui::Ui, idx: usize) {
     } else if reveal_action {
         reveal_in_folder(&e.path);
     } else if trash_action {
-        let tname = e.name.clone();
-        if trash_single_path(&e.path).is_ok() {
-            app.explorer_status = Some(format!("Moved folder “{tname}” to Trash."));
-            app.explorer_reload();
-        }
+        // Same confirm dialog as every other trash.
+        crate::ui::explorer_panel::queue_trash(app, vec![(e.path.clone(), 0)]);
     }
 }
 

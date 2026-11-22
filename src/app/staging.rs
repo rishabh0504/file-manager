@@ -184,6 +184,7 @@ impl SortwiseApp {
             if self.movable_items.iter().any(|item| &item.path == path) {
                 continue;
             }
+            self.unstage_elsewhere(usize::MAX, path);
             self.movable_items.push(MovableItem {
                 path: path.clone(),
                 target_queue: default_q.clone(),
@@ -198,12 +199,16 @@ impl SortwiseApp {
             self.movable_items.remove(pos);
             self.explorer_status = Some("Removed from movable queue.".to_string());
         } else {
+            let from = self.unstage_elsewhere(usize::MAX, &path);
             let default_q = self.movable_last_chosen_queue.clone();
             self.movable_items.push(MovableItem {
                 path,
                 target_queue: default_q,
             });
-            self.explorer_status = Some("Added to movable queue.".to_string());
+            self.explorer_status = Some(match from {
+                Some(q) => format!("Moved from “{q}” to Items."),
+                None => "Added to movable queue.".to_string(),
+            });
         }
     }
 
