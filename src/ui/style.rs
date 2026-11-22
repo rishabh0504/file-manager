@@ -42,7 +42,6 @@ pub const R_SM: f32 = 6.0;
 pub const R_MD: f32 = 8.0;
 pub const R_LG: f32 = 12.0;
 pub const H_CONTROL: f32 = 30.0;
-pub const H_ROW: f32 = 32.0;
 pub const H_TOOLBAR: f32 = 48.0;
 /// Below this window width the nav sidebar becomes an icon rail and two-column pages stack.
 pub const NARROW_W: f32 = 900.0;

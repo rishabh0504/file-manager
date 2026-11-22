@@ -94,6 +94,12 @@ fn prepare_screen(app: &mut SortwiseApp, screen: &str) {
         "explorer" => {
             app.mode = app::AppMode::Explorer;
         }
+        "files" => {
+            let _ = demo_result(4); // makes the demo files exist
+            app.mode = app::AppMode::AllFiles;
+            app.view = app::AppView::Scan;
+            app.files_view_dir = Some(std::env::temp_dir().join("sfm_demo_library"));
+        }
         "staging" => {
             app.mode = app::AppMode::Explorer;
             let _ = demo_result(4); // makes the demo files exist
