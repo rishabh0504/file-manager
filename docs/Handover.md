@@ -1,7 +1,7 @@
 # Handover — Sortwise
 
 Written for: the next engineer or AI session picking this repo up cold.
-Last updated: 2026-11-22. Branch: `main`, pushed to `origin/main`. Working tree clean.
+Last updated: 2026-11-23. Branch: `main`. Older plans and write-ups are in `docs/archive/` (do not follow them).
 
 ---
 
@@ -38,9 +38,14 @@ Other tools: Compare A→B (copies in B that exist in A), Empty folders, Archive
    file is missing or changed size since the scan. The user is told to run Refresh findings.
 5. Every bulk trash goes through `PendingAction` → `confirm_pending_action` → `execute_pending_action`.
    Never call `trash_batch` from a button.
-6. Failed moves stay listed (queues, archive list) so the user can retry. Nothing silently disappears.
-7. Background workers: every poller handles `TryRecvError::Disconnected`, so a crashed worker unblocks
-   the UI and reports instead of spinning forever.
+6. Failed moves stay listed (queues, Items, archive list) so the user can retry. Nothing silently disappears.
+   A file is staged in exactly one place (one folder queue or Items), so it can never be moved twice
+   (`unstage_elsewhere`, `explorer_files_stage`).
+7. Long work never runs on the UI thread: scans, queue submit, Items moves (`start_movable_move`), archive
+   moves, recursive search and zip extract all use workers. Every poller handles
+   `TryRecvError::Disconnected`, so a crashed worker unblocks the UI and reports instead of spinning forever.
+8. Every trash asks first (confirm dialog), except the player window's quick-trash button, which is
+   deliberate fast triage while flipping through media. Both go to the system Trash.
 
 Any change to move, trash or hard-link code needs a test that proves which paths are touched.
 
@@ -49,8 +54,8 @@ Any change to move, trash or hard-link code needs a test that proves which paths
 | Item | State |
 |------|-------|
 | Build | `cargo build --bin sortwise`: 0 errors, 0 warnings |
-| Tests | `cargo test`: 64 passing |
-| Clippy | ~20 style warnings left (mostly in tests). None are bugs. |
+| Tests | `cargo test`: 72 passing, 1 ignored (the real cross-volume test, see §4) |
+| Clippy | `cargo clippy --all-targets`: 0 warnings |
 | Platform verified | macOS (aarch64) only. Windows and Linux not run. |
 | Branches | Only `main` matters. `recovery/working-baseline`, `ui-rewrite`, `app-split`, `audit-fixes` are fully merged and can be deleted. |
 
@@ -73,7 +78,8 @@ unnoticed. The fix:
 ```sh
 cargo build --bin sortwise 2>&1 | grep -c '^error'   # must be 0 — the only build check that covers the UI
 cargo test                                           # all tests (64)
-cargo clippy --all-targets
+cargo clippy --all-targets                           # must be 0 warnings
+cargo test --bin sortwise cross_volume -- --ignored  # real move onto a FAT32 disk image (macOS, hdiutil)
 cargo run --bin sortwise                             # the app
 cargo run --bin sortwise -- --dark                   # dark theme
 
@@ -83,8 +89,13 @@ cargo run -q --bin sortwise -- --snapshot out.png <screen> --size 1280x800
 #            player, twins, confirm, shortcuts, errors, folder, files
 #   narrow layout check: --size 820x640
 
-# UI frame-time probe (headless)
+# UI frame-time probe (headless). 2026-11-23: p50 0.53 ms, max 1.77 ms at 1M groups
 ./target/release/sortwise --bench-ui 1000000 300
+
+# Scan benchmark. 2026-11-23, 20k files / 2.5 GB: exact expected groups, warm cache 0.12 s, ~46 MB RSS
+cargo build --release --examples
+./target/release/examples/gen_dataset <out_dir> 20000 0.2 256 7
+SFM_BENCH_CACHE=<scratch.sqlite> ./target/release/examples/scan_bench <out_dir>
 ```
 
 Scratch data goes in the session scratchpad, not the repo.
@@ -141,33 +152,28 @@ and streaming results must match (`tests/streaming_parity.rs`).
 3. Use `style.rs` tokens and helpers; never `Color32::from_rgb` in a panel.
 4. Prefer the Edit tool with exact matches. Do not rewrite Rust files with regex scripts.
 
-`docs/UI_REWRITE_PLAN.md` is the plan the rewrite followed; it is done and kept for reference.
+`docs/archive/UI_REWRITE_PLAN.md` is the plan the rewrite followed; it is done and kept for reference.
 
 ## 7. Verified and not verified
 
-**Verified:** build and tests above; screenshots of results, scan (wide and narrow), explorer, staging,
-compare (dark), empty folders, confirm dialog, folder modal, All files.
+**Verified:** build, tests and clippy above; real cross-volume moves (file + nested folder onto FAT32,
+keep-both rename, source removed); scan correctness and speed on 20k generated files; UI frame time at
+1M groups; the CLI on a real folder; screenshots of every screen in light, dark, and at 700 / 1000 /
+1280 px wide.
 
 **Not verified:**
-- Clicking through the app with a real mouse after the rewrite and the bug fixes.
-- Real moves across volumes and real trash to the OS Trash (tests cover planning and local moves).
-- Snapshots for progress, player and shortcuts screens after the rewrite.
-- Windows and Linux.
+- Clicking through the app with a real mouse.
+- Real trash to the OS Trash (tests cover the plans and the safety filters, not the Trash itself).
+- Very large real libraries (hundreds of GB of video) and slow USB hard drives.
 
 ## 8. Known gaps and next steps (priority order)
 
-1. **Manual pass on macOS**: stage → submit queues with a name collision (expect `name_1`), run
-   Duplicates, trash with confirm, check the Trash; try folder twins with both sides ticked.
-2. **Single Items moves run on the UI thread** (`move_single_movable_item`, `move_all_movable_items` in
-   `src/app/staging.rs`): a large cross-volume move freezes the window. Move to a worker like
-   `submit_all_queues`.
-3. **Same file in two folder queues** is allowed by `explorer_add_to_queue`; the second move then fails.
-   Dedupe across queues (as `explorer_files_stage` already does).
-4. Unit test for `prune_paths_from_results` keep-index tracking (lives in the private `results_panel`
-   module; expose a pure helper to test it).
-5. Clippy style warnings (~20).
-6. Windows: drive detection and UI on real hardware.
-7. Similar-media (perceptual hashing) behind `--features similarity` — not started.
+1. **Manual pass on macOS** with real folders: stage → submit with a name collision (expect `name_1`),
+   run Duplicates, trash with confirm, check the Trash, try folder twins with both sides ticked.
+2. **Same-content videos with different bytes** (re-exports, metadata edits) are not exact duplicates and
+   are not reported. Only a future "similar media" feature (behind `--features similarity`) can find them.
+3. A folder and a file inside it can both be staged; the folder moves first and the file then fails
+   (reported, stays staged). Harmless but noisy.
 
 ## 9. Working agreements
 
