@@ -1,5 +1,6 @@
 mod app;
 mod ui;
+mod operations;
 
 use app::SortwiseApp;
 use eframe::egui;
