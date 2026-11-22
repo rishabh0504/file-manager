@@ -1,5 +1,7 @@
 use crate::types::*;
 use crate::app::state::{ExplorerState, QueueState, DuplicatesState, ScanState, UIState};
+use crate::types::{OperationHistory, AppSettings};
+use crate::ui::NotificationManager;
 use crate::constants::*;
 use crate::ui::{
     progress_panel, results_dup_list_panel, results_main_panel, scan_panel,
@@ -28,6 +30,11 @@ pub struct SortwiseApp {
     pub duplicates: DuplicatesState,
     pub scan: ScanState,
     pub ui: UIState,
+    
+    // Phase 3: Operation history, settings, notifications
+    pub operation_history: OperationHistory,
+    pub settings: AppSettings,
+    pub notifications: NotificationManager,
 }
 
 
@@ -39,9 +46,19 @@ impl Default for SortwiseApp {
             duplicates: DuplicatesState::default(),
             scan: ScanState::default(),
             ui: UIState::default(),
+            operation_history: OperationHistory::new(500),
+            settings: AppSettings::load().unwrap_or_default(),
+            notifications: NotificationManager::new(),
         }
     }
 }
+
+impl Drop for SortwiseApp {
+    fn drop(&mut self) {
+        let _ = self.settings.save();
+    }
+}
+
 
 impl SortwiseApp {
     fn build_scan_config(&self) -> ScanConfig {
@@ -1591,6 +1608,9 @@ impl eframe::App for SortwiseApp {
                 crate::ui::player_window(self, ctx);
                 crate::ui::confirm_pending_action(self, ctx);
             });
+        
+        // Render Phase 3 notifications (toasts)
+        self.notifications.render(ctx);
     }
 }
 
