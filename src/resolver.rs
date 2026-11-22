@@ -244,6 +244,10 @@ pub fn trash_batch<P: AsRef<Path>, I: IntoIterator<Item = P>>(paths: I) -> Resul
     let (successfully_trashed, errors): (Vec<_>, Vec<_>) = path_list
         .into_par_iter()
         .map(|p| {
+            // A failed batch may have trashed some files already: gone means done.
+            if p.symlink_metadata().is_err() {
+                return Ok(p);
+            }
             match trash::delete(&p) {
                 Ok(()) => Ok(p),
                 Err(err) => Err(format!("{}: {}", p.display(), err)),

@@ -453,6 +453,13 @@ pub fn folder_twins_modal(_ui: &mut egui::Ui, ctx: &egui::Context, app: &mut Sor
 
                             // Process trash outside columns borrow
                             for path in trash_a.into_iter().chain(trash_b) {
+                                if is_last_copy(result, &path) {
+                                    app.apply_errors = Some(format!(
+                                        "Kept {}: it is the last remaining copy.",
+                                        path.display()
+                                    ));
+                                    continue;
+                                }
                                 let yes = rfd::MessageDialog::new()
                                     .set_level(rfd::MessageLevel::Warning)
                                     .set_title("Trash duplicate file")
@@ -614,6 +621,7 @@ fn trash_selected_twins(
     app: &mut SortwiseApp,
     result: &ScanResult,
 ) {
+    app.apply_errors = None;
     let mut to_trash = std::collections::HashSet::new();
 
     for ((folder_a, folder_b), (trash_a, trash_b)) in &app.twins_trash_selections {
@@ -635,6 +643,32 @@ fn trash_selected_twins(
                 }
             }
         }
+    }
+
+    // Never empty a group: if every copy of a file was selected, the keep copy stays.
+    let mut protected = 0usize;
+    for g in &result.duplicate_groups {
+        let existing: Vec<&PathBuf> = g
+            .files
+            .iter()
+            .map(|f| &f.path)
+            .filter(|p| p.symlink_metadata().is_ok())
+            .collect();
+        if !existing.is_empty() && existing.iter().all(|p| to_trash.contains(*p)) {
+            let keep = g
+                .files
+                .get(g.keep_index)
+                .map(|f| &f.path)
+                .filter(|p| existing.contains(p))
+                .unwrap_or(existing[0]);
+            to_trash.remove(keep);
+            protected += 1;
+        }
+    }
+    if protected > 0 {
+        app.apply_errors = Some(format!(
+            "{protected} file(s) were selected on both sides; their keep copy was not trashed."
+        ));
     }
 
     if to_trash.is_empty() {
@@ -662,7 +696,6 @@ fn trash_selected_twins(
                 app.clear_preview_cache();
                 app.twins_trash_selections.clear();
                 app.apply_message = Some(format!("Removed {} duplicate file(s) in one batch.", paths_removed.len()));
-                app.apply_errors = None;
             }
             Err(e) => {
                 app.apply_errors = Some(format!("Batch trash error: {}", e));
@@ -671,3 +704,17 @@ fn trash_selected_twins(
     }
 }
 
+
+/// True when `path` is the only copy of its duplicate group still on disk.
+fn is_last_copy(result: &ScanResult, path: &std::path::Path) -> bool {
+    result
+        .duplicate_groups
+        .iter()
+        .find(|g| g.files.iter().any(|f| f.path == path))
+        .map(|g| {
+            !g.files
+                .iter()
+                .any(|f| f.path != path && f.path.symlink_metadata().is_ok())
+        })
+        .unwrap_or(false)
+}

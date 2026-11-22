@@ -7,7 +7,7 @@ use super::*;
 /// 3. `cp`    — regular copy for non-APFS volumes, then delete source.
 pub(crate) fn fast_move(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
     // Safety guard: NEVER overwrite an existing destination file, directory, or symlink!
-    if dst.exists() || dst.symlink_metadata().is_ok() {
+    if dst.symlink_metadata().is_ok() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::AlreadyExists,
             format!("Destination already exists: {}", dst.display()),
@@ -31,21 +31,15 @@ pub(crate) fn fast_move(src: &std::path::Path, dst: &std::path::Path) -> std::io
             std::fs::remove_file(src)?;
             return Ok(());
         }
+        // `dst` did not exist before, so anything there now is a partial clone.
+        let _ = std::fs::remove_file(dst);
     }
 
-    // Generic fallback: stream copy + delete (other platforms / non-APFS)
-    {
-        use std::io::{BufReader, BufWriter, Read, Write};
-        const BUF: usize = 4 * 1024 * 1024; // 4 MB
-        let mut r = BufReader::with_capacity(BUF, std::fs::File::open(src)?);
-        let mut w = BufWriter::with_capacity(BUF, std::fs::File::create(dst)?);
-        let mut buf = vec![0u8; BUF];
-        loop {
-            let n = r.read(&mut buf)?;
-            if n == 0 { break; }
-            w.write_all(&buf[..n])?;
-        }
-        w.flush()?;
+    // Generic fallback: copy (keeps permissions) + delete. A failed copy must not leave a
+    // partial file behind, and the source is only removed after the copy fully succeeded.
+    if let Err(e) = std::fs::copy(src, dst) {
+        let _ = std::fs::remove_file(dst);
+        return Err(e);
     }
     std::fs::remove_file(src)?;
     Ok(())
@@ -53,8 +47,16 @@ pub(crate) fn fast_move(src: &std::path::Path, dst: &std::path::Path) -> std::io
 
 /// Move a directory as a unit: rename when possible, else recursive copy + delete.
 pub(crate) fn fast_move_dir(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    // A folder can never move into itself: the copy fallback would recurse, and the final
+    // remove of `src` would also delete the copy inside it.
+    if dst.starts_with(src) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("Cannot move {} into itself", src.display()),
+        ));
+    }
     // Safety guard: NEVER overwrite an existing destination directory, file, or symlink!
-    if dst.exists() || dst.symlink_metadata().is_ok() {
+    if dst.symlink_metadata().is_ok() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::AlreadyExists,
             format!("Destination directory already exists: {}", dst.display()),
@@ -80,7 +82,10 @@ pub(crate) fn fast_move_dir(src: &std::path::Path, dst: &std::path::Path) -> std
         let _ = std::fs::remove_dir_all(dst);
     }
 
-    copy_dir_recursive(src, dst)?;
+    if let Err(e) = copy_dir_recursive(src, dst) {
+        let _ = std::fs::remove_dir_all(dst);
+        return Err(e);
+    }
     std::fs::remove_dir_all(src)?;
     Ok(())
 }
@@ -111,11 +116,14 @@ pub(crate) fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -
 
 /// Unique destination for a directory: `Name`, then `Name_2`, `Name_3`, …
 /// Never overwrites an existing directory, file, or symlink.
-pub fn unique_dir_dest(target_dir: &std::path::Path, folder_name: &str) -> PathBuf {
+pub fn unique_dir_dest(target_dir: &std::path::Path, folder_name: impl AsRef<std::ffi::OsStr>) -> PathBuf {
+    let folder_name = folder_name.as_ref();
     let mut dest = target_dir.join(folder_name);
     let mut counter = 2u32;
-    while dest.exists() || dest.symlink_metadata().is_ok() {
-        dest = target_dir.join(format!("{folder_name}_{counter}"));
+    while dest.symlink_metadata().is_ok() {
+        let mut name = folder_name.to_os_string();
+        name.push(format!("_{counter}"));
+        dest = target_dir.join(name);
         counter += 1;
     }
     dest
@@ -124,27 +132,26 @@ pub fn unique_dir_dest(target_dir: &std::path::Path, folder_name: &str) -> PathB
 /// Unique non-colliding destination path for a file: `Name.ext`, then `Name_1.ext`, `Name_2.ext`, …
 /// Never overwrites an existing file, directory, or symlink.
 pub fn unique_file_dest(target_dir: &std::path::Path, file_path: &std::path::Path) -> PathBuf {
-    let stem = file_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("file");
-    let ext = file_path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("");
+    // Work on OsStr so names that are not valid UTF-8 keep their real name.
     let original_name = file_path
         .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("file");
+        .map(|n| n.to_os_string())
+        .unwrap_or_else(|| "file".into());
+    let stem = file_path
+        .file_stem()
+        .map(|s| s.to_os_string())
+        .unwrap_or_else(|| "file".into());
+    let ext = file_path.extension().map(|e| e.to_os_string());
 
-    let mut dest = target_dir.join(original_name);
+    let mut dest = target_dir.join(&original_name);
     let mut counter = 1u32;
-    while dest.exists() || dest.symlink_metadata().is_ok() {
-        let new_name = if ext.is_empty() {
-            format!("{stem}_{counter}")
-        } else {
-            format!("{stem}_{counter}.{ext}")
-        };
+    while dest.symlink_metadata().is_ok() {
+        let mut new_name = stem.clone();
+        new_name.push(format!("_{counter}"));
+        if let Some(ext) = &ext {
+            new_name.push(".");
+            new_name.push(ext);
+        }
         dest = target_dir.join(&new_name);
         counter += 1;
     }

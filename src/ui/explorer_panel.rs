@@ -222,10 +222,7 @@ pub fn explorer_main_panel(app: &mut SortwiseApp, ui: &mut egui::Ui) {
         banner(ui, crate::ui::style::pal().danger_soft, crate::ui::style::pal().danger_on_soft, &format!("\u{E4E0}  {err}"));
         ui.add_space(4.0);
     }
-    if let Some(msg) = app.explorer_status.clone() {
-        banner(ui, crate::ui::style::pal().surface_raised, crate::ui::style::pal().success_on_soft, &msg);
-        ui.add_space(4.0);
-    }
+    // Action feedback lives in the status bar, so the table keeps its full height.
     extract_banner_ui(app, ui);
 
     // Footer-first: reserve the bottom strips, then give the table the remaining height.
@@ -1547,9 +1544,8 @@ pub fn player_window(app: &mut SortwiseApp, ctx: &egui::Context) {
                 }
             }
 
-            if !mpv_active && app.inline_video.is_some() {
+            if let (false, Some(dec)) = (mpv_active, app.inline_video.as_ref()) {
                 let (dur, pos, is_paused) = {
-                    let dec = app.inline_video.as_ref().unwrap();
                     let dur = dec.duration();
                     let pos = dec.position().min(if dur > 0.0 { dur } else { f64::MAX });
                     let is_paused = dec.is_paused();

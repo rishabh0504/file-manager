@@ -228,7 +228,7 @@ impl SortwiseApp {
 
         let was_dir = p.is_dir();
         let moved = if p.is_dir() {
-            let dest = unique_dir_dest(&target_dir, &fname);
+            let dest = unique_dir_dest(&target_dir, p.file_name().unwrap_or_default());
             fast_move_dir(&p, &dest).is_ok()
         } else if p.is_file() {
             let dest = unique_file_dest(&target_dir, &p);
@@ -356,7 +356,7 @@ impl SortwiseApp {
                     current_idx += 1;
 
                     let moved = if p.is_dir() {
-                        let dest = unique_dir_dest(&target_dir, &fname);
+                        let dest = unique_dir_dest(&target_dir, p.file_name().unwrap_or_default());
                         fast_move_dir(&p, &dest).is_ok()
                     } else if p.is_file() {
                         let dest = unique_file_dest(&target_dir, &p);
@@ -384,25 +384,42 @@ impl SortwiseApp {
     /// refresh the listing. Mirrors `poll_archive_files_move_result`.
     pub fn poll_queue_submit_result(&mut self) {
         if let Some(rx) = &self.explorer_queue_submit_rx {
-            if let Ok((success_count, fail_count)) = rx.try_recv() {
+            let (success_count, fail_count) = match rx.try_recv() {
+                Ok(counts) => counts,
+                Err(std::sync::mpsc::TryRecvError::Empty) => return,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    // Worker died without reporting: unblock the UI and keep what was not moved.
+                    self.explorer_queue_submitting = false;
+                    self.explorer_queue_submit_rx = None;
+                    self.explorer_queue_submitting_idx = None;
+                    for q in &mut self.explorer_queues {
+                        q.items.retain(|p| p.symlink_metadata().is_ok());
+                    }
+                    self.explorer_status = Some("Moving stopped unexpectedly. Items not moved are still queued.".into());
+                    self.explorer_files_prune_missing();
+                    self.explorer_reload();
+                    return;
+                }
+            };
+            {
                 self.explorer_queue_submitting = false;
                 self.explorer_queue_submit_rx = None;
 
-                // Clear the moved items from the submitted queue (or all queues if submitting_idx was None).
-                if let Some(idx) = self.explorer_queue_submitting_idx.take() {
+                // Drop only the items that left their source; failed ones stay queued for a retry.
+                let submitted: Vec<usize> = match self.explorer_queue_submitting_idx.take() {
+                    Some(idx) => vec![idx],
+                    None => (0..self.explorer_queues.len()).collect(),
+                };
+                for idx in submitted {
                     if let Some(q) = self.explorer_queues.get_mut(idx) {
-                        q.items.clear();
-                    }
-                } else {
-                    for q in &mut self.explorer_queues {
-                        q.items.clear();
+                        q.items.retain(|p| p.symlink_metadata().is_ok());
                     }
                 }
 
                 let msg = if fail_count == 0 {
                     format!("Moved {success_count} file(s) across queues.")
                 } else {
-                    format!("Moved {success_count} file(s); {fail_count} failed.")
+                    format!("Moved {success_count} file(s); {fail_count} failed and are still queued.")
                 };
                 self.explorer_status = Some(msg);
                 self.explorer_files_prune_missing();

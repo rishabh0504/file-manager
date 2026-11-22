@@ -442,3 +442,59 @@ fn files_tab_prune_drops_missing_and_refresh_sets_rescan() {
     assert!(app.explorer_files_rescan);
     let _ = std::fs::remove_dir_all(&temp);
 }
+
+fn scratch_dir(tag: &str) -> PathBuf {
+    let d = std::env::temp_dir().join(format!(
+        "sfm_{tag}_{}_{}",
+        std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    std::fs::create_dir_all(&d).unwrap();
+    d
+}
+
+#[test]
+fn moving_a_folder_into_itself_is_refused_and_nothing_is_lost() {
+    let root = scratch_dir("move_into_self");
+    let src = root.join("Album");
+    std::fs::create_dir_all(src.join("sub")).unwrap();
+    std::fs::write(src.join("a.jpg"), b"photo").unwrap();
+
+    let err = fast_move_dir(&src, &src.join("sub").join("Album")).unwrap_err();
+    assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
+    assert_eq!(std::fs::read(src.join("a.jpg")).unwrap(), b"photo");
+    assert!(!src.join("sub").join("Album").exists());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn moving_onto_an_existing_name_keeps_both_files() {
+    let root = scratch_dir("keep_both");
+    let src_dir = root.join("from");
+    let dst_dir = root.join("to");
+    std::fs::create_dir_all(&src_dir).unwrap();
+    std::fs::create_dir_all(&dst_dir).unwrap();
+    std::fs::write(dst_dir.join("clip.mp4"), b"already here").unwrap();
+    let src = src_dir.join("clip.mp4");
+    std::fs::write(&src, b"incoming").unwrap();
+
+    let dest = unique_file_dest(&dst_dir, &src);
+    assert_eq!(dest, dst_dir.join("clip_1.mp4"));
+    fast_move(&src, &dest).unwrap();
+    assert_eq!(std::fs::read(dst_dir.join("clip.mp4")).unwrap(), b"already here");
+    assert_eq!(std::fs::read(dst_dir.join("clip_1.mp4")).unwrap(), b"incoming");
+    assert!(!src.exists());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[cfg(unix)]
+#[test]
+fn unique_destinations_keep_non_utf8_names() {
+    use std::os::unix::ffi::OsStrExt;
+    let target = std::path::Path::new("/nonexistent_sfm_target");
+    let name = std::ffi::OsStr::from_bytes(b"caf\xe9.jpg");
+    let dest = unique_file_dest(target, &std::path::Path::new("/x").join(name));
+    assert_eq!(dest.file_name().unwrap(), name);
+    let folder = std::ffi::OsStr::from_bytes(b"f\xe9te");
+    assert_eq!(unique_dir_dest(target, folder).file_name().unwrap(), folder);
+}

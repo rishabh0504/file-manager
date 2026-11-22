@@ -296,9 +296,7 @@ pub fn results_main_panel(app: &mut SortwiseApp, ui: &mut egui::Ui, ctx: &egui::
                 let path = &f.path;
                 
                 // Auto-start video player
-                if is_video_path(path) && app.inline_video.is_none() && app.preview_path.as_deref() != Some(path) {
-                    update_preview(ctx, app, path, 0);
-                } else if app.preview_path.as_deref() != Some(path) {
+                if app.preview_path.as_deref() != Some(path) {
                     update_preview(ctx, app, path, 0);
                 }
 
@@ -321,7 +319,9 @@ pub fn results_main_panel(app: &mut SortwiseApp, ui: &mut egui::Ui, ctx: &egui::
                     ui.add_space(6.0);
                 }
 
-                preview_body_ui(ui, app, path, f.size, ctx, 380.0);
+                // Preview takes under half the body so the copies list is visible without scrolling.
+                let preview_h = (body_h * 0.42).clamp(160.0, 380.0);
+                preview_body_ui(ui, app, path, f.size, ctx, preview_h);
             }
 
             // Folder-grouped File Rows
@@ -1063,13 +1063,15 @@ pub(crate) fn prune_paths_from_results(
 
     let mut next: Vec<DuplicateGroup> = Vec::new();
     for mut g in std::mem::take(&mut res.duplicate_groups) {
+        let keep_path = g.files.get(g.keep_index).map(|f| f.path.clone());
         g.files.retain(|f| !removed_paths.contains(&f.path));
         if g.files.len() < 2 {
             continue;
         }
-        if g.keep_index >= g.files.len() {
-            g.keep_index = 0;
-        }
+        // Follow the same keep file to its new position; only fall back if it was removed.
+        g.keep_index = keep_path
+            .and_then(|k| g.files.iter().position(|f| f.path == k))
+            .unwrap_or(0);
         for (i, f) in g.files.iter_mut().enumerate() {
             f.is_keep = i == g.keep_index;
         }
@@ -1235,10 +1237,63 @@ pub(crate) fn execute_pending_action(app: &mut SortwiseApp, pending: PendingActi
 }
 
 /// Move a plan to Trash, prune the results, and write the action log.
+/// Paths in `paths` that are duplicates in the current results but whose group no longer looks
+/// like the scan saw it: the keep file is gone or changed size, or the copy itself changed size.
+/// Acting on them could destroy the last copy of a file, so they are skipped.
+fn stale_duplicates(app: &SortwiseApp, paths: &[PathBuf]) -> std::collections::HashSet<PathBuf> {
+    let mut stale = std::collections::HashSet::new();
+    let Some(result) = app.last_result.as_ref() else {
+        return stale;
+    };
+    let wanted: std::collections::HashSet<&PathBuf> = paths.iter().collect();
+    for g in &result.duplicate_groups {
+        let Some(keep) = g.files.get(g.keep_index) else {
+            continue;
+        };
+        let keep_ok = fs::metadata(&keep.path).map(|m| m.len() == keep.size).unwrap_or(false);
+        for f in &g.files {
+            if !wanted.contains(&f.path) || f.path == keep.path {
+                continue;
+            }
+            let copy_ok = fs::metadata(&f.path).map(|m| m.len() == f.size).unwrap_or(false);
+            if !keep_ok || !copy_ok {
+                stale.insert(f.path.clone());
+            }
+        }
+    }
+    stale
+}
+
 fn trash_plan(app: &mut SortwiseApp, action: &str, plan: &ActionPlan) {
-    match trash_batch(&plan.paths) {
+    let stale = stale_duplicates(app, &plan.paths);
+    let safe_paths: Vec<PathBuf> = plan.paths.iter().filter(|p| !stale.contains(*p)).cloned().collect();
+    let skipped_note = if stale.is_empty() {
+        String::new()
+    } else {
+        format!(
+            " Skipped {} file(s) because their kept copy is missing or changed since the scan; run Refresh findings.",
+            stale.len()
+        )
+    };
+    match trash_batch(&safe_paths) {
         Ok(trashed) => {
             let done: std::collections::HashSet<PathBuf> = trashed.into_iter().collect();
+            // Non-duplicate paths (Explorer, empty folders) are not in the results; count the plan size.
+            let freed: u64 = {
+                let from_results: u64 = app
+                    .last_result
+                    .as_ref()
+                    .map(|r| {
+                        r.duplicate_groups
+                            .iter()
+                            .flat_map(|g| g.files.iter())
+                            .filter(|f| done.contains(&f.path))
+                            .map(|f| f.size)
+                            .sum()
+                    })
+                    .unwrap_or(0);
+                if from_results > 0 || !stale.is_empty() { from_results } else { plan.total_bytes }
+            };
             let completed: Vec<PathBuf> = plan.paths.iter().filter(|p| done.contains(*p)).cloned().collect();
             for p in &completed {
                 app.results_selected_files.remove(p);
@@ -1246,10 +1301,18 @@ fn trash_plan(app: &mut SortwiseApp, action: &str, plan: &ActionPlan) {
             prune_paths_from_results(app, &done);
             app.clear_preview_cache();
             let log = record_action(action, &plan.paths, &completed, None);
+            let failed = safe_paths.len().saturating_sub(completed.len());
+            let failed_note = if failed > 0 {
+                format!(" {failed} file(s) could not be moved to Trash and were left in place.")
+            } else {
+                String::new()
+            };
             app.apply_message = Some(format!(
-                "Moved {} file(s) to Trash, freeing {}. {}",
+                "Moved {} file(s) to Trash, freeing {}.{}{} {}",
                 completed.len(),
-                format_bytes(plan.total_bytes),
+                format_bytes(freed),
+                failed_note,
+                skipped_note,
                 log.message
             ));
             app.apply_errors = log.error;
@@ -1266,10 +1329,29 @@ fn apply_hardlinks(app: &mut SortwiseApp, plan: &ActionPlan) {
     let Some(result) = app.last_result.clone() else {
         return;
     };
+    let stale = stale_duplicates(app, &plan.paths);
+    let planned: std::collections::HashSet<&PathBuf> = plan.paths.iter().filter(|p| !stale.contains(*p)).collect();
     let mut ok = 0usize;
     let mut errs = Vec::new();
+    if !stale.is_empty() {
+        errs.push(format!(
+            "Skipped {} file(s): their kept copy is missing or changed since the scan. Run Refresh findings.",
+            stale.len()
+        ));
+    }
     for g in &result.duplicate_groups {
-        for r in resolver::apply_hardlink_group(g, ActionMode::HardLink) {
+        // Only the files in the confirmed plan are replaced; the keep file always stays first-class.
+        let mut g = g.clone();
+        let keep_path = g.files.get(g.keep_index).map(|f| f.path.clone());
+        g.files.retain(|f| Some(&f.path) == keep_path.as_ref() || planned.contains(&f.path));
+        let Some(keep_idx) = g.files.iter().position(|f| Some(&f.path) == keep_path.as_ref()) else {
+            continue;
+        };
+        g.keep_index = keep_idx;
+        if g.files.len() < 2 {
+            continue;
+        }
+        for r in resolver::apply_hardlink_group(&g, ActionMode::HardLink) {
             match r {
                 Ok(()) => ok += 1,
                 Err(e) => errs.push(e.to_string()),

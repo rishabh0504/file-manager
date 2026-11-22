@@ -210,7 +210,19 @@ impl SortwiseApp {
 
     pub(crate) fn poll_result(&mut self) {
         if let Some(rx) = &self.result_rx {
-            if let Ok(res) = rx.try_recv() {
+            let res = match rx.try_recv() {
+                Ok(v) => v,
+                Err(std::sync::mpsc::TryRecvError::Empty) => return,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    self.result_rx = None;
+                    self.live_rx = None;
+                    self.scan_work = ScanWorkKind::FullScan;
+                    self.view = if self.last_result.is_some() { AppView::Results } else { AppView::Scan };
+                    worker_lost_dialog("The scan");
+                    return;
+                }
+            };
+            {
                 let prior_path = self.last_result.as_ref().and_then(|r| {
                     let gi = self.results_selected_group?;
                     r.duplicate_groups
@@ -302,7 +314,18 @@ impl SortwiseApp {
 
     pub(crate) fn poll_empty_folders_result(&mut self) {
         if let Some(rx) = &self.empty_folders_rx {
-            if let Ok(res) = rx.try_recv() {
+            let res = match rx.try_recv() {
+                Ok(v) => v,
+                Err(std::sync::mpsc::TryRecvError::Empty) => return,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    self.empty_folders_scanning = false;
+                    self.empty_folders_rx = None;
+                    self.view = AppView::Scan;
+                    worker_lost_dialog("The empty-folder scan");
+                    return;
+                }
+            };
+            {
                 self.empty_folders_selected = res.iter().cloned().collect();
                 self.empty_folders_results = res;
                 self.empty_folders_scanning = false;
@@ -347,7 +370,18 @@ impl SortwiseApp {
 
     pub(crate) fn poll_archive_files_result(&mut self) {
         if let Some(rx) = &self.archive_files_rx {
-            if let Ok(res) = rx.try_recv() {
+            let res = match rx.try_recv() {
+                Ok(v) => v,
+                Err(std::sync::mpsc::TryRecvError::Empty) => return,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    self.archive_files_scanning = false;
+                    self.archive_files_rx = None;
+                    self.view = AppView::Scan;
+                    worker_lost_dialog("The archive scan");
+                    return;
+                }
+            };
+            {
                 self.archive_files_results = res;
                 // By default, select all found archive files
                 self.archive_files_selected = self.archive_files_results.iter().cloned().collect();
@@ -360,7 +394,19 @@ impl SortwiseApp {
 
     pub fn poll_archive_files_move_result(&mut self) {
         if let Some(rx) = &self.archive_files_move_rx {
-            if let Ok((success_count, fail_count)) = rx.try_recv() {
+            let (success_count, fail_count) = match rx.try_recv() {
+                Ok(v) => v,
+                Err(std::sync::mpsc::TryRecvError::Empty) => return,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    self.archive_files_moving = false;
+                    self.archive_files_move_rx = None;
+                    self.archive_files_results.retain(|p| p.symlink_metadata().is_ok());
+                    self.archive_files_selected.retain(|p| p.symlink_metadata().is_ok());
+                    worker_lost_dialog("Moving archive files");
+                    return;
+                }
+            };
+            {
                 self.archive_files_moving = false;
                 self.archive_files_move_rx = None;
 
@@ -375,9 +421,12 @@ impl SortwiseApp {
                     .set_buttons(rfd::MessageButtons::Ok)
                     .show();
 
-                self.archive_files_results.clear();
-                self.archive_files_selected.clear();
-                self.view = AppView::Scan;
+                // Moved files leave the list; failed ones stay so they can be retried.
+                self.archive_files_results.retain(|p| p.symlink_metadata().is_ok());
+                self.archive_files_selected.retain(|p| p.symlink_metadata().is_ok());
+                if self.archive_files_results.is_empty() {
+                    self.view = AppView::Scan;
+                }
             }
         }
     }
@@ -454,4 +503,14 @@ impl SortwiseApp {
     // -----------------------------------------------------------------------
     // Queue (staged move) operations
     // -----------------------------------------------------------------------
+}
+
+/// A background worker ended without sending its result (it panicked). Tell the user.
+fn worker_lost_dialog(what: &str) {
+    rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Error)
+        .set_title("Something went wrong")
+        .set_description(format!("{what} stopped unexpectedly. Nothing else was changed. Please try again."))
+        .set_buttons(rfd::MessageButtons::Ok)
+        .show();
 }

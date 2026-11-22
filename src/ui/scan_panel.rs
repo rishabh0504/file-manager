@@ -20,25 +20,16 @@ pub fn scan_scroll(ui: &mut egui::Ui, id: &'static str, body: impl FnOnce(&mut e
         });
 }
 
-/// Title block shared by every scan screen: accent icon, title, one muted line.
+/// One-line intro shared by every scan screen. The page title already sits in the top bar,
+/// so this only adds the icon, a short name and what the tool does.
 pub fn scan_header(ui: &mut egui::Ui, icon: &str, title: &str, desc: &str) {
     let p = crate::ui::style::pal();
-    ui.horizontal(|ui| {
-        Frame::none()
-            .fill(p.accent_soft)
-            .rounding(Rounding::same(crate::ui::style::R_MD))
-            .inner_margin(Margin::same(8.0))
-            .show(ui, |ui| {
-                ui.label(RichText::new(icon).size(18.0).color(p.accent));
-            });
-        ui.add_space(6.0);
-        ui.vertical(|ui| {
-            ui.spacing_mut().item_spacing.y = 2.0;
-            ui.label(crate::ui::style::page_title(title));
-            ui.label(RichText::new(desc).color(p.text_muted).size(12.5));
-        });
+    ui.horizontal_wrapped(|ui| {
+        ui.label(RichText::new(icon).size(16.0).color(p.accent));
+        ui.label(RichText::new(title).strong().size(14.0).color(p.text));
+        ui.label(RichText::new(desc).color(p.text_muted).size(12.5));
     });
-    ui.add_space(18.0);
+    ui.add_space(12.0);
 }
 
 /// Width below which the folders and settings cards stack vertically.

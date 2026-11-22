@@ -18,6 +18,20 @@ pub fn status_bar(app: &mut SortwiseApp, ui: &mut egui::Ui) {
             ui.add_space(16.0);
             ui.label(muted(middle));
         }
+        if matches!(app.mode, AppMode::Explorer | AppMode::AllFiles) {
+            if let Some(msg) = app.explorer_status.as_deref() {
+                ui.add_space(16.0);
+                // Leave room on the right for reclaimable size, errors and the theme toggle.
+                let w = (ui.available_width() - 260.0).max(80.0);
+                ui.allocate_ui(egui::vec2(w, 20.0), |ui| {
+                    ui.add(
+                        egui::Label::new(RichText::new(msg).size(12.0).strong().color(pal().success_on_soft))
+                            .truncate(),
+                    )
+                    .on_hover_text(msg);
+                });
+            }
+        }
 
         // Right to left: theme toggle (rightmost), error log, then reclaimable size.
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {

@@ -97,12 +97,19 @@ impl eframe::App for SortwiseApp {
 
         // Poll recursive search results
         if self.explorer_searching {
-            let got = if let Some(rx) = &self.explorer_search_rx {
-                rx.try_recv().ok()
-            } else {
-                None
+            let (got, lost) = match &self.explorer_search_rx {
+                Some(rx) => match rx.try_recv() {
+                    Ok(entries) => (Some(entries), false),
+                    Err(std::sync::mpsc::TryRecvError::Empty) => (None, false),
+                    Err(std::sync::mpsc::TryRecvError::Disconnected) => (None, true),
+                },
+                None => (None, true),
             };
-            if let Some(entries) = got {
+            if lost {
+                // Worker ended without results: stop the spinner instead of waiting forever.
+                self.explorer_searching = false;
+                self.explorer_search_rx = None;
+            } else if let Some(entries) = got {
                 self.explorer_entries = entries;
                 self.explorer_sort_entries();
                 self.explorer_searching = false;

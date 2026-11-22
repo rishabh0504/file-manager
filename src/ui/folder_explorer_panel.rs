@@ -145,11 +145,7 @@ fn folder_tile_ui(app: &mut SortwiseApp, ui: &mut egui::Ui, idx: usize) {
                     let folder_icon = if is_hidden { "\u{E24A}." } else { "\u{E24A}" };
                     ui.label(
                         RichText::new(folder_icon).size(22.0).color(
-                            if is_hidden {
-                                crate::ui::style::pal().accent_on_soft
-                            } else {
-                                crate::ui::style::pal().accent_on_soft
-                            },
+                            crate::ui::style::pal().accent_on_soft,
                         ),
                     );
                     if is_staged {
@@ -173,11 +169,7 @@ fn folder_tile_ui(app: &mut SortwiseApp, ui: &mut egui::Ui, idx: usize) {
                         RichText::new(&e.name)
                             .strong()
                             .size(12.5)
-                            .color(if is_hidden {
-                                crate::ui::style::pal().text
-                            } else {
-                                crate::ui::style::pal().text
-                            }),
+                            .color(crate::ui::style::pal().text),
                     )
                     .truncate(),
                 );

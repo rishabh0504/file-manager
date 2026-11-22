@@ -278,11 +278,6 @@ pub fn section_title(text: &str) -> RichText {
     RichText::new(text).strong().size(14.0).color(pal().text)
 }
 
-/// Large page title (scan pages, empty states).
-pub fn page_title(text: &str) -> RichText {
-    RichText::new(text).strong().size(20.0).color(pal().text)
-}
-
 pub fn muted(text: impl Into<String>) -> RichText {
     RichText::new(text.into()).size(12.0).color(pal().text_muted)
 }
