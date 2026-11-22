@@ -2500,93 +2500,41 @@ impl eframe::App for SortwiseApp {
         }
 
         let mode = self.mode;
-        egui::TopBottomPanel::top("top")
-            .exact_height(52.0)
+        let p = crate::ui::style::pal();
+
+        // Left navigation (modes + places). Icon rail when the window is narrow or staging is open.
+        let staging_open = self.movable_queue_open || self.explorer_queue_view_open;
+        let rail = crate::ui::style::is_narrow(ctx)
+            || (staging_open && ctx.screen_rect().width() < 1200.0);
+        egui::SidePanel::left("nav")
+            .resizable(false)
+            .exact_width(if rail { crate::ui::shell::RAIL_W } else { crate::ui::shell::NAV_W })
             .frame(
                 egui::Frame::none()
-                    .fill(crate::ui::style::pal().surface)
-                    .inner_margin(egui::Margin::symmetric(18.0, 0.0))
-                    .stroke(egui::Stroke::new(1.0, crate::ui::style::pal().border)),
+                    .fill(p.sidebar)
+                    .inner_margin(egui::Margin::symmetric(8.0, 6.0))
+                    .stroke(egui::Stroke::new(1.0, p.border)),
             )
-            .show(ctx, |ui| {
-                ui.horizontal_centered(|ui| {
-                    if self.brand_logo.is_none() {
-                        self.brand_logo = crate::ui::brand::load_logo(ui.ctx());
-                    }
-                    match self.brand_logo.as_ref() {
-                        Some(logo) => {
-                            ui.add(egui::Image::new(logo).fit_to_exact_size(egui::vec2(24.0, 24.0)));
-                        }
-                        None => {
-                            ui.label(egui::RichText::new(crate::ui::icons::Icons::FOLDER_OPEN).size(20.0));
-                        }
-                    }
-                    ui.add_space(8.0);
-                    ui.label(
-                        egui::RichText::new("Sortwise")
-                            .strong()
-                            .size(16.0)
-                            .color(crate::ui::style::pal().text),
-                    );
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        mode_switch(self, ui);
-                        if matches!(mode, AppMode::Explorer | AppMode::AllFiles) {
-                            ui.add_space(10.0);
-                            // One entry point for everything set aside (U8): loose items and folder queues.
-                            let movable_count = self.movable_items.len();
-                            let staged_folder: usize = self.explorer_queues.iter().map(|q| q.items.len()).sum();
-                            let staged_total = movable_count + staged_folder;
-                            let open = self.movable_queue_open || self.explorer_queue_view_open;
-                            let label = if staged_total > 0 {
-                                format!("{}  Staging · {staged_total}", crate::ui::icons::Icons::INBOX)
-                            } else {
-                                format!("{}  Staging", crate::ui::icons::Icons::INBOX)
-                            };
-                            let fill = if open {
-                                crate::ui::style::pal().accent
-                            } else if staged_total > 0 {
-                                crate::ui::style::pal().success_soft
-                            } else {
-                                crate::ui::style::pal().surface_raised
-                            };
-                            let text_color = if open {
-                                crate::ui::style::pal().on_accent
-                            } else if staged_total > 0 {
-                                crate::ui::style::pal().success_on_soft
-                            } else {
-                                crate::ui::style::pal().text
-                            };
-                            let btn = egui::Button::new(
-                                egui::RichText::new(label).strong().size(13.5).color(text_color),
-                            )
-                            .fill(fill)
-                            .min_size(egui::vec2(0.0, 32.0));
-                            if ui
-                                .add(btn)
-                                .on_hover_text("Files set aside before moving: loose items and folder queues")
-                                .clicked()
-                            {
-                                if open {
-                                    self.movable_queue_open = false;
-                                    self.explorer_queue_view_open = false;
-                                } else {
-                                    // Opens on Folder queues, the first tab.
-                                    self.explorer_queue_view_open = true;
-                                }
-                            }
-                        }
-                    });
-                });
-            });
+            .show(ctx, |ui| crate::ui::shell::nav(self, ui, rail));
 
-        // Status bar (26 px). Added before the side and central panels, as egui requires.
+        egui::TopBottomPanel::top("top")
+            .exact_height(crate::ui::style::H_TOOLBAR)
+            .frame(
+                egui::Frame::none()
+                    .fill(p.surface)
+                    .inner_margin(egui::Margin::symmetric(20.0, 0.0))
+                    .stroke(egui::Stroke::new(1.0, p.border)),
+            )
+            .show(ctx, |ui| crate::ui::shell::toolbar(self, ui));
+
+        // Status bar. Added before the side and central panels, as egui requires.
         egui::TopBottomPanel::bottom("status")
             .exact_height(26.0)
             .frame(
                 egui::Frame::none()
-                    .fill(crate::ui::style::pal().surface)
-                    .inner_margin(egui::Margin::symmetric(12.0, 0.0))
-                    .stroke(egui::Stroke::new(1.0, crate::ui::style::pal().border)),
+                    .fill(p.surface)
+                    .inner_margin(egui::Margin::symmetric(14.0, 0.0))
+                    .stroke(egui::Stroke::new(1.0, p.border)),
             )
             .show(ctx, |ui| crate::ui::status_bar::status_bar(self, ui));
 
@@ -2595,55 +2543,30 @@ impl eframe::App for SortwiseApp {
                 && matches!(self.view, AppView::Results)
                 && self.last_result.is_some();
 
-        let show_sidebar = match mode {
-            AppMode::Explorer => true,
-            AppMode::Dedupe | AppMode::CompareSourceDest => results_ready,
-            AppMode::EmptyFolders => false,
-            AppMode::ArchiveFiles => false,
-            AppMode::AllFiles => false,
-        };
-
-        if show_sidebar {
-            // Explorer: 200 px places panel, icons only in narrow windows (< 760 px).
-            // The sidebar also collapses while the staging panel is open, so the toolbar keeps its room.
-            let staging_open = self.movable_queue_open || self.explorer_queue_view_open;
-            let explorer_narrow =
-                mode == AppMode::Explorer && (ctx.screen_rect().width() < 760.0 || staging_open);
-            let sidebar = egui::SidePanel::left("sidebar");
-            let sidebar = if explorer_narrow {
-                sidebar.resizable(false).exact_width(56.0)
-            } else {
-                sidebar
-                    .resizable(true)
-                    .default_width(if results_ready { 300.0 } else if mode == AppMode::Explorer { 200.0 } else { 220.0 })
-                    .min_width(if results_ready { 236.0 } else if mode == AppMode::Explorer { 160.0 } else { 180.0 })
-                    .max_width(560.0)
-            };
-            sidebar
+        // Duplicate groups column (results only).
+        if results_ready {
+            let narrow = crate::ui::style::is_narrow(ctx);
+            egui::SidePanel::left("groups")
+                .resizable(true)
+                .default_width(if narrow { 240.0 } else { 300.0 })
+                .min_width(220.0)
+                .max_width(520.0)
                 .frame(
                     egui::Frame::none()
-                        .fill(crate::ui::style::pal().canvas)
-                        .inner_margin(egui::Margin::same(if results_ready { 14.0 } else { 10.0 }))
-                        .stroke(egui::Stroke::new(1.0, crate::ui::style::pal().border)),
+                        .fill(p.canvas)
+                        .inner_margin(egui::Margin::same(12.0))
+                        .stroke(egui::Stroke::new(1.0, p.border)),
                 )
-                .show(ctx, |ui| {
-                    match mode {
-                        AppMode::Explorer => crate::ui::explorer_sidebar(self, ui),
-                        AppMode::Dedupe | AppMode::CompareSourceDest if results_ready => {
-                            results_dup_list_panel(self, ui, ctx);
-                        }
-                        _ => {}
-                    }
-                });
+                .show(ctx, |ui| results_dup_list_panel(self, ui, ctx));
         }
 
         // Staging panel: a right side panel, so it must be added before the central panel.
         crate::ui::staging_panel(self, ctx);
 
-        let central_margin = if mode == AppMode::Explorer {
-            egui::Margin::symmetric(12.0, 10.0)
-        } else {
-            egui::Margin::symmetric(22.0, 18.0)
+        let central_margin = match mode {
+            AppMode::Explorer | AppMode::AllFiles => egui::Margin::symmetric(16.0, 12.0),
+            _ if crate::ui::style::is_narrow(ctx) => egui::Margin::symmetric(14.0, 12.0),
+            _ => egui::Margin::symmetric(24.0, 18.0),
         };
         egui::CentralPanel::default()
             .frame(
@@ -2676,62 +2599,6 @@ impl eframe::App for SortwiseApp {
                 crate::ui::player_window(self, ctx);
                 crate::ui::confirm_pending_action(self, ctx);
             });
-    }
-}
-
-fn mode_switch(app: &mut SortwiseApp, ui: &mut egui::Ui) {
-    // Labelled tabs (U4): icon + text. The active tab gets a tinted fill and an accent underline.
-    let narrow = ui.ctx().screen_rect().width() < 900.0;
-    let seg = |ui: &mut egui::Ui, icon: &str, label: &str, active: bool, tooltip: &str| -> bool {
-        let p = crate::ui::style::pal();
-        let fg = if active { p.accent_on_soft } else { p.text_muted };
-        let bg = if active { p.accent_soft } else { egui::Color32::TRANSPARENT };
-        // Below 900 px the tabs show icons only; the tooltip still names them.
-        let text = if narrow { format!("{icon}") } else { format!("{icon}  {label}") };
-        let resp = ui
-            .add(
-                egui::Button::new(
-                    egui::RichText::new(text).size(13.0).strong().color(fg),
-                )
-                .fill(bg)
-                .stroke(egui::Stroke::NONE)
-                .min_size(egui::vec2(if narrow { 36.0 } else { 0.0 }, 36.0)),
-            )
-            .on_hover_text(tooltip);
-        if active {
-            let r = resp.rect;
-            let underline = egui::Rect::from_min_max(egui::pos2(r.left(), r.bottom() - 2.0), r.right_bottom());
-            ui.painter().rect_filled(underline, 0.0, p.accent);
-        }
-        resp.clicked()
-    };
-    ui.spacing_mut().item_spacing.x = 6.0;
-
-    if seg(ui, crate::ui::icons::Icons::DOCUMENT, "Files", app.mode == AppMode::AllFiles, "All files under a folder, recursive, largest first") {
-        app.mode = AppMode::AllFiles;
-        app.view = AppView::Scan;
-        if app.files_view_dir.is_none() {
-            app.files_view_dir = Some(app.explorer_dir.clone());
-        }
-    }
-    if seg(ui, crate::ui::icons::Icons::PACKAGE, "Archives", app.mode == AppMode::ArchiveFiles, "Find archive files (zip, rar, 7z…)") {
-        app.mode = AppMode::ArchiveFiles;
-        app.view = AppView::Scan;
-    }
-    if seg(ui, crate::ui::icons::Icons::FOLDER, "Empty folders", app.mode == AppMode::EmptyFolders, "Find empty folders") {
-        app.mode = AppMode::EmptyFolders;
-        app.view = AppView::Scan;
-    }
-    if seg(ui, crate::ui::icons::Icons::COMPARE, "Compare A→B", app.mode == AppMode::CompareSourceDest, "Find copies in B that also exist in A") {
-        app.mode = AppMode::CompareSourceDest;
-        app.view = AppView::Scan;
-    }
-    // U5: switching to Duplicates never starts a scan. The user picks folders first.
-    if seg(ui, crate::ui::icons::Icons::SEARCH, "Duplicates", app.mode == AppMode::Dedupe, "Find duplicate files") {
-        app.mode = AppMode::Dedupe;
-    }
-    if seg(ui, crate::ui::icons::Icons::FOLDER_OPEN, "Explorer", app.mode == AppMode::Explorer, "Browse files") {
-        app.mode = AppMode::Explorer;
     }
 }
 

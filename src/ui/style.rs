@@ -16,6 +16,10 @@ pub struct Palette {
     pub text_muted: Color32,
     /// Text and icons placed on a filled accent, danger or success background.
     pub on_accent: Color32,
+    /// Navigation sidebar background.
+    pub sidebar: Color32,
+    /// Hover fill for rows, nav items and ghost buttons.
+    pub hover: Color32,
 
     pub accent: Color32,
     pub accent_soft: Color32,
@@ -34,29 +38,45 @@ pub struct Palette {
     pub warning_on_soft: Color32,
 }
 
+pub const R_SM: f32 = 6.0;
+pub const R_MD: f32 = 8.0;
+pub const R_LG: f32 = 12.0;
+pub const H_CONTROL: f32 = 30.0;
+pub const H_ROW: f32 = 32.0;
+pub const H_TOOLBAR: f32 = 48.0;
+/// Below this window width the nav sidebar becomes an icon rail and two-column pages stack.
+pub const NARROW_W: f32 = 900.0;
+
+/// `true` when the window is narrow enough to switch to the compact layout.
+pub fn is_narrow(ctx: &egui::Context) -> bool {
+    ctx.screen_rect().width() < NARROW_W
+}
+
 const fn rgb(r: u8, g: u8, b: u8) -> Color32 {
     Color32::from_rgb(r, g, b)
 }
 
 pub const LIGHT: Palette = Palette {
-    canvas: rgb(244, 245, 247),
+    canvas: rgb(245, 245, 247),
     surface: rgb(255, 255, 255),
-    surface_raised: rgb(240, 242, 245),
-    border: rgb(221, 225, 232),
-    border_strong: rgb(184, 191, 204),
-    text: rgb(27, 31, 39),
-    text_muted: rgb(91, 100, 114),
+    surface_raised: rgb(242, 242, 245),
+    border: rgb(228, 228, 232),
+    border_strong: rgb(201, 201, 209),
+    text: rgb(24, 24, 27),
+    text_muted: rgb(99, 99, 110),
     on_accent: rgb(255, 255, 255),
+    sidebar: rgb(239, 239, 242),
+    hover: rgb(233, 233, 238),
 
     accent: rgb(37, 99, 235),
-    accent_soft: rgb(232, 240, 254),
-    accent_on_soft: rgb(30, 64, 175),
+    accent_soft: rgb(234, 241, 254),
+    accent_on_soft: rgb(29, 64, 175),
 
-    danger: rgb(209, 52, 58),
+    danger: rgb(200, 40, 48),
     danger_soft: rgb(253, 236, 236),
     danger_on_soft: rgb(153, 27, 27),
 
-    success: rgb(31, 138, 87),
+    success: rgb(22, 128, 78),
     success_soft: rgb(226, 246, 236),
     success_on_soft: rgb(21, 94, 60),
 
@@ -66,20 +86,22 @@ pub const LIGHT: Palette = Palette {
 };
 
 pub const DARK: Palette = Palette {
-    canvas: rgb(18, 18, 22),
-    surface: rgb(26, 26, 34),
-    surface_raised: rgb(38, 40, 50),
-    border: rgb(50, 54, 68),
-    border_strong: rgb(80, 86, 106),
-    text: rgb(224, 228, 244),
-    text_muted: rgb(150, 158, 190),
+    canvas: rgb(17, 17, 19),
+    surface: rgb(24, 24, 27),
+    surface_raised: rgb(34, 34, 38),
+    border: rgb(46, 46, 51),
+    border_strong: rgb(69, 69, 77),
+    text: rgb(237, 237, 240),
+    text_muted: rgb(160, 160, 172),
     on_accent: rgb(255, 255, 255),
+    sidebar: rgb(20, 20, 22),
+    hover: rgb(38, 38, 43),
 
-    accent: rgb(46, 100, 224),
-    accent_soft: rgb(30, 44, 74),
+    accent: rgb(37, 99, 235),
+    accent_soft: rgb(28, 39, 64),
     accent_on_soft: rgb(170, 200, 255),
 
-    danger: rgb(200, 50, 58),
+    danger: rgb(200, 40, 48),
     danger_soft: rgb(58, 28, 32),
     danger_on_soft: rgb(255, 180, 180),
 
@@ -130,12 +152,54 @@ fn visuals(p: Palette, dark: bool) -> egui::Visuals {
     v.faint_bg_color = p.surface_raised;
     v.override_text_color = Some(p.text);
     v.widgets.noninteractive.bg_fill = p.surface;
+    v.widgets.noninteractive.weak_bg_fill = p.surface;
     v.widgets.noninteractive.bg_stroke = Stroke::new(1.0, p.border);
-    v.widgets.inactive.bg_fill = p.surface_raised;
-    v.widgets.hovered.bg_fill = p.border;
-    v.widgets.active.bg_fill = p.border_strong;
+    v.widgets.noninteractive.fg_stroke = Stroke::new(1.0, p.text);
+    v.widgets.inactive.bg_fill = p.surface;
+    v.widgets.inactive.weak_bg_fill = p.surface;
+    v.widgets.inactive.bg_stroke = Stroke::new(1.0, p.border_strong);
+    v.widgets.inactive.fg_stroke = Stroke::new(1.0, p.text);
+    v.widgets.hovered.bg_fill = p.hover;
+    v.widgets.hovered.weak_bg_fill = p.hover;
+    v.widgets.hovered.bg_stroke = Stroke::new(1.0, p.border_strong);
+    v.widgets.hovered.fg_stroke = Stroke::new(1.0, p.text);
+    v.widgets.hovered.expansion = 0.0;
+    v.widgets.active.bg_fill = p.border;
+    v.widgets.active.weak_bg_fill = p.border;
+    v.widgets.active.bg_stroke = Stroke::new(1.0, p.accent);
+    v.widgets.active.fg_stroke = Stroke::new(1.0, p.text);
+    v.widgets.active.expansion = 0.0;
+    v.widgets.open.bg_fill = p.surface_raised;
+    v.widgets.open.weak_bg_fill = p.surface_raised;
+    v.widgets.open.bg_stroke = Stroke::new(1.0, p.accent);
+    for w in [
+        &mut v.widgets.noninteractive,
+        &mut v.widgets.inactive,
+        &mut v.widgets.hovered,
+        &mut v.widgets.active,
+        &mut v.widgets.open,
+    ] {
+        w.rounding = Rounding::same(R_SM);
+    }
+    v.window_rounding = Rounding::same(R_LG);
+    v.menu_rounding = Rounding::same(R_MD);
+    v.window_stroke = Stroke::new(1.0, p.border);
+    v.window_shadow = egui::epaint::Shadow {
+        offset: Vec2::new(0.0, 8.0),
+        blur: 24.0,
+        spread: 0.0,
+        color: Color32::from_black_alpha(if dark { 120 } else { 28 }),
+    };
+    v.popup_shadow = egui::epaint::Shadow {
+        offset: Vec2::new(0.0, 4.0),
+        blur: 12.0,
+        spread: 0.0,
+        color: Color32::from_black_alpha(if dark { 100 } else { 22 }),
+    };
     v.selection.bg_fill = p.accent_soft;
     v.selection.stroke = Stroke::new(1.0, p.accent);
+    v.text_cursor.stroke = Stroke::new(2.0, p.accent);
+    v.striped = false;
     v.hyperlink_color = p.accent_on_soft;
     v.warn_fg_color = p.warning;
     v.error_fg_color = p.danger;
@@ -190,55 +254,74 @@ pub fn configure_app_style(ctx: &egui::Context) {
     ctx.set_fonts(fonts);
 
     ctx.all_styles_mut(|s| {
-        s.spacing.item_spacing = Vec2::new(10.0, 6.0);
-        s.spacing.button_padding = Vec2::new(16.0, 8.0);
-        s.spacing.window_margin = Margin::same(12.0);
-        s.spacing.menu_margin = Margin::same(8.0);
+        use egui::{FontFamily, FontId, TextStyle};
+        s.text_styles = [
+            (TextStyle::Small, FontId::new(11.0, FontFamily::Proportional)),
+            (TextStyle::Body, FontId::new(13.0, FontFamily::Proportional)),
+            (TextStyle::Button, FontId::new(13.0, FontFamily::Proportional)),
+            (TextStyle::Heading, FontId::new(18.0, FontFamily::Proportional)),
+            (TextStyle::Monospace, FontId::new(12.0, FontFamily::Monospace)),
+        ]
+        .into();
+        s.spacing.item_spacing = Vec2::new(8.0, 6.0);
+        s.spacing.button_padding = Vec2::new(12.0, 5.0);
+        s.spacing.interact_size = Vec2::new(30.0, H_CONTROL - 6.0);
+        s.spacing.window_margin = Margin::same(16.0);
+        s.spacing.menu_margin = Margin::same(6.0);
         s.spacing.combo_height = 480.0;
+        s.spacing.text_edit_width = 220.0;
+        s.spacing.scroll.bar_width = 8.0;
+        s.spacing.scroll.floating = true;
     });
 }
 
 pub fn section_title(text: &str) -> RichText {
-    RichText::new(text).strong().size(15.0).color(pal().text)
+    RichText::new(text).strong().size(14.0).color(pal().text)
+}
+
+/// Large page title (scan pages, empty states).
+pub fn page_title(text: &str) -> RichText {
+    RichText::new(text).strong().size(20.0).color(pal().text)
 }
 
 pub fn muted(text: impl Into<String>) -> RichText {
     RichText::new(text.into()).size(12.0).color(pal().text_muted)
 }
 
-#[allow(dead_code)]
-pub fn card<R>(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui) -> R) -> R {
-    let p = pal();
+/// Uppercase group label used in the sidebar and section headers.
+pub fn eyebrow(text: &str) -> RichText {
+    RichText::new(text.to_uppercase()).size(10.5).strong().color(pal().text_muted)
+}
+
+fn card_frame(p: Palette) -> Frame {
     Frame::none()
         .fill(p.surface)
         .stroke(Stroke::new(1.0, p.border))
-        .rounding(Rounding::same(8.0))
-        .inner_margin(Margin::same(14.0))
-        .show(ui, add_contents)
-        .inner
+        .rounding(Rounding::same(R_MD))
+        .inner_margin(Margin::same(16.0))
+}
+
+#[allow(dead_code)]
+pub fn card<R>(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui) -> R) -> R {
+    card_frame(pal()).show(ui, add_contents).inner
 }
 
 pub fn panel_card<R>(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui) -> R) -> R {
-    let p = pal();
-    Frame::none()
-        .fill(p.surface)
-        .stroke(Stroke::new(1.0, p.border))
-        .rounding(Rounding::same(10.0))
-        .inner_margin(Margin::same(12.0))
-        .show(ui, add_contents)
-        .inner
+    card_frame(pal()).inner_margin(Margin::same(14.0)).show(ui, add_contents).inner
 }
 
 pub fn stat_chip(ui: &mut egui::Ui, label: &str, value: &str) {
     let p = pal();
     Frame::none()
-        .fill(p.accent_soft)
-        .rounding(Rounding::same(6.0))
-        .inner_margin(Margin::symmetric(10.0, 6.0))
+        .fill(p.surface)
+        .stroke(Stroke::new(1.0, p.border))
+        .rounding(Rounding::same(R_SM))
+        .inner_margin(Margin::symmetric(10.0, 5.0))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(RichText::new(label).size(11.0).color(p.text_muted));
-                ui.label(RichText::new(value).strong().color(p.text));
+                ui.spacing_mut().item_spacing.x = 6.0;
+                ui.label(RichText::new(value).strong().size(13.0).color(p.text));
+                ui.label(RichText::new(label).size(11.5).color(p.text_muted));
             });
         });
 }
@@ -248,7 +331,9 @@ pub fn primary_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
     ui.add(
         egui::Button::new(RichText::new(text).strong().color(p.on_accent))
             .fill(p.accent)
-            .min_size(Vec2::new(0.0, 34.0)),
+            .stroke(Stroke::NONE)
+            .rounding(Rounding::same(R_SM))
+            .min_size(Vec2::new(0.0, H_CONTROL)),
     )
 }
 
@@ -256,9 +341,21 @@ pub fn secondary_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
     let p = pal();
     ui.add(
         egui::Button::new(RichText::new(text).color(p.text))
-            .fill(p.surface_raised)
+            .fill(p.surface)
             .stroke(Stroke::new(1.0, p.border_strong))
-            .min_size(Vec2::new(0.0, 28.0)),
+            .rounding(Rounding::same(R_SM))
+            .min_size(Vec2::new(0.0, H_CONTROL)),
+    )
+}
+
+/// Borderless button that only shows a fill on hover (toolbar actions).
+#[allow(dead_code)]
+pub fn ghost_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
+    let p = pal();
+    ui.add(
+        egui::Button::new(RichText::new(text).color(p.text))
+            .frame(false)
+            .min_size(Vec2::new(0.0, H_CONTROL)),
     )
 }
 
@@ -267,7 +364,27 @@ pub fn danger_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
     ui.add(
         egui::Button::new(RichText::new(text).strong().color(p.on_accent))
             .fill(p.danger)
-            .min_size(Vec2::new(0.0, 28.0)),
+            .stroke(Stroke::NONE)
+            .rounding(Rounding::same(R_SM))
+            .min_size(Vec2::new(0.0, H_CONTROL)),
+    )
+}
+
+/// Filter chip: one line, accent tint when selected.
+pub fn chip(ui: &mut egui::Ui, text: &str, selected: bool) -> egui::Response {
+    let p = pal();
+    let (fg, bg, stroke) = if selected {
+        (p.accent_on_soft, p.accent_soft, Stroke::new(1.0, p.accent))
+    } else {
+        (p.text, p.surface, Stroke::new(1.0, p.border))
+    };
+    ui.add(
+        egui::Button::new(RichText::new(text).size(12.0).color(fg))
+            .fill(bg)
+            .stroke(stroke)
+            .rounding(Rounding::same(R_SM))
+            .wrap_mode(egui::TextWrapMode::Extend)
+            .min_size(Vec2::new(0.0, 26.0)),
     )
 }
 
@@ -275,8 +392,8 @@ pub fn danger_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
 pub fn pill(ui: &mut egui::Ui, text: &str, fg: Color32, bg: Color32) {
     Frame::none()
         .fill(bg)
-        .rounding(Rounding::same(9.0))
-        .inner_margin(Margin::symmetric(8.0, 2.0))
+        .rounding(Rounding::same(R_SM))
+        .inner_margin(Margin::symmetric(7.0, 2.0))
         .show(ui, |ui| {
             ui.label(RichText::new(text).size(11.0).strong().color(fg));
         });
@@ -349,12 +466,13 @@ pub fn overlap_heat_row(ui: &mut egui::Ui, folder_a: &str, folder_b: &str, overl
 
 pub fn icon_button(ui: &mut egui::Ui, icon: &str, active: bool) -> egui::Response {
     let p = pal();
-    let bg = if active { p.border } else { Color32::TRANSPARENT };
+    let (fg, bg) = if active { (p.accent_on_soft, p.accent_soft) } else { (p.text, Color32::TRANSPARENT) };
     ui.add(
-        egui::Button::new(RichText::new(icon).size(13.0).color(p.text))
+        egui::Button::new(RichText::new(icon).size(15.0).color(fg))
             .fill(bg)
-            .min_size(Vec2::new(26.0, 26.0))
-            .frame(true),
+            .stroke(Stroke::NONE)
+            .rounding(Rounding::same(R_SM))
+            .min_size(Vec2::new(H_CONTROL, H_CONTROL)),
     )
 }
 

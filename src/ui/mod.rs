@@ -16,6 +16,7 @@ pub mod archive_files_panel;
 pub mod folder_explorer_panel;
 pub mod recursive_files_panel;
 pub mod status_bar;
+pub mod shell;
 pub mod brand;
 pub mod result_list;
 
