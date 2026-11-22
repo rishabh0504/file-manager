@@ -147,6 +147,14 @@ Commit only after all §0.2 checks pass and the §0.3 screenshots look right.
   it would drop a `clicked()` (guard).
 
 ### 1.2 Design tokens (`src/ui/style.rs`)
+**Themes: exactly two — Light and Dark.** One toggle button switches them (existing `toggle_dark`).
+No theme picker, no "Auto/System" option, no accent-colour choice, no extra palettes, and **no gradients
+anywhere** in the UI. Flat solid colours only.
+- Remove the heat gradient: `overlap_heat_row` (style.rs) and the `max_wasted`-based tint in the duplicate
+  group list (`results_panel.rs`) must use one solid fill (`accent_soft` bar on `surface_raised` track, width =
+  percentage). Keep `max_wasted` and the percentage maths; only the colour interpolation goes.
+- Do not port `ThemePreference`/`AppSettings` from `main`.
+
 Keep the `Palette` struct and `pal()` API (every panel uses them). Add to it; do not rename existing fields.
 
 - Neutral scale (light): canvas `#F5F5F7`, surface `#FFFFFF`, surface_raised `#F0F0F3`, border `#E4E4E8`,
@@ -231,7 +239,9 @@ panels improve automatically. Remove them only in step 9, once nothing uses them
   Commit `ui: S1 add files snapshot screen`.
 
 - [ ] **S2 — Tokens.** Update `src/ui/style.rs` per §1.2: palette values, new fields (add them to both
-  `LIGHT` and `DARK`), constants, `configure_app_style`. Do not change any function signature.
+  `LIGHT` and `DARK`), constants, `configure_app_style`. Replace the heat-gradient colouring with solid fills
+  (§1.2). Grep `lerp\|gradient\|from_rgb.*\*` in `src/ui` afterwards: no colour interpolation may remain.
+  Do not change any function signature.
   Screenshots of all screens (light + dark). Commit.
 
 - [ ] **S3 — Kit.** Create `src/ui/kit.rs` with every fn in §1.3; `pub mod kit;` in `ui/mod.rs`.
