@@ -397,6 +397,7 @@ fn bench_ui(groups: usize, frames: usize) {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod gui_tests {
     //! Headless UI tests: real egui frames with injected key events (no window needed).
     use super::*;

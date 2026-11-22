@@ -158,9 +158,11 @@ fn place_row(ui: &mut egui::Ui, icon: &str, label: &str, selected: bool, collaps
     resp
 }
 
-fn places() -> Vec<(&'static str, String, PathBuf)> {
-    static CACHE: std::sync::Mutex<Option<(std::time::Instant, Vec<(&'static str, String, PathBuf)>)>> =
-        std::sync::Mutex::new(None);
+/// (icon, label, path) for one sidebar place.
+type Place = (&'static str, String, PathBuf);
+
+fn places() -> Vec<Place> {
+    static CACHE: std::sync::Mutex<Option<(std::time::Instant, Vec<Place>)>> = std::sync::Mutex::new(None);
     if let Ok(guard) = CACHE.lock() {
         if let Some((time, ref list)) = *guard {
             if time.elapsed() < std::time::Duration::from_secs(4) {
@@ -2100,7 +2102,7 @@ fn queues_body(app: &mut SortwiseApp, ui: &mut egui::Ui, body_h: f32, queue_labe
     });
     if app.explorer_queues.len() > 1 {
         ui.horizontal_wrapped(|ui| {
-            for i in 0..app.explorer_queues.len() {
+            for (i, label) in queue_labels.iter().enumerate().take(app.explorer_queues.len()) {
                 let active = app.explorer_active_queue == Some(i);
                 let (fg, bg) = if active {
                     (p.on_accent, p.accent)
@@ -2108,7 +2110,7 @@ fn queues_body(app: &mut SortwiseApp, ui: &mut egui::Ui, body_h: f32, queue_labe
                     (p.text, p.surface_raised)
                 };
                 if ui
-                    .add(egui::Button::new(RichText::new(&queue_labels[i]).color(fg)).fill(bg))
+                    .add(egui::Button::new(RichText::new(label).color(fg)).fill(bg))
                     .clicked()
                 {
                     *act = Some(Act::OpenQueue(i));
@@ -2252,7 +2254,7 @@ fn compact_path_breadcrumb(p: &std::path::Path) -> String {
 fn preview_bottom_utilities(
     app: &mut SortwiseApp,
     ui: &mut egui::Ui,
-    path: &PathBuf,
+    path: &std::path::Path,
     path_is_dir: bool,
     mpv_active: bool,
 ) {
@@ -2303,7 +2305,7 @@ fn preview_bottom_utilities(
     ui.add_space(2.0);
     // Folder slide → queue this folder; file → queue its parent.
     let queue_folder_path = if path_is_dir {
-        Some(path.clone())
+        Some(path.to_path_buf())
     } else {
         path.parent().map(|p| p.to_path_buf())
     };
@@ -2472,7 +2474,7 @@ pub(crate) fn searchable_queue_combo(
 fn preview_queue_controls(
     app: &mut SortwiseApp,
     ui: &mut egui::Ui,
-    path: &PathBuf,
+    path: &std::path::Path,
     is_dir: bool,
 ) {
     let queue_names: Vec<String> = app
@@ -2532,7 +2534,7 @@ fn preview_queue_controls(
                 .on_hover_text(if is_dir { "Remove this folder from queue" } else { "Remove this file from queue" })
                 .clicked()
             {
-                app.explorer_toggle_queue(i, path.clone());
+                app.explorer_toggle_queue(i, path.to_path_buf());
             }
             ui.add_space(2.0);
             ui.label(RichText::new("\u{E184}").color(crate::ui::style::pal().success).size(13.0))
@@ -2553,7 +2555,7 @@ fn preview_queue_controls(
                 .on_hover_text(tip)
                 .clicked()
             {
-                app.explorer_toggle_queue(i, path.clone());
+                app.explorer_toggle_queue(i, path.to_path_buf());
             }
         }
     }
@@ -3559,6 +3561,7 @@ fn resolve_bin(name: &str) -> Option<String> {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod thumb_tests {
     use super::load_image_thumb;
 
@@ -3606,9 +3609,7 @@ mod selection_tests {
     }
 
     fn app_with(entries: Vec<ExplorerEntry>) -> SortwiseApp {
-        let mut app = SortwiseApp::default();
-        app.explorer_entries = entries;
-        app
+        SortwiseApp { explorer_entries: entries, ..Default::default() }
     }
 
     fn paths(items: &[(PathBuf, bool, u64)]) -> Vec<String> {
@@ -3646,7 +3647,7 @@ mod selection_tests {
         let mut app = app_with(vec![entry("a", false), entry("b", false)]);
         let a = PathBuf::from("/d/a");
         assert_eq!(app.stage_paths(&[a.clone(), PathBuf::from("/d/b")]), 2);
-        assert_eq!(app.stage_paths(&[a.clone()]), 0);
+        assert_eq!(app.stage_paths(std::slice::from_ref(&a)), 0);
         assert_eq!(app.movable_items.len(), 2);
     }
 

@@ -238,3 +238,6 @@ pub struct DupListCache {
     /// Largest `total_wasted_bytes` among `visible`, for gradient normalization.
     pub max_wasted: u64,
 }
+
+/// A running zip extraction: worker result channel, the archive, and its new destination folder.
+pub type ExtractJob = (std::sync::mpsc::Receiver<Result<(), String>>, PathBuf, PathBuf);

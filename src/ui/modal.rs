@@ -65,6 +65,8 @@ pub fn show_bare(
     show_inner(ctx, id, title, size, false, false, add_body, None::<fn(&mut egui::Ui)>)
 }
 
+// Every argument is a distinct modal setting; a builder would only move the list elsewhere.
+#[allow(clippy::too_many_arguments)]
 fn show_inner(
     ctx: &egui::Context,
     id: &str,

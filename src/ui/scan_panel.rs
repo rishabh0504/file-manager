@@ -150,6 +150,8 @@ fn scan_form(app: &mut SortwiseApp, ui: &mut egui::Ui, col_h: f32) {
     );
 }
 
+// Shared by four scan pages, each passing its own labels, list and colours.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn render_folder_box(
     ui: &mut egui::Ui,
     title: &str,

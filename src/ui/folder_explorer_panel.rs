@@ -577,7 +577,7 @@ fn bottom_breadcrumb_bar(
 }
 
 /// Queue and Dequeue controls for the Folder Modal.
-fn modal_folder_queue_controls(app: &mut SortwiseApp, ui: &mut egui::Ui, folder_path: &PathBuf) {
+fn modal_folder_queue_controls(app: &mut SortwiseApp, ui: &mut egui::Ui, folder_path: &std::path::Path) {
     let queue_names: Vec<String> = app
         .explorer_queues
         .iter()
@@ -627,7 +627,7 @@ fn modal_folder_queue_controls(app: &mut SortwiseApp, ui: &mut egui::Ui, folder_
             .min_size(egui::vec2(0.0, 26.0));
 
             if ui.add(dequeue_btn).on_hover_text("Remove this folder from the staging queue").clicked() {
-                app.explorer_toggle_queue(q_idx, folder_path.clone());
+                app.explorer_toggle_queue(q_idx, folder_path.to_path_buf());
             }
 
             ui.add_space(4.0);
@@ -642,7 +642,7 @@ fn modal_folder_queue_controls(app: &mut SortwiseApp, ui: &mut egui::Ui, folder_
             .min_size(egui::vec2(0.0, 26.0));
 
             if ui.add(queue_btn).on_hover_text("Stage this entire folder into the selected queue (moves on Submit)").clicked() {
-                app.explorer_toggle_queue(q_idx, folder_path.clone());
+                app.explorer_toggle_queue(q_idx, folder_path.to_path_buf());
             }
         }
     }

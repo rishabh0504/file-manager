@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)] // tests build an app, then set only what they need
 use super::*;
 
 #[test]
@@ -366,23 +367,23 @@ fn files_tab_stage_goes_to_folder_queue_or_items_never_both() {
     let f = PathBuf::from("/x/a.mp4");
 
     // Picking a queue lists the file in that folder queue (Folder queues tab).
-    assert_eq!(app.explorer_files_stage(&[f.clone()], Some("A".into())), 1);
+    assert_eq!(app.explorer_files_stage(std::slice::from_ref(&f), Some("A".into())), 1);
     assert_eq!(app.explorer_queues[0].items, vec![f.clone()]);
     assert!(app.movable_items.is_empty());
     assert_eq!(app.explorer_files_stage_of(&f), FilesStage::Queue("A".into()));
 
     // Re-picking another queue moves it there; it is never in two queues.
-    app.explorer_files_stage(&[f.clone()], Some("B".into()));
+    app.explorer_files_stage(std::slice::from_ref(&f), Some("B".into()));
     assert!(app.explorer_queues[0].items.is_empty());
     assert_eq!(app.explorer_queues[1].items, vec![f.clone()]);
 
     // No queue: goes to Items only.
-    app.explorer_files_stage(&[f.clone()], None);
+    app.explorer_files_stage(std::slice::from_ref(&f), None);
     assert!(app.explorer_queues.iter().all(|q| q.items.is_empty()));
     assert_eq!(app.explorer_files_stage_of(&f), FilesStage::Item(None));
 
     // Unknown queue changes nothing.
-    assert_eq!(app.explorer_files_stage(&[f.clone()], Some("Nope".into())), 0);
+    assert_eq!(app.explorer_files_stage(std::slice::from_ref(&f), Some("Nope".into())), 0);
     assert_eq!(app.explorer_files_stage_of(&f), FilesStage::Item(None));
 
     // Added from the preview modal (folder queue path) is seen by the Files view too.
@@ -589,4 +590,48 @@ fn extracting_a_zip_never_touches_an_existing_folder_and_cleans_up_on_failure() 
     assert!(!root.join("broken").exists());
     assert!(bad.exists(), "the archive itself is never touched");
     let _ = std::fs::remove_dir_all(&root);
+}
+
+/// Real cross-volume moves onto a FAT32 disk image (rename fails, copy fallback runs).
+/// macOS only; needs `hdiutil`. Run: cargo test --bin sortwise cross_volume -- --ignored
+#[cfg(target_os = "macos")]
+#[test]
+#[ignore]
+fn cross_volume_moves_copy_then_delete_and_keep_both_on_collision() {
+    let root = scratch_dir("xvol");
+    let dmg = root.join("vol.dmg");
+    let mnt = root.join("mnt");
+    std::fs::create_dir_all(&mnt).unwrap();
+    let run = |args: &[&str]| {
+        let ok = std::process::Command::new("hdiutil").args(args).status().unwrap();
+        assert!(ok.success(), "hdiutil {args:?}");
+    };
+    run(&["create", "-quiet", "-size", "40m", "-fs", "MS-DOS FAT32", "-volname", "SFMX", dmg.to_str().unwrap()]);
+    run(&["attach", "-quiet", "-nobrowse", "-mountpoint", mnt.to_str().unwrap(), dmg.to_str().unwrap()]);
+
+    let result = std::panic::catch_unwind(|| {
+        let src = root.join("src");
+        std::fs::create_dir_all(src.join("Trip/day1")).unwrap();
+        let data: Vec<u8> = (0u8..=255).cycle().take(3 * 1024 * 1024).collect();
+        std::fs::write(src.join("clip.mp4"), &data).unwrap();
+        std::fs::write(src.join("Trip/day1/a.jpg"), b"photo-a").unwrap();
+        std::fs::write(mnt.join("clip.mp4"), b"already on the drive").unwrap();
+
+        // File: lands as clip_1.mp4, existing file untouched, source removed.
+        assert!(move_into_dir(&src.join("clip.mp4"), &mnt));
+        assert_eq!(std::fs::read(mnt.join("clip.mp4")).unwrap(), b"already on the drive");
+        assert_eq!(std::fs::read(mnt.join("clip_1.mp4")).unwrap(), data);
+        assert!(!src.join("clip.mp4").exists());
+
+        // Folder: copied recursively, then the source is removed.
+        assert!(move_into_dir(&src.join("Trip"), &mnt));
+        assert_eq!(std::fs::read(mnt.join("Trip/day1/a.jpg")).unwrap(), b"photo-a");
+        assert!(!src.join("Trip").exists());
+    });
+
+    run(&["detach", "-quiet", mnt.to_str().unwrap()]);
+    let _ = std::fs::remove_dir_all(&root);
+    if let Err(e) = result {
+        std::panic::resume_unwind(e);
+    }
 }

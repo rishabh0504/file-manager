@@ -57,8 +57,8 @@ pub struct SortwiseApp {
     pub explorer_preview_rotation: i32,
     /// After extracting an archive, ask whether to send it to the Trash.
     pub extract_banner: Option<ExtractBanner>,
-    /// Running zip extraction: (result, archive, destination folder).
-    pub extract_rx: Option<(std::sync::mpsc::Receiver<Result<(), String>>, PathBuf, PathBuf)>,
+    /// Running zip extraction.
+    pub extract_rx: Option<ExtractJob>,
     /// Sortwise mark for the top bar, decoded once on first frame.
     pub brand_logo: Option<eframe::egui::TextureHandle>,
     pub explorer_status: Option<String>,
