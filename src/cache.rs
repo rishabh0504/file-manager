@@ -16,7 +16,8 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheEntry {
     pub size: u64,
-    pub mtime_secs: u64,
+    /// Inode change time (ns). Cache key with `size`; see `FileEntry::ctime_ns`.
+    pub ctime_ns: u64,
     pub partial_hash: [u8; 32],
     pub full_hash: Option<[u8; 32]>,
 }
@@ -29,23 +30,16 @@ pub struct HashCache {
     db_path: PathBuf,
 }
 
-fn mtime_secs(meta: &std::fs::Metadata) -> u64 {
-    meta
-        .modified()
-        .ok()
-        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
-}
-
 fn io_err<E: std::fmt::Display>(e: E) -> io::Error {
     io::Error::other(e.to_string())
 }
 
-const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS hashes (
+// Table name is versioned: rows keyed by the old mtime scheme are never read, so stale
+// entries cannot be trusted after the switch to ctime keys. Old table is left in place.
+const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS hashes_v2 (
     path TEXT PRIMARY KEY,
     size INTEGER NOT NULL,
-    mtime_secs INTEGER NOT NULL,
+    ctime_ns INTEGER NOT NULL,
     partial_hash BLOB NOT NULL,
     full_hash BLOB
 );";
@@ -92,7 +86,7 @@ impl HashCache {
         let mut map = HashMap::new();
         {
             let mut stmt = conn
-                .prepare("SELECT path, size, mtime_secs, partial_hash, full_hash FROM hashes")
+                .prepare("SELECT path, size, ctime_ns, partial_hash, full_hash FROM hashes_v2")
                 .map_err(io_err)?;
             let rows = stmt
                 .query_map([], |row| {
@@ -108,13 +102,13 @@ impl HashCache {
                 })
                 .map_err(io_err)?;
             for row in rows {
-                let (path, size, mtime, partial, full) = row.map_err(io_err)?;
+                let (path, size, ctime_ns, partial, full) = row.map_err(io_err)?;
                 let Some(partial_hash) = to_32(&partial) else { continue };
                 map.insert(
                     path,
                     CacheEntry {
                         size,
-                        mtime_secs: mtime,
+                        ctime_ns,
                         partial_hash,
                         full_hash: full.as_deref().and_then(to_32),
                     },
@@ -143,14 +137,14 @@ impl HashCache {
         let tx = conn.transaction().map_err(io_err)?;
         {
             let mut stmt = tx
-                .prepare("INSERT OR REPLACE INTO hashes (path, size, mtime_secs, partial_hash, full_hash) VALUES (?1, ?2, ?3, ?4, ?5)")
+                .prepare("INSERT OR REPLACE INTO hashes_v2 (path, size, ctime_ns, partial_hash, full_hash) VALUES (?1, ?2, ?3, ?4, ?5)")
                 .map_err(io_err)?;
             for key in &self.dirty {
                 let Some(e) = self.map.get(key) else { continue };
                 stmt.execute(params![
                     key,
                     e.size,
-                    e.mtime_secs,
+                    e.ctime_ns,
                     e.partial_hash.as_slice(),
                     e.full_hash.as_ref().map(|h| h.to_vec()),
                 ])
@@ -162,18 +156,19 @@ impl HashCache {
         Ok(())
     }
 
-    pub fn get(&self, path: &Path, size: u64, mtime_secs: u64) -> Option<&CacheEntry> {
+    /// Hit only when size and ctime match. Any mismatch is a miss and forces a re-hash.
+    pub fn get(&self, path: &Path, size: u64, ctime_ns: u64) -> Option<&CacheEntry> {
         let key = path.to_string_lossy().to_string();
-        self.map.get(&key).filter(|e| e.size == size && e.mtime_secs == mtime_secs)
+        self.map.get(&key).filter(|e| e.size == size && e.ctime_ns == ctime_ns)
     }
 
-    pub fn insert_partial(&mut self, path: &Path, size: u64, mtime_secs: u64, hash: [u8; 32]) {
+    pub fn insert_partial(&mut self, path: &Path, size: u64, ctime_ns: u64, hash: [u8; 32]) {
         let key = path.to_string_lossy().to_string();
         self.map.insert(
             key.clone(),
             CacheEntry {
                 size,
-                mtime_secs,
+                ctime_ns,
                 partial_hash: hash,
                 full_hash: None,
             },
@@ -181,10 +176,10 @@ impl HashCache {
         self.dirty.insert(key);
     }
 
-    pub fn set_full(&mut self, path: &Path, size: u64, mtime_secs: u64, full: [u8; 32]) {
+    pub fn set_full(&mut self, path: &Path, size: u64, ctime_ns: u64, full: [u8; 32]) {
         let key = path.to_string_lossy().to_string();
         if let Some(e) = self.map.get_mut(&key) {
-            if e.size == size && e.mtime_secs == mtime_secs {
+            if e.size == size && e.ctime_ns == ctime_ns {
                 e.full_hash = Some(full);
                 self.dirty.insert(key);
             }
@@ -210,11 +205,6 @@ fn read_legacy(path: &Path) -> HashMap<String, CacheEntry> {
         },
         Err(_) => HashMap::new(),
     }
-}
-
-pub fn entry_mtime_secs(path: &Path) -> Option<u64> {
-    let meta = std::fs::metadata(path).ok()?;
-    Some(mtime_secs(&meta))
 }
 
 fn cache_dir() -> Option<PathBuf> {
@@ -255,7 +245,8 @@ mod tests {
         assert_eq!(e.partial_hash, [1; 32]);
         assert_eq!(e.full_hash, Some([2; 32]));
         assert!(c.get(file, 11, 5).is_none(), "size mismatch must miss");
-        assert!(c.get(file, 10, 6).is_none(), "mtime mismatch must miss");
+        assert!(c.get(file, 10, 6).is_none(), "ctime mismatch must miss");
+        assert!(c.get(file, 10, 5).is_some(), "same size and ctime must hit");
         let _ = fs::remove_dir_all(&d);
     }
 
@@ -280,7 +271,7 @@ mod tests {
         let mut old: HashMap<String, CacheEntry> = HashMap::new();
         old.insert(
             "/old/file.png".into(),
-            CacheEntry { size: 3, mtime_secs: 9, partial_hash: [7; 32], full_hash: None },
+            CacheEntry { size: 3, ctime_ns: 9, partial_hash: [7; 32], full_hash: None },
         );
         fs::write(&legacy, bincode::serialize(&old).unwrap()).unwrap();
 

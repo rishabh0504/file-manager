@@ -935,96 +935,11 @@ impl SortwiseApp {
     }
 
     pub fn poll_archive_files_move_result(&mut self) {
-        if let Some(rx) = &self.archive_files_move_rx {
-            if let Ok((success_count, fail_count)) = rx.try_recv() {
-                self.archive_files_moving = false;
-                self.archive_files_move_rx = None;
-
-                // Completion Dialog
-                rfd::MessageDialog::new()
-                    .set_level(rfd::MessageLevel::Info)
-                    .set_title("Move Completed")
-                    .set_description(format!(
-                        "Successfully moved {} files.\nFailed to move {} files.",
-                        success_count, fail_count
-                    ))
-                    .set_buttons(rfd::MessageButtons::Ok)
-                    .show();
-
-                self.archive_files_results.clear();
-                self.archive_files_selected.clear();
-                self.view = AppView::Scan;
-            }
-        }
+        crate::operations::poll_archive_files_move_result(self);
     }
 
     pub fn execute_move_archive_files(&mut self) {
-        let Some(target_dir) = &self.archive_files_move_target else { return; };
-        if !target_dir.is_dir() { return; }
-
-        let to_move: Vec<PathBuf> = self.archive_files_selected.iter().cloned().collect();
-        let total = to_move.len();
-        if total == 0 { return; }
-
-        // Confirmation Dialog
-        let confirm = rfd::MessageDialog::new()
-            .set_level(rfd::MessageLevel::Info)
-            .set_title("Confirm Move")
-            .set_description(format!(
-                "Move {} archive file(s) to:\n{}",
-                total,
-                target_dir.display()
-            ))
-            .set_buttons(rfd::MessageButtons::YesNo)
-            .show();
-
-        if confirm != rfd::MessageDialogResult::Yes {
-            return;
-        }
-
-        self.archive_files_moving = true;
-
-        // Reset progress
-        if let Ok(mut p) = self.archive_files_move_progress.lock() {
-            *p = (0, total, String::new());
-        }
-
-        let (tx, rx) = std::sync::mpsc::channel();
-        self.archive_files_move_rx = Some(rx);
-
-        let target_dir = target_dir.clone();
-        let progress = std::sync::Arc::clone(&self.archive_files_move_progress);
-
-        std::thread::spawn(move || {
-            let mut success_count = 0;
-            let mut fail_count = 0;
-
-            for (idx, p) in to_move.iter().enumerate() {
-                // Update progress: which file we're on
-                let fname = p.file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_default();
-                if let Ok(mut prog) = progress.lock() {
-                    *prog = (idx, total, fname.clone());
-                }
-
-                if !p.is_file() {
-                    fail_count += 1;
-                    continue;
-                }
-
-                let dest = unique_file_dest(&target_dir, p);
-                let moved = fast_move(p, &dest).is_ok();
-                if moved { success_count += 1; } else { fail_count += 1; }
-            }
-
-            // Mark done
-            if let Ok(mut prog) = progress.lock() {
-                *prog = (total, total, String::new());
-            }
-
-            let _ = tx.send((success_count, fail_count));
-        });
+        crate::operations::execute_move_archive_files(self);
     }
 
     // -----------------------------------------------------------------------
@@ -1033,50 +948,12 @@ impl SortwiseApp {
 
     /// Prompt for one or more destination folders and create new queues named after them.
     pub fn explorer_new_queue(&mut self) {
-        if let Some(folders) = rfd::FileDialog::new().pick_folders() {
-            if folders.is_empty() {
-                return;
-            }
-            let mut created_count = 0;
-            let mut last_name = String::new();
-            for dir in folders {
-                let name = dir
-                    .file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .filter(|s| !s.is_empty())
-                    .unwrap_or_else(|| "Queue".to_string());
-                self.explorer_queues.push(FileQueue {
-                    name: name.clone(),
-                    target: dir,
-                    items: Vec::new(),
-                });
-                last_name = name;
-                created_count += 1;
-            }
-            if created_count == 1 {
-                self.explorer_status = Some(format!("Created queue “{last_name}”."));
-            } else if created_count > 1 {
-                self.explorer_status = Some(format!("Created {created_count} queues."));
-            }
-            if !self.explorer_queues.is_empty() {
-                self.explorer_preview_queue_pick = Some(self.explorer_queues.len() - 1);
-            }
-        }
+        crate::operations::explorer_new_queue(self);
     }
 
     /// Stage a file or folder into queue[idx] (deduped by path).
     pub fn explorer_add_to_queue(&mut self, idx: usize, path: PathBuf) {
-        let Some(q) = self.explorer_queues.get_mut(idx) else { return };
-        let fname = path
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_default();
-        if q.items.contains(&path) {
-            self.explorer_status = Some(format!("“{fname}” is already in “{}”.", q.name));
-        } else {
-            q.items.push(path);
-            self.explorer_status = Some(format!("Added “{fname}” to “{}”.", q.name));
-        }
+        crate::operations::explorer_add_to_queue(self, idx, path);
     }
 
     /// Check if a path is currently staged in queue[idx].
@@ -1096,49 +973,17 @@ impl SortwiseApp {
 
     /// Toggle queue staging for a file or folder (stages or removes).
     pub fn explorer_toggle_queue(&mut self, idx: usize, path: PathBuf) {
-        let is_in = self.explorer_is_in_queue(idx, &path);
-        let fname = path
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_default();
-        if is_in {
-            let qname = self.explorer_queues.get(idx).map(|q| q.name.clone()).unwrap_or_default();
-            self.explorer_remove_from_queue(idx, path);
-            self.explorer_status = Some(format!("Removed “{fname}” from “{qname}”."));
-        } else {
-            self.explorer_add_to_queue(idx, path);
-        }
+        crate::operations::explorer_toggle_queue(self, idx, path);
     }
 
     /// Remove a staged file from queue[idx] (does not touch the real file).
     pub fn explorer_remove_from_queue(&mut self, idx: usize, path: PathBuf) {
-        if let Some(q) = self.explorer_queues.get_mut(idx) {
-            q.items.retain(|p| p != &path);
-        }
+        crate::operations::explorer_remove_from_queue(self, idx, path);
     }
 
     /// Delete a queue entirely (staging list only; never deletes real files).
     pub fn explorer_delete_queue(&mut self, idx: usize) {
-        if idx < self.explorer_queues.len() {
-            let name = self.explorer_queues[idx].name.clone();
-            self.explorer_queues.remove(idx);
-            if self.explorer_queues.is_empty() {
-                self.explorer_active_queue = None;
-            } else {
-                match self.explorer_active_queue {
-                    Some(active) if active == idx => {
-                        self.explorer_active_queue = Some(idx.min(self.explorer_queues.len() - 1));
-                    }
-                    Some(active) if active > idx => {
-                        self.explorer_active_queue = Some(active - 1);
-                    }
-                    _ => {}
-                }
-            }
-            // Keep the dropdown pick valid.
-            self.explorer_preview_queue_pick = None;
-            self.explorer_status = Some(format!("Deleted queue “{name}”."));
-        }
+        crate::operations::explorer_delete_queue(self, idx);
     }
 
     // -------------------------------------------------------------------------
@@ -1178,263 +1023,53 @@ impl SortwiseApp {
     }
 
     pub fn is_in_movable(&self, path: &Path) -> bool {
-        self.movable_items.iter().any(|item| item.path == path)
+        crate::operations::is_in_movable(self, path)
     }
 
     /// Stage every given file that is not staged yet. Already-staged paths are left alone.
     pub fn stage_paths(&mut self, paths: &[PathBuf]) -> usize {
-        let default_q = self.movable_last_chosen_queue.clone();
-        let mut added = 0;
-        for path in paths {
-            if self.movable_items.iter().any(|item| &item.path == path) {
-                continue;
-            }
-            self.movable_items.push(MovableItem {
-                path: path.clone(),
-                target_queue: default_q.clone(),
-            });
-            added += 1;
-        }
-        added
+        crate::operations::stage_paths(self, paths)
     }
 
     pub fn toggle_movable(&mut self, path: PathBuf) {
-        if let Some(pos) = self.movable_items.iter().position(|item| item.path == path) {
-            self.movable_items.remove(pos);
-            self.explorer_status = Some("Removed from movable queue.".to_string());
-        } else {
-            let default_q = self.movable_last_chosen_queue.clone();
-            self.movable_items.push(MovableItem {
-                path,
-                target_queue: default_q,
-            });
-            self.explorer_status = Some("Added to movable queue.".to_string());
-        }
+        crate::operations::toggle_movable(self, path);
     }
 
     pub fn remove_from_movable(&mut self, idx: usize) {
-        if idx < self.movable_items.len() {
-            self.movable_items.remove(idx);
-        }
+        crate::operations::remove_from_movable(self, idx);
     }
 
     pub fn clear_movable_items(&mut self) {
-        self.movable_items.clear();
+        crate::operations::clear_movable_items(self);
     }
 
     /// Move a single item from the movable queue to its assigned target queue folder.
     /// Preserves existing files: uses unique_file_dest and unique_dir_dest to increment
     /// filename if destination file already exists.
     pub fn move_single_movable_item(&mut self, idx: usize) -> bool {
-        if idx >= self.movable_items.len() {
-            return false;
-        }
-        let (p, q_name) = {
-            let item = &self.movable_items[idx];
-            let Some(ref q) = item.target_queue else {
-                self.explorer_status = Some("Select a queue first.".to_string());
-                return false;
-            };
-            (item.path.clone(), q.clone())
-        };
-
-        let target_dir = match self.explorer_queues.iter().find(|q| q.name == q_name) {
-            Some(q) => q.target.clone(),
-            None => {
-                self.explorer_status = Some(format!("Queue “{q_name}” not found."));
-                return false;
-            }
-        };
-
-        if !target_dir.is_dir() {
-            let _ = std::fs::create_dir_all(&target_dir);
-        }
-
-        let fname = p
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_default();
-
-        let moved = if p.is_dir() {
-            let dest = unique_dir_dest(&target_dir, &fname);
-            fast_move_dir(&p, &dest).is_ok()
-        } else if p.is_file() {
-            let dest = unique_file_dest(&target_dir, &p);
-            fast_move(&p, &dest).is_ok()
-        } else {
-            false
-        };
-
-        if moved {
-            self.movable_items.remove(idx);
-            self.explorer_status = Some(format!("Moved “{fname}” → “{q_name}”."));
-            // Clean up caches & entries if it was currently in this directory
-            self.explorer_entries.retain(|e| e.path != p);
-            if self.folder_modal_open {
-                self.folder_modal_entries.retain(|e| e.path != p);
-            }
-            self.thumbnail_cache.remove(&p);
-            self.thumbnail_loading.remove(&p);
-            if self.explorer_preview_path.as_ref() == Some(&p) {
-                self.close_explorer_preview();
-            }
-            true
-        } else {
-            self.explorer_status = Some(format!("Failed to move “{fname}”."));
-            false
-        }
+        crate::operations::move_single_movable_item(self, idx)
     }
 
     /// Move all items in the movable queue that have a valid target queue assigned.
     pub fn move_all_movable_items(&mut self) -> (usize, usize) {
-        if self.movable_items.is_empty() {
-            return (0, 0);
-        }
-
-        let mut success_count = 0;
-        let mut fail_count = 0;
-        let mut i = 0;
-
-        while i < self.movable_items.len() {
-            if self.movable_items[i].target_queue.is_none() {
-                i += 1;
-                continue;
-            }
-            if self.move_single_movable_item(i) {
-                success_count += 1;
-                // do not increment i since remove shifts elements
-            } else {
-                fail_count += 1;
-                i += 1;
-            }
-        }
-
-        self.explorer_reload();
-        (success_count, fail_count)
+        crate::operations::move_all_movable_items(self)
     }
 
     /// Re-pick the destination folder for queue[idx].
     pub fn explorer_change_queue_target(&mut self, idx: usize) {
-        if let Some(dir) = rfd::FileDialog::new().pick_folder() {
-            if let Some(q) = self.explorer_queues.get_mut(idx) {
-                q.target = dir;
-                self.explorer_status = Some(format!("Updated folder for “{}”.", q.name));
-            }
-        }
+        crate::operations::explorer_change_queue_target(self, idx);
     }
 
 
     /// Move all staged items across ALL queues into their respective target folders in one batch.
     pub fn submit_all_queues(&mut self) {
-        let total_files: usize = self.explorer_queues.iter().map(|q| q.items.len()).sum();
-        if total_files == 0 {
-            self.explorer_status = Some("All queues are empty — nothing to move.".to_string());
-            return;
-        }
-
-        let confirm = rfd::MessageDialog::new()
-            .set_level(rfd::MessageLevel::Info)
-            .set_title("Submit All Queues")
-            .set_description(format!(
-                "Move all {} file(s) across {} queue(s) to their respective target folders?",
-                total_files,
-                self.explorer_queues.len()
-            ))
-            .set_buttons(rfd::MessageButtons::YesNo)
-            .show();
-        if confirm != rfd::MessageDialogResult::Yes {
-            return;
-        }
-
-        self.explorer_queue_submitting = true;
-        self.explorer_queue_submitting_idx = None; // None signals "all queues"
-        if let Ok(mut p) = self.explorer_queue_submit_progress.lock() {
-            *p = (0, total_files, String::new());
-        }
-
-        let queue_snapshots: Vec<(PathBuf, Vec<PathBuf>)> = self
-            .explorer_queues
-            .iter()
-            .map(|q| (q.target.clone(), q.items.clone()))
-            .collect();
-
-        let (tx, rx) = std::sync::mpsc::channel();
-        self.explorer_queue_submit_rx = Some(rx);
-        let progress = std::sync::Arc::clone(&self.explorer_queue_submit_progress);
-
-        std::thread::spawn(move || {
-            let mut success_count = 0;
-            let mut fail_count = 0;
-            let mut current_idx = 0;
-
-            for (target_dir, items) in queue_snapshots {
-                if !target_dir.is_dir() {
-                    let _ = std::fs::create_dir_all(&target_dir);
-                }
-
-                for p in items {
-                    let fname = p
-                        .file_name()
-                        .map(|n| n.to_string_lossy().to_string())
-                        .unwrap_or_default();
-                    if let Ok(mut prog) = progress.lock() {
-                        *prog = (current_idx, total_files, fname.clone());
-                    }
-                    current_idx += 1;
-
-                    let moved = if p.is_dir() {
-                        let dest = unique_dir_dest(&target_dir, &fname);
-                        fast_move_dir(&p, &dest).is_ok()
-                    } else if p.is_file() {
-                        let dest = unique_file_dest(&target_dir, &p);
-                        fast_move(&p, &dest).is_ok()
-                    } else {
-                        false
-                    };
-
-                    if moved {
-                        success_count += 1;
-                    } else {
-                        fail_count += 1;
-                    }
-                }
-            }
-
-            if let Ok(mut prog) = progress.lock() {
-                *prog = (total_files, total_files, String::new());
-            }
-            let _ = tx.send((success_count, fail_count));
-        });
+        crate::operations::submit_all_queues(self);
     }
 
     /// Poll the background submit thread; on completion clear moved items and
     /// refresh the listing. Mirrors `poll_archive_files_move_result`.
     pub fn poll_queue_submit_result(&mut self) {
-        if let Some(rx) = &self.explorer_queue_submit_rx {
-            if let Ok((success_count, fail_count)) = rx.try_recv() {
-                self.explorer_queue_submitting = false;
-                self.explorer_queue_submit_rx = None;
-
-                // Clear the moved items from the submitted queue (or all queues if submitting_idx was None).
-                if let Some(idx) = self.explorer_queue_submitting_idx.take() {
-                    if let Some(q) = self.explorer_queues.get_mut(idx) {
-                        q.items.clear();
-                    }
-                } else {
-                    for q in &mut self.explorer_queues {
-                        q.items.clear();
-                    }
-                }
-
-                let msg = if fail_count == 0 {
-                    format!("Moved {success_count} file(s) across queues.")
-                } else {
-                    format!("Moved {success_count} file(s); {fail_count} failed.")
-                };
-                self.explorer_status = Some(msg);
-                self.explorer_reload();
-            }
-        }
+        crate::operations::poll_queue_submit_result(self);
     }
 
     pub fn explorer_navigate(&mut self, path: PathBuf) {

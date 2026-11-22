@@ -101,7 +101,7 @@ struct GroupOutcome {
 /// - Runs concurrently with all other size-buckets via `into_par_iter()` in `run_dedup`.
 /// - Inner iterations use `par_iter()` to parallelize massive size buckets.
 ///   Rayon's work-stealing safely prevents oversubscription inside the bounded pool.
-/// - `mtime_secs` is read from `FileEntry` (pre-computed at scan time) — no extra `stat()`.
+/// - `ctime_ns` is read from `FileEntry` (pre-computed at scan time) — no extra `stat()`.
 /// - `verify_group` is omitted: BLAKE3-256 full-hash collision probability is `2^-256`.
 /// - Progress Mutex is locked once per group, not once per file.
 fn process_size_group(
@@ -123,10 +123,10 @@ fn process_size_group(
             if token.is_cancelled() {
                 return (e.clone(), Err(FileError::Cancelled));
             }
-            // mtime_secs pre-computed at scan time — no stat() syscall here.
+            // ctime_ns pre-computed at scan time — no stat() syscall here.
             if let Some(cm) = cache_shared {
                 if let Ok(g) = cm.read() {
-                    if let Some(ent) = g.get(&e.path, e.size, e.mtime_secs) {
+                    if let Some(ent) = g.get(&e.path, e.size, e.ctime_ns) {
                         return (e.clone(), Ok(ent.partial_hash));
                     }
                 }
@@ -142,8 +142,8 @@ fn process_size_group(
         let mut c = cm.write().unwrap();
         for (e, r) in &partial_results {
             if let Ok(hash) = r {
-                if c.get(&e.path, e.size, e.mtime_secs).is_none() {
-                    c.insert_partial(&e.path, e.size, e.mtime_secs, *hash);
+                if c.get(&e.path, e.size, e.ctime_ns).is_none() {
+                    c.insert_partial(&e.path, e.size, e.ctime_ns, *hash);
                 }
             }
         }
@@ -180,7 +180,7 @@ fn process_size_group(
             }
             if let Some(cm) = cache_shared {
                 if let Ok(g) = cm.read() {
-                    if let Some(ent) = g.get(&e.path, e.size, e.mtime_secs) {
+                    if let Some(ent) = g.get(&e.path, e.size, e.ctime_ns) {
                         if let Some(fh) = ent.full_hash {
                             return (e.clone(), Ok(fh));
                         }
@@ -195,7 +195,7 @@ fn process_size_group(
         let mut c = cm.write().unwrap();
         for (e, r) in &full_results {
             if let Ok(hash) = r {
-                c.set_full(&e.path, e.size, e.mtime_secs, *hash);
+                c.set_full(&e.path, e.size, e.ctime_ns, *hash);
             }
         }
     }

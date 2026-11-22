@@ -477,9 +477,6 @@ fn view_toggle(app: &mut SortwiseApp, ui: &mut egui::Ui) {
             app.explorer_view_mode = ExplorerViewMode::Folders;
             app.explorer_reload();
         }
-    if seg(ui, Icons::DOCUMENT, app.explorer_view_mode == ExplorerViewMode::Files, "All files under this folder (recursive, largest first)") {
-        app.explorer_view_mode = ExplorerViewMode::Files;
-    }
 }
 
 fn breadcrumb_bar(app: &SortwiseApp, ui: &mut egui::Ui, act: &mut Option<Act>) {
@@ -562,10 +559,6 @@ fn visible_indices(app: &SortwiseApp) -> Vec<usize> {
 fn file_table(app: &mut SortwiseApp, ui: &mut egui::Ui, act: &mut Option<Act>, table_h: f32) {
     if app.explorer_view_mode == ExplorerViewMode::Folders {
         crate::ui::render_folder_grid(app, ui, table_h);
-        return;
-    }
-    if app.explorer_view_mode == ExplorerViewMode::Files {
-        crate::ui::recursive_files_panel::recursive_files_view(app, ui, table_h);
         return;
     }
     let visible: Vec<usize> = visible_indices(app);
@@ -759,7 +752,12 @@ fn file_table(app: &mut SortwiseApp, ui: &mut egui::Ui, act: &mut Option<Act>, t
 }
 
 const TILE_W: f32 = 128.0;
-const TILE_H: f32 = 150.0;
+/// Preview area of a grid tile. Unchanged from the old 150 px tile (0.7 × 150).
+const TILE_PREVIEW_H: f32 = 105.0;
+/// Whole tile: preview, name/size label, and the queue dropdown row (30 px) at the bottom.
+/// Sized for a file tile with the recursive-search checkbox row too: 105 + 44 label + 30 picker,
+/// plus ~23 px checkbox row and 3 px item spacing per gap (egui default spacing y = 3).
+const TILE_H: f32 = 212.0;
 
 fn tile_ui(app: &mut SortwiseApp, ui: &mut egui::Ui, idx: usize, act: &mut Option<Act>, tile_w: f32) {
     let e = app.explorer_entries[idx].clone();
@@ -773,7 +771,14 @@ fn tile_ui(app: &mut SortwiseApp, ui: &mut egui::Ui, idx: usize, act: &mut Optio
         crate::ui::style::pal().surface_raised
     };
     let mut checkbox_clicked = false;
-    let resp = egui::Frame::none()
+    let mut picker_rect: Option<egui::Rect> = None;
+    // The tile's click area is registered BEFORE its contents. egui hit-tests the widget added last
+    // first, so the queue dropdown inside the tile gets its own clicks. Registered after, the tile
+    // would take them and the dropdown would never open.
+    let (tile_rect, _) = ui.allocate_exact_size(egui::vec2(tile_w, TILE_H), egui::Sense::hover());
+    let resp = ui.interact(tile_rect, ui.id().with(("explorer_tile", idx)), egui::Sense::click());
+    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(tile_rect), |ui| {
+    egui::Frame::none()
         .fill(fill)
         .rounding(egui::Rounding::same(8.0))
         .inner_margin(egui::Margin::same(0.0))
@@ -798,8 +803,8 @@ fn tile_ui(app: &mut SortwiseApp, ui: &mut egui::Ui, idx: usize, act: &mut Optio
                         }
                     });
                 }
-                ui.allocate_ui(egui::vec2(tile_w, TILE_H * 0.7), |ui| {
-                    draw_preview_or_icon(app, ui, egui::vec2(tile_w, TILE_H * 0.7), &e);
+                ui.allocate_ui(egui::vec2(tile_w, TILE_PREVIEW_H), |ui| {
+                    draw_preview_or_icon(app, ui, egui::vec2(tile_w, TILE_PREVIEW_H), &e);
                 });
 
                 egui::Frame::none()
@@ -822,12 +827,25 @@ fn tile_ui(app: &mut SortwiseApp, ui: &mut egui::Ui, idx: usize, act: &mut Optio
                             }
                         });
                     });
-            });
-        })
-        .response
-        .interact(egui::Sense::click());
 
-    if !checkbox_clicked {
+                // Queue dropdown, same as the Files cards.
+                ui.horizontal(|ui| {
+                    ui.add_space(8.0);
+                    picker_rect = Some(crate::ui::recursive_files_panel::item_queue_picker(
+                        app,
+                        ui,
+                        &e.path,
+                        tile_w - 16.0,
+                    ));
+                });
+            });
+        });
+    });
+
+    // Belt and braces: a click on the dropdown never also opens the file.
+    let on_picker = picker_rect
+        .is_some_and(|r| ui.input(|i| i.pointer.interact_pos()).is_some_and(|p| r.contains(p)));
+    if !checkbox_clicked && !on_picker {
         item_interactions(&resp, idx, &e, staged, act);
     }
     // Show file name + relative path (in recursive mode) in tooltip
@@ -1211,7 +1229,13 @@ pub fn player_window(app: &mut SortwiseApp, ctx: &egui::Context) {
     let filter = app.explorer_filter.trim().to_lowercase();
     let type_filter = app.explorer_type_filter;
     // Include folders so prev/next can land on them and “➕ Queue” can stage a folder.
-    let slides: Vec<(PathBuf, bool)> = if app.folder_modal_open && !app.folder_modal_entries.is_empty() {
+    let slides: Vec<(PathBuf, bool)> = if app.files_preview_active && app.mode == crate::app::AppMode::AllFiles {
+        // Opened from the Files tab: arrows step through the filtered, sorted Files list.
+        app.explorer_files_view
+            .iter()
+            .map(|&i| (app.explorer_files[i].path.clone(), false))
+            .collect()
+    } else if app.folder_modal_open && !app.folder_modal_entries.is_empty() {
         let modal_filter = app.folder_modal_filter.trim().to_lowercase();
         app.folder_modal_entries
             .iter()
@@ -1627,7 +1651,10 @@ pub fn player_window(app: &mut SortwiseApp, ctx: &egui::Context) {
     }
 
     if let Some(next) = goto {
+        // Next/prev keeps the same slide source (Files list or Explorer list).
+        let from_files = app.files_preview_active;
         app.explorer_open_preview(next);
+        app.files_preview_active = from_files;
     } else if close {
         app.close_explorer_preview();
     }
@@ -2224,6 +2251,9 @@ fn preview_bottom_utilities(
         open_in_default_app(path);
     }
 
+    // Files tab: the parent-folder queue button is hidden. Files are staged with the queue
+    // dropdown instead, and this button would stage the whole folder.
+    if !(app.files_preview_active && app.mode == crate::app::AppMode::AllFiles) {
     ui.add_space(2.0);
     // Folder slide → queue this folder; file → queue its parent.
     let queue_folder_path = if path_is_dir {
@@ -2265,6 +2295,7 @@ fn preview_bottom_utilities(
                 }
             }
         }
+    }
     }
 
     ui.add_space(2.0);
