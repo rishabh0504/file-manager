@@ -70,7 +70,7 @@ pub fn list_files(root: &Path, skip_system_dirs: bool, cap: usize, cancel: &Atom
             return false;
         }
         if e.file_type().is_dir() {
-            return !(skip_system_dirs && crate::scanner::is_system_dir(&name.to_lowercase()));
+            return !(skip_system_dirs && crate::scanner::is_system_dir_path(e.path()));
         }
         true
     });

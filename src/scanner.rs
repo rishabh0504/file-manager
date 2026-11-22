@@ -23,12 +23,32 @@ pub fn is_system_dir(lower_name: &str) -> bool {
             | ".vol" | ".apdisk" | "__macosx"
         // Windows system dirs (lowercased)
             | "$recycle.bin" | "system volume information" | "$sysreset"
-            | "$winreagent" | "recovery" | "msocache"
-        // Linux virtual / pseudo FS
-            | "proc" | "sys" | "dev" | "run" | "snap" | "lost+found"
+            | "$winreagent"
         // Build / cache tools
             | ".trash" | ".gradle" | ".m2" | ".cargo"
     )
+}
+
+/// Names that are system folders only at the top of a drive (`/dev`, `/proc`, `C:\\Recovery`).
+/// Anywhere else they are ordinary user folders (a "Dev" or "Run" album) and must be scanned.
+fn is_root_only_system_dir(lower_name: &str) -> bool {
+    matches!(
+        lower_name,
+        "proc" | "sys" | "dev" | "run" | "snap" | "lost+found" | "recovery" | "msocache"
+    )
+}
+
+/// System folder test with the folder's location taken into account.
+pub fn is_system_dir_path(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+        return false;
+    };
+    let lower = name.to_lowercase();
+    if is_system_dir(&lower) {
+        return true;
+    }
+    let at_drive_root = path.parent().is_some_and(|p| p.parent().is_none());
+    at_drive_root && is_root_only_system_dir(&lower)
 }
 
 fn should_skip_dir(path: &Path, config: &ScanConfig, exclude_patterns: &[Pattern]) -> bool {
@@ -36,7 +56,7 @@ fn should_skip_dir(path: &Path, config: &ScanConfig, exclude_patterns: &[Pattern
     if config.skip_hidden && name.starts_with('.') && name != "." && name != ".." {
         return true;
     }
-    if config.skip_system_dirs && is_system_dir(&name.to_lowercase()) {
+    if config.skip_system_dirs && is_system_dir_path(path) {
         return true;
     }
     path_matches_any(path, exclude_patterns)

@@ -40,17 +40,34 @@ fn hash_thread_count(config: &ScanConfig) -> usize {
 // sub-groups caused silent cross-chunk duplicate blindspots. All files sharing
 // a size now form one group and are processed together.
 
+/// Split hard links out of the hashing set.
+///
+/// - The same path listed twice (overlapping scan roots) counts once.
+/// - Only files with a link count above 1 can be hard links. Grouping every file by inode would
+///   lump unrelated files together on filesystems that do not report real inode numbers.
+/// - One member of each hard-link set stays in the hashing set, so a separate real copy of that
+///   content is still found as a duplicate.
 fn partition_hardlinks(entries: Vec<FileEntry>) -> (Vec<FileEntry>, Vec<HardLinkGroup>) {
+    let mut seen_paths = std::collections::HashSet::new();
+    let mut unique = Vec::new();
     let mut map: HashMap<FileId, Vec<FileEntry>> = HashMap::new();
     for e in entries {
-        map.entry(e.file_id).or_default().push(e);
+        if !seen_paths.insert(e.path.clone()) {
+            continue;
+        }
+        if e.nlink > 1 {
+            map.entry(e.file_id).or_default().push(e);
+        } else {
+            unique.push(e);
+        }
     }
-    let mut unique = Vec::new();
     let mut hard = Vec::new();
     for (_, mut g) in map {
+        g.sort_by(|a, b| a.path.cmp(&b.path));
         if g.len() == 1 {
             unique.push(g.pop().expect("one"));
         } else {
+            unique.push(g[0].clone());
             hard.push(HardLinkGroup { files: g });
         }
     }

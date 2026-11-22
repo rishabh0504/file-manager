@@ -202,11 +202,15 @@ impl eframe::App for SortwiseApp {
         // Duplicate groups column (results only).
         if results_ready {
             let narrow = crate::ui::style::is_narrow(ctx);
-            egui::SidePanel::left("groups")
-                .resizable(true)
-                .default_width(if narrow { 240.0 } else { 300.0 })
-                .min_width(220.0)
-                .max_width(520.0)
+            // Narrow windows get a fixed slim column (a remembered wide width would crowd the
+            // detail view); wide windows keep the resizable column.
+            let groups = egui::SidePanel::left(if narrow { "groups_narrow" } else { "groups" });
+            let groups = if narrow {
+                groups.resizable(true).default_width(220.0).min_width(180.0).max_width(360.0)
+            } else {
+                groups.resizable(true).default_width(300.0).min_width(220.0).max_width(520.0)
+            };
+            groups
                 .frame(
                     egui::Frame::none()
                         .fill(p.canvas)

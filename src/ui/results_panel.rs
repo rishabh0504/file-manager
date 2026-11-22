@@ -33,6 +33,9 @@ pub fn results_dup_list_panel(
         ui.label("No results.");
         return;
     };
+    // Content never widens the column; anything too wide wraps or truncates instead.
+    let col_w = ui.available_width();
+    ui.set_max_width(col_w);
 
     ui.horizontal(|ui| {
         ui.label(section_title("Groups"));
@@ -80,8 +83,8 @@ pub fn results_dup_list_panel(
     ui.horizontal(|ui| {
         ui.label(muted("Sort"));
         egui::ComboBox::new(egui::Id::new("dup_group_sort"), "")
-            // Fixed width: available_width() here is the panel's max on the first frame and would widen it.
-            .width(190.0)
+            // Capped: available_width() here can be the panel's max on the first frame and would widen it.
+            .width((ui.available_width() - 40.0).clamp(80.0, 190.0))
             .selected_text(match app.dup_group_sort {
                 DupGroupSortOrder::ScanOrder => "Scan order (#1, #2, …)",
                 DupGroupSortOrder::WastedBytesDesc => "Reclaimable — largest first",
@@ -186,10 +189,12 @@ fn draw_dup_group_card(
         .stroke(egui::Stroke::new(1.0, if selected { p.accent } else { p.border }))
         .rounding(egui::Rounding::same(style::R_MD))
         .inner_margin(egui::Margin::symmetric(12.0, 8.0));
+    // Content width = row width minus the frame's 12 px side padding and 1 px border.
+    let content_w = (ui.available_width() - 26.0).max(60.0);
     let response = frame
         .show(ui, |ui| {
             ui.set_min_height(DUP_CARD_CONTENT_H);
-            ui.set_width(ui.available_width());
+            ui.set_width(content_w);
             ui.vertical(|ui| {
                 ui.spacing_mut().item_spacing.y = 2.0;
                 ui.horizontal(|ui| {
@@ -320,7 +325,7 @@ pub fn results_main_panel(app: &mut SortwiseApp, ui: &mut egui::Ui, ctx: &egui::
                 }
 
                 // Preview takes under half the body so the copies list is visible without scrolling.
-                let preview_h = (body_h * 0.42).clamp(160.0, 380.0);
+                let preview_h = (body_h * 0.42).clamp(200.0, 380.0);
                 preview_body_ui(ui, app, path, f.size, ctx, preview_h);
             }
 
@@ -642,16 +647,15 @@ fn action_row(app: &mut SortwiseApp, ui: &mut egui::Ui, result: &ScanResult) {
             .inner_margin(egui::Margin::symmetric(12.0, 6.0))
             .show(ui, |ui| {
                 ui.set_width(ui.available_width());
+                // Text and button wrap as one flow, so they never overlap on narrow windows.
                 ui.horizontal_wrapped(|ui| {
                     // U9: say plainly that nothing is changing, and offer the way to change it.
                     ui.label(RichText::new(format!("{}  Report only", crate::ui::icons::Icons::SEARCH)).strong().color(p.warning_on_soft));
                     ui.label(RichText::new("Nothing is moved or deleted.").color(p.warning_on_soft));
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if secondary_button(ui, "Switch to Trash mode").clicked() {
-                            app.action_mode = ActionMode::Delete;
-                            app.apply_message = Some("Mode set to Trash. Apply actions still asks before it runs.".into());
-                        }
-                    });
+                    if secondary_button(ui, "Switch to Trash mode").clicked() {
+                        app.action_mode = ActionMode::Delete;
+                        app.apply_message = Some("Mode set to Trash. Apply actions still asks before it runs.".into());
+                    }
                 });
             });
     }
@@ -926,7 +930,8 @@ pub(crate) fn preview_body_ui(
             .scroll_bar_visibility(ScrollBarVisibility::VisibleWhenNeeded)
             .id_salt("preview_path_bar")
             .show(ui, |ui| {
-                ui.label(path_monospace(path));
+                ui.add(egui::Label::new(path_monospace(path)).truncate())
+                    .on_hover_text(path.display().to_string());
             });
         ui.add_space(6.0);
         ui.horizontal_wrapped(|ui| {

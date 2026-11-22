@@ -386,7 +386,9 @@ pub fn recursive_files_page(app: &mut SortwiseApp, ui: &mut egui::Ui) {
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Files").strong().size(18.0));
-                ui.label(muted(elide(&dir_label, 64))).on_hover_text(dir_label.clone());
+                // Leave room for the two buttons on the right; the full path is in the tooltip.
+                let max_chars = ((ui.available_width() - 290.0) / 7.0).clamp(8.0, 64.0) as usize;
+                ui.label(muted(elide(&dir_label, max_chars))).on_hover_text(dir_label.clone());
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.add_enabled_ui(has_folder, |ui| {
                         if secondary_button(ui, "⟳ Refresh")
@@ -456,31 +458,42 @@ pub fn recursive_files_page(app: &mut SortwiseApp, ui: &mut egui::Ui) {
                 if secondary_button(ui, "Reset").on_hover_text("Clear all filters").clicked() {
                     app.files_filter = FilesFilter::default();
                 }
-                ui.label(muted(elide(&filter_summary(&app.files_filter), 70)));
+                let max_chars = ((ui.available_width() - 90.0) / 7.0).clamp(0.0, 70.0) as usize;
+                if max_chars >= 8 {
+                    ui.label(muted(elide(&filter_summary(&app.files_filter), max_chars)));
+                }
             });
         });
         ui.add_space(4.0);
-        ui.horizontal_wrapped(|ui| match app.files_panel_mode {
+        match app.files_panel_mode {
             FilesPanelMode::Filter => {
-                ui.add(
-                    egui::TextEdit::singleline(&mut app.files_filter.name)
-                        .hint_text("Name contains…")
-                        .desired_width(220.0),
-                );
-                choice(ui, "files_f_type", 140.0, &mut app.files_filter.kind, TYPE_OPTIONS);
-                let mut size = (app.files_filter.min_size, app.files_filter.max_size);
-                choice(ui, "files_f_size", 130.0, &mut size, SIZE_OPTIONS);
-                app.files_filter.min_size = size.0;
-                app.files_filter.max_size = size.1;
-                choice(ui, "files_f_modified", 130.0, &mut app.files_filter.modified_within_days, MODIFIED_OPTIONS);
-                choice(ui, "files_f_staged", 120.0, &mut app.files_filter.staged, STAGED_OPTIONS);
+                // Combo boxes do not wrap on their own: split into two rows when narrow.
+                let two_rows = ui.available_width() < 860.0;
+                ui.horizontal(|ui| {
+                    let name_w = if two_rows { (ui.available_width() - 170.0).clamp(120.0, 320.0) } else { 220.0 };
+                    ui.add(
+                        egui::TextEdit::singleline(&mut app.files_filter.name)
+                            .hint_text(format!("{}  Name contains…", crate::ui::icons::Icons::SEARCH))
+                            .margin(egui::Margin::symmetric(8.0, 6.0))
+                            .desired_width(name_w),
+                    );
+                    choice(ui, "files_f_type", 140.0, &mut app.files_filter.kind, TYPE_OPTIONS);
+                    if !two_rows {
+                        files_filter_rest(app, ui);
+                    }
+                });
+                if two_rows {
+                    ui.horizontal(|ui| files_filter_rest(app, ui));
+                }
             }
             FilesPanelMode::Sort => {
-                ui.label(muted("Sort by"));
-                choice(ui, "files_s_key", 130.0, &mut app.explorer_files_sort, SORT_OPTIONS);
-                choice(ui, "files_s_order", 130.0, &mut app.explorer_files_sort_asc, ORDER_OPTIONS);
+                ui.horizontal(|ui| {
+                    ui.label(muted("Sort by"));
+                    choice(ui, "files_s_key", 130.0, &mut app.explorer_files_sort, SORT_OPTIONS);
+                    choice(ui, "files_s_order", 130.0, &mut app.explorer_files_sort_asc, ORDER_OPTIONS);
+                });
             }
-        });
+        }
     });
     ui.add_space(6.0);
 
@@ -501,7 +514,7 @@ pub fn recursive_files_view(app: &mut SortwiseApp, ui: &mut egui::Ui, table_h: f
     let names: Vec<String> = app.explorer_queues.iter().map(|q| q.name.clone()).collect();
     let mut chosen: Option<Option<String>> = None;
     let checked_n = app.explorer_files_checked.len();
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         if secondary_button(ui, "Select visible").clicked() {
             for &i in &app.explorer_files_view {
                 app.explorer_files_checked.insert(app.explorer_files[i].path.clone());
@@ -708,4 +721,14 @@ fn file_card(
             *open = Some(path.clone());
         }
     }
+}
+
+/// Size, modified and staged filters (second filter row on narrow windows).
+fn files_filter_rest(app: &mut SortwiseApp, ui: &mut egui::Ui) {
+    let mut size = (app.files_filter.min_size, app.files_filter.max_size);
+    choice(ui, "files_f_size", 130.0, &mut size, SIZE_OPTIONS);
+    app.files_filter.min_size = size.0;
+    app.files_filter.max_size = size.1;
+    choice(ui, "files_f_modified", 130.0, &mut app.files_filter.modified_within_days, MODIFIED_OPTIONS);
+    choice(ui, "files_f_staged", 120.0, &mut app.files_filter.staged, STAGED_OPTIONS);
 }

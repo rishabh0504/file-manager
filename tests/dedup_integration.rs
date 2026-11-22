@@ -111,3 +111,89 @@ fn test_asymmetric_a_to_b_mode() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
+
+fn scratch(tag: &str) -> std::path::PathBuf {
+    let d = std::env::temp_dir().join(format!(
+        "sfm_{tag}_{}_{}",
+        std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    std::fs::create_dir_all(&d).unwrap();
+    d
+}
+
+fn scan_cfg(roots: Vec<std::path::PathBuf>, skip_system_dirs: bool) -> ScanConfig {
+    ScanConfig {
+        folder_configs: roots
+            .iter()
+            .map(|r| FolderConfig { root: r.clone(), excluded_subdirs: Vec::new() })
+            .collect(),
+        root_order: roots.clone(),
+        roots,
+        skip_hidden: false,
+        skip_system_dirs,
+        use_hash_cache: false,
+        ..Default::default()
+    }
+}
+
+fn dup_paths(cfg: &ScanConfig) -> Vec<Vec<std::path::PathBuf>> {
+    let token = CancellationToken::new();
+    let entries = parallel_scan_roots(&cfg.roots, cfg, &token, |_, _| {});
+    let res = run_dedup(entries, cfg, &token, Arc::new(Mutex::new(ScanProgress::default())), None);
+    res.duplicate_groups
+        .iter()
+        .map(|g| {
+            let mut v: Vec<_> = g.files.iter().map(|f| f.path.clone()).collect();
+            v.sort();
+            v
+        })
+        .collect()
+}
+
+#[test]
+fn real_copy_of_a_hard_linked_video_is_still_a_duplicate() {
+    let dir = scratch("hardlink_plus_copy");
+    let payload: Vec<u8> = (0u8..=250).cycle().take(50_000).collect();
+    let a = dir.join("clip.mp4");
+    std::fs::write(&a, &payload).unwrap();
+    std::fs::hard_link(&a, dir.join("clip_link.mp4")).unwrap();
+    let copy = dir.join("clip copy.mp4");
+    std::fs::write(&copy, &payload).unwrap();
+
+    let groups = dup_paths(&scan_cfg(vec![dir.clone()], false));
+    assert_eq!(groups.len(), 1, "the separate copy must be found: {groups:?}");
+    assert!(groups[0].contains(&copy));
+    assert_eq!(groups[0].len(), 2, "one name per hard-link set: {groups:?}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn overlapping_scan_roots_do_not_hide_duplicates() {
+    let dir = scratch("overlap_roots");
+    let inner = dir.join("2020");
+    std::fs::create_dir_all(&inner).unwrap();
+    let payload: Vec<u8> = (0u8..=200).cycle().take(40_000).collect();
+    let a = inner.join("trip.mov");
+    let b = dir.join("trip_backup.mov");
+    std::fs::write(&a, &payload).unwrap();
+    std::fs::write(&b, &payload).unwrap();
+
+    // Parent and child both added as roots: trip.mov is enumerated twice.
+    let groups = dup_paths(&scan_cfg(vec![dir.clone(), inner.clone()], false));
+    assert_eq!(groups, vec![vec![b.clone(), a.clone()].into_iter().collect::<std::collections::BTreeSet<_>>().into_iter().collect::<Vec<_>>()]);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn user_folders_named_like_linux_system_dirs_are_scanned() {
+    let dir = scratch("dev_folder");
+    let payload: Vec<u8> = (0u8..=180).cycle().take(30_000).collect();
+    for sub in ["Dev", "run"] {
+        std::fs::create_dir_all(dir.join(sub)).unwrap();
+        std::fs::write(dir.join(sub).join("video.mp4"), &payload).unwrap();
+    }
+    let groups = dup_paths(&scan_cfg(vec![dir.clone()], true));
+    assert_eq!(groups.len(), 1, "videos inside Dev/ and run/ must be scanned: {groups:?}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
