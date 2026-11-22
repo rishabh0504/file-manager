@@ -2,7 +2,9 @@
 
 use std::path::PathBuf;
 use crate::app::{SortwiseApp, AppView};
+use crate::types::{OperationType, OperationRecord};
 use super::move_ops::{fast_move, unique_file_dest};
+use std::path::PathBuf;
 
 pub fn execute_move_archive_files(app: &mut SortwiseApp) {
     let Some(target_dir) = &app.archive_files_move_target else { return; };

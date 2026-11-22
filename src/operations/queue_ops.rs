@@ -187,6 +187,21 @@ pub fn poll_queue_submit_result(app: &mut SortwiseApp) {
                 }
             }
 
+            // Record operation in history
+            if success_count > 0 {
+                let mut record = OperationRecord::new(OperationType::Move, PathBuf::from("batch"));
+                record = record.with_success(true);
+                app.operation_history.add(record);
+                app.notifications.success(format!("✅ Moved {} file(s)", success_count));
+            }
+            if fail_count > 0 {
+                let mut record = OperationRecord::new(OperationType::Move, PathBuf::from("batch"));
+                record = record.with_success(false)
+                    .with_error(format!("{} file(s) failed to move", fail_count));
+                app.operation_history.add(record);
+                app.notifications.warning(format!("⚠️ {} file(s) failed to move", fail_count));
+            }
+
             let msg = if fail_count == 0 {
                 format!("Moved {success_count} file(s) across queues.")
             } else {
