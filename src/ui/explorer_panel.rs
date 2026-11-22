@@ -194,6 +194,28 @@ pub fn explorer_main_panel(app: &mut SortwiseApp, ui: &mut egui::Ui) {
 
     let mut act: Option<Act> = None;
 
+    // Handle keyboard shortcuts
+    if let Some(key_action) = crate::ui::handle_explorer_keys(app, ui.ctx()) {
+        use crate::ui::explorer_interactions::ExplorerKeyAction;
+        match key_action {
+            ExplorerKeyAction::DeleteSelected => act = Some(Act::TrashSelected),
+            ExplorerKeyAction::CutToMovable => {
+                for idx in app.explorer_selected.clone() {
+                    if let Some(e) = app.explorer_entries.get(idx) {
+                        act = Some(Act::Stage(e.path.clone()));
+                    }
+                }
+            }
+            ExplorerKeyAction::SelectAll => {
+                app.explorer_selected = (0..app.explorer_entries.len()).collect();
+            }
+            ExplorerKeyAction::ClearSearch => {
+                app.explorer_search_input.clear();
+            }
+            _ => {}
+        }
+    }
+
     toolbar(app, ui, &mut act);
     ui.add_space(6.0);
 
